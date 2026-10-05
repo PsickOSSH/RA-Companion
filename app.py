@@ -1571,8 +1571,50 @@ class App(tk.Tk):
     # ----------------------------------------------------------------------
     # Unlock notifications
     # ----------------------------------------------------------------------
+    TOAST_MAX = 4        # notifications shown at the same time, the others wait in a queue
+    TOAST_GAP = 8        # pixels between two stacked notifications
+    TOAST_MS = 7000      # display duration of one notification
+
     def toast(self, a, who=None):
-        """Show an unlock notification (yours, or a friend's) in the bottom-right corner of the screen."""
+        """Queue an unlock notification; several of them are stacked in the bottom-right corner."""
+        if not hasattr(self, "_toasts"):
+            self._toasts = []
+            self._toast_queue = []
+        self._toast_queue.append((a, who))
+        self._pump_toasts()
+
+    def _pump_toasts(self):
+        """Display queued notifications while there is room on screen."""
+        while self._toast_queue and len(self._toasts) < self.TOAST_MAX:
+            a, who = self._toast_queue.pop(0)
+            self._show_toast(a, who)
+
+    def _place_toasts(self):
+        """Stack the visible notifications from the bottom of the screen upwards (oldest at the bottom)."""
+        sw, sh = (self.winfo_screenwidth(), self.winfo_screenheight())
+        y = sh - 70
+        for t in self._toasts:
+            try:
+                w, h = (t.winfo_reqwidth(), t.winfo_reqheight())
+                y -= h
+                t.geometry(f"+{sw - w - 20}+{max(0, y)}")
+                y -= self.TOAST_GAP
+            except Exception:
+                pass
+
+    def _close_toast(self, t):
+        """Remove one notification, move the others down and show the next waiting one."""
+        try:
+            t.destroy()
+        except Exception:
+            pass
+        if t in self._toasts:
+            self._toasts.remove(t)
+        self._place_toasts()
+        self._pump_toasts()
+
+    def _show_toast(self, a, who=None):
+        """Show an unlock notification (yours, or a friend's)."""
         t = tk.Toplevel(self)
         t.overrideredirect(True)
         t.attributes("-topmost", True)
@@ -1597,6 +1639,6 @@ class App(tk.Tk):
         self.lbl(c, d, 9, skin.TEXT_MUTED, bg=skin.CARD, anchor="w", wraplength=260, justify="left").pack(fill="x")
         self.lbl(c, T("plus_pts", n=a.get("Points", 0)), 10, skin.SUCCESS, bold=True, bg=skin.CARD, anchor="w").pack(fill="x")
         t.update_idletasks()
-        sw, sh = (self.winfo_screenwidth(), self.winfo_screenheight())
-        t.geometry(f"+{sw - t.winfo_width() - 20}+{sh - t.winfo_height() - 70}")
-        t.after(7000, t.destroy)
+        self._toasts.append(t)
+        self._place_toasts()
+        t.after(self.TOAST_MS, lambda t=t: self._close_toast(t))
