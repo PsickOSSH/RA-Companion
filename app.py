@@ -27,6 +27,12 @@ class App(tk.Tk):
 
     def __init__(self):
         """Load the settings, create the window and start the background polling loops."""
+        if os.name == "nt":
+            try:
+                import ctypes
+                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("RACompanion.App")
+            except Exception:
+                pass
         super().__init__()
         self.cfg = load_cfg()
         i18n.set_language(resolve_ui(self.cfg["ui_lang"]))
@@ -34,7 +40,7 @@ class App(tk.Tk):
         self.title("RA Companion")
         try:
             base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
-            self.iconbitmap(os.path.join(base, "logo.ico"))
+            self.iconbitmap(default=os.path.join(base, "logo.ico"))
         except Exception:
             pass
         self.configure(bg=skin.BACKGROUND)
