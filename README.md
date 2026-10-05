@@ -11,7 +11,7 @@
 
 | Achievement detail | Duel | Group | Skin |
 |---|---|---|---|
-| ![Detail](docs/detail.png) | ![Duel](docs/duel.png) | ![Group](docs/Group.png) | ![Skin](docs/skin.png) |
+| ![Detail](docs/detail.png) | ![Duel](docs/duel.png) | ![Group](docs/group.png) | ![Skin](docs/skin.png) |
 
 A small Windows desktop companion for [RetroAchievements](https://retroachievements.org): keep it open next to your
 emulator and follow your progress live.
