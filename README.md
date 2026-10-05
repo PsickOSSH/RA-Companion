@@ -1,6 +1,10 @@
 > **AI-assisted project.** The code of this project was written with the help of an AI assistant,
 > directed and tested by the author. Expect rough edges and please report any bug you find.
 
+<p align="center">
+  <img src="docs/logo.png" alt="RA Companion" width="420">
+</p>
+
 # RA Companion
 
 ![Main window](docs/main.png)

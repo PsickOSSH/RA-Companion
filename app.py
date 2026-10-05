@@ -32,6 +32,11 @@ class App(tk.Tk):
         i18n.set_language(resolve_ui(self.cfg["ui_lang"]))
         self.notes = read_json(NOTES_FILE, {})
         self.title("RA Companion")
+        try:
+            base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+            self.iconbitmap(os.path.join(base, "logo.ico"))
+        except Exception:
+            pass
         self.configure(bg=skin.BACKGROUND)
         self.geometry("580x760")
         self.minsize(500, 297)
@@ -75,8 +80,14 @@ class App(tk.Tk):
     # ----------------------------------------------------------------------
     def restart(self):
         """Relaunch the program (required to apply a new skin)."""
-        args = [sys.executable] if getattr(sys, "frozen", False) else [sys.executable, os.path.abspath(sys.argv[0])]
-        subprocess.Popen(args + sys.argv[1:])
+        env = dict(os.environ)
+        if getattr(sys, "frozen", False):
+            # PyInstaller onefile: the child must unpack its own temp folder instead of reusing ours
+            env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+            args = [sys.executable]
+        else:
+            args = [sys.executable, os.path.abspath(sys.argv[0])]
+        subprocess.Popen(args + sys.argv[1:], env=env, close_fds=True)
         self.destroy()
 
     def rebuild_ui(self):
