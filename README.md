@@ -9,9 +9,13 @@
 
 ![Main window](docs/main.png)
 
-| Achievement detail | Duel | Group | Skin |
-|---|---|---|---|
-| ![Detail](docs/detail.png) | ![Duel](docs/duel.png) | ![Group](docs/group.png) | ![Skin](docs/skin.png) |
+| Achievement detail | Duel |
+|---|---|
+| ![Detail](docs/detail.png) | ![Duel](docs/duel.png) |
+
+| Group | Skin |
+|---|---|
+| ![Group](docs/group.png) | ![Skin](docs/skin.png) |
 
 A small Windows desktop companion for [RetroAchievements](https://retroachievements.org): keep it open next to your
 emulator and follow your progress live.
