@@ -38,19 +38,41 @@ emulator and follow your progress live.
 ## Requirements
 
 - Windows (the interface uses the Segoe UI fonts; other platforms are untested)
-- Python 3.9 or newer with Tkinter (included in the official Windows installer)
 - A RetroAchievements account and its Web API key
   (<https://retroachievements.org/settings?tab=applications>)
+- Only to run from source: Python 3.9 or newer with Tkinter (included in the official Windows installer)
 
 No third-party package is required.
 
-## Run
+## Install and run
+
+There are two ways to run the application.
+
+### Option 1: the ready-to-use `.exe` (no Python needed)
+
+1. Open the [latest release](../../releases/latest).
+2. Download `RACompanion.exe` from the **Assets** list.
+3. Double-click it. Nothing has to be installed, you can put the file anywhere.
+
+Windows may show a *"Windows protected your PC"* (SmartScreen) warning because the executable is not signed.
+Click **More info**, then **Run anyway**. You can also check the source code in this repository or
+[build the exe yourself](#building-the-exe).
+
+### Option 2: from the source code
 
 ```
 python ra_companion.py
 ```
 
 On first launch the settings window opens: enter your username and your Web API key.
+
+## Building the exe
+
+Install [PyInstaller](https://pyinstaller.org) (`pip install pyinstaller`), then run `build-exe.bat`
+(Windows) from the project folder. The executable is created in `dist\RACompanion.exe`.
+
+The skins are loaded by name, so PyInstaller needs them listed explicitly (`--hidden-import skins.<name>` and
+`--add-data "skins;skins"`). If you add a skin, add it to the build script too.
 
 ## Project layout
 
@@ -62,6 +84,9 @@ ra_api.py            RetroAchievements Web API, downloads, translation
 i18n.py              UI translations
 utils.py             formatting, achievement helpers, sorting
 config.py            paths, constants, persistent settings
+logo.ico             application icon (exe, window and taskbar)
+build-exe.bat        builds the standalone .exe with PyInstaller
+docs/                logo and screenshots used by this README
 skins/
     __init__.py      skin loader (do not delete)
     default.py       default skin (documented reference)
@@ -99,6 +124,9 @@ and `REFRESH_LABELS` (and to the sort labels in `SORT_LABELS`). Date formats are
 
 ## Troubleshooting
 
+- **SmartScreen blocks the exe:** click *More info*, then *Run anyway* (the exe is not code-signed).
+- **Antivirus flags the exe:** single-file PyInstaller executables are sometimes reported as false positives.
+  Run from source (Option 2) or build the exe yourself.
 - `cannot import name 'active' from 'skins'`: the `skins` folder has no `__init__.py`; put it back next to
   `default.py`.
 - Nothing is displayed: check your username and Web API key in the settings.
