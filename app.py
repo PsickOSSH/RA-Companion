@@ -18,6 +18,7 @@ import skins
 from config import API_KEY_URL, GAMES_FILE, GAMES_TTL, HOME, LOGO_URLS, MEDIA, NOTES_FILE, REPO_URL, SITE_URL, load_cfg, read_json, save_cfg, write_json
 from i18n import LANGS, REFRESH_LABELS, SORT_ICONS, SORT_IDS, T, UI_LANGS, resolve_ui, sort_label, tr_lang
 from ra_api import call_api, http_get
+import imgcache
 from utils import date_of, fmt_date, fmt_int, is_any, is_counted, is_hc, is_missable, norm, sort_achievements
 from widgets import Bar, Card, RoundBtn, SLabel, SYMF, TRANSPARENT_KEY, Tip, has_sym, is_sym, setup_ttk_styles
 import appinfo
@@ -808,12 +809,9 @@ class App(tk.Tk):
         threading.Thread(target=self.worker, daemon=True).start()
 
     def img(self, path):
-        """Download an image from the RetroAchievements media server (cached in memory)."""
+        """Picture of the RetroAchievements media server: read from the disk cache (imgcache.py), downloaded only if missing."""
         if path not in self.raw:
-            try:
-                self.raw[path] = http_get(MEDIA + path, binary=True)
-            except Exception:
-                self.raw[path] = None
+            self.raw[path] = imgcache.get_bytes(os.path.join(HOME, ".ra_companion_cache", "img"), MEDIA + path)
         return self.raw[path]
 
     def worker(self):

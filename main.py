@@ -31,6 +31,7 @@ import androidutil
 import appinfo
 import updater
 import features
+import imgcache
 import layoututil
 import notify
 import storage
@@ -161,13 +162,41 @@ def translate_async(texts, done):
 class Card(BoxLayout):
     """Rounded panel."""
 
+def _image_folder():
+    return os.path.join(App.get_running_app().user_data_dir, "img_cache")
+
+
 class Pic(AsyncImage):
+    """Picture shown from `url` (not `source`): it is saved on the phone, so it is downloaded only once (imgcache.py)."""
+    url = StringProperty("")
+
     def __init__(self, **kw):
         super().__init__(**kw)
         if hasattr(self, "fit_mode"):
             self.fit_mode = "contain"
         else:
             self.allow_stretch = True
+        self.bind(url=self._on_url)
+        if self.url:
+            self._on_url(self, self.url)
+
+    def _on_url(self, _widget, url):
+        if not url:
+            self.source = ""
+            return
+        if not url.startswith("http"):
+            self.source = url
+            return
+        path = imgcache.cached_path(_image_folder(), url)
+        if path:
+            self.source = path
+            return
+        self.source = ""
+        imgcache.fetch_async(_image_folder(), url, lambda p: Clock.schedule_once(lambda dt: self._loaded(url, p)))
+
+    def _loaded(self, url, path):
+        if self.url == url:
+            self.source = path
 
 class FlatButton(Button):
     """Flat button; `active` paints it with the accent color; `idle_color` (optional) is the text color when it is not active."""

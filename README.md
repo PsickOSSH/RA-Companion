@@ -25,6 +25,9 @@ progress live. It comes in two versions that look and behave the same way:
 
 ## Features
 
+- **Persistent image cache** on Windows and Android: previously downloaded achievement badges and game icons
+  are reused after restarting the app, reducing repeated requests to the RetroAchievements media server.
+
 - **Live profile**: hardcore / softcore points, RetroPoints, rank (`#1 234`) and percentile, current game with rich presence
 - **Achievement list**: filters *All / Locked / Unlocked* that combine with a **missable** option (`⚠ Missable`),
   11 sort orders, optional hardcore-only counting (`⚡`), HC / SC counters, badges, unlock dates in your language and
@@ -85,6 +88,7 @@ Both versions live in the same repository and share the API, skins and update co
 | `desktop_texts.py` texts | `uitext.py`, `mobile_i18n.py` texts | `i18n.py` translations |
 | `notes_io.py` notes export / import | `notify.py`, `androidutil.py` system access | `translator.py` translation |
 | `build-exe.bat`, `docs/logo.ico` | `layoututil.py`, `buildozer.spec`, `docs/icon.png`, `fonts/` | `updater.py`, `appinfo.py` update check, version |
+| | | `imgcache.py` persistent image cache |
 | | | `skins/` visual themes |
 
 Other folders: `docs/` (logo and screenshots of this README), `tests/` (unit tests of the logic).
@@ -233,17 +237,30 @@ Every variable is documented in `skins/default.py`. When you add a skin variable
 
 ## Data, privacy and network
 
-- Your settings (including the **API key**, stored as plain text), notes and caches are saved on your device only:
+- Your settings (including the **API key**, stored as plain text) and personal notes are saved on your device only:
   in your home directory as `.ra_companion*.json` on Windows, in the private folder of the app on Android.
   Never publish these files.
+- **Image cache:** achievement badges (colored and locked versions), game icons and avatars are saved on disk,
+  not just in memory. Previously downloaded badges and game icons are reused across app restarts.
+  Images are cached separately by URL, so the colored and locked badge versions each have their own file.
+  The cache is stored in `.ra_companion_cache/img/` in your home directory on Windows and in `img_cache/`
+  inside the app's private data folder on Android.
+- The current cache policy keeps badges (`/Badge/`) and game images (`/Images/`) without automatic expiry.
+  Other images handled by this cache, including avatars, expire after seven days and are refreshed when requested.
+  Windows settings logos still use their separate existing disk cache; Android settings logos use the shared image cache.
+  There is currently no automatic size limit or eviction for old badge files.
+- The image cache does **not** make the whole app available offline: profile and achievement data still need the API.
 - Network access: the RetroAchievements API and media server (profile, games, badges, comments), the GitHub API
   (update check, only when you press the button), and the translation services (only when translation is enabled:
-  the translated texts are sent to Google Translate, with MyMemory as a fallback). The GitHub and RetroAchievements
-  logos of the settings are downloaded once and cached.
-- The RetroAchievements API asks clients to cache data and avoid excessive requests: the game list of each console
-  is downloaded once and kept for 30 days.
+  the translated texts are sent to Google Translate, with MyMemory as a fallback).
+  Existing cached images are reused according to the policy above instead of downloaded at every launch.
+- The game list of each console is downloaded once and kept for 30 days.
 
 ## Troubleshooting
+
+- **A badge or game icon stays outdated:** badges and game icons have no automatic cache expiry. Close the app and
+  remove the affected image file from the image cache, or clear the image cache folder to download its contents again.
+  Do not delete settings or notes, and do not use Android's *Clear storage / Clear data* just to refresh images.
 
 - **SmartScreen blocks the exe:** click *More info*, then *Run anyway* (the exe is not code-signed).
 - **Antivirus flags the exe:** single-file PyInstaller executables are sometimes reported as false positives.
