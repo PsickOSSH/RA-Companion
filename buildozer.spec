@@ -9,7 +9,7 @@ source.exclude_patterns = app.py, widgets.py, ra_companion.py, build-exe.bat
 version.regex = __version__ = ['"](.*)['"]
 version.filename = %(source.dir)s/appinfo.py
 requirements = python3,kivy,requests,certifi
-orientation = portrait
+orientation = portrait, landscape, portrait-reverse, landscape-reverse
 osx.python_version = 3
 osx.kivy_version = 2.1.0
 fullscreen = 0
