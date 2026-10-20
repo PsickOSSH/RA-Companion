@@ -1,15 +1,35 @@
-# PyInstaller
-build/
-dist/
-*.spec
-
 # Python
 __pycache__/
 *.pyc
 
-# Local settings and caches (contain the API key)
-.ra_companion*.json
+# Builds Windows (PyInstaller)
+build/
+dist/
+*.spec
+!buildozer.spec
+*.exe
 
-# Editors
-.vscode/
+# Builds Android (Buildozer)
 .idea/
+.buildozer/
+bin/
+*.aab
+*.apk
+
+# Editors, system, and script backups
+.vscode/
+*.bak*
+*.log
+.DS_Store
+Thumbs.db
+desktop.ini
+venv/
+.venv/
+
+# Secrets: never publish
+*.keystore
+*.jks
+*.pem
+*.p12
+.env
+.ra_companion*.json

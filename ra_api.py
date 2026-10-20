@@ -6,6 +6,13 @@ import urllib.request
 
 from config import API
 
+try:
+    import certifi
+    import ssl
+    SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
+except Exception:
+    SSL_CONTEXT = None
+
 
 TRANSLATION_CACHE = {}
 
@@ -13,7 +20,10 @@ TRANSLATION_CACHE = {}
 def http_get(url, binary=False):
     """GET `url` and return the decoded JSON, or the raw bytes when `binary` is true."""
     req = urllib.request.Request(url, headers={"User-Agent": "RACompanion/2.0"})
-    with urllib.request.urlopen(req, timeout=25) as r:
+    kwargs = {"timeout": 25}
+    if SSL_CONTEXT:
+        kwargs["context"] = SSL_CONTEXT
+    with urllib.request.urlopen(req, **kwargs) as r:
         b = r.read()
     return b if binary else json.loads(b.decode("utf-8"))
 

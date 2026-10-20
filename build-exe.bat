@@ -1,1 +1,1 @@
-pyinstaller --clean --onefile --windowed --name RA-Companion --icon logo.ico --add-data "logo.ico;." --hidden-import skins.default --hidden-import skins.dark --hidden-import skins.light --add-data "skins;skins" ra_companion.py
+pyinstaller --clean --onefile --windowed --name RA-Companion --icon docs/logo.ico --add-data "docs/logo.ico;." --hidden-import skins.default --hidden-import skins.dark --hidden-import skins.light --add-data "skins;skins" ra_companion.py

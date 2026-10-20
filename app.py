@@ -10,16 +10,74 @@ import tkinter as tk
 import webbrowser
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-from tkinter import ttk
+from tkinter import filedialog, ttk
 
 from skins import active as skin
 import i18n
 import skins
 from config import API_KEY_URL, GAMES_FILE, GAMES_TTL, HOME, LOGO_URLS, MEDIA, NOTES_FILE, REPO_URL, SITE_URL, load_cfg, read_json, save_cfg, write_json
 from i18n import LANGS, REFRESH_LABELS, SORT_ICONS, SORT_IDS, T, UI_LANGS, resolve_ui, sort_label, tr_lang
-from ra_api import TRANSLATION_CACHE, call_api, http_get, translate
+from ra_api import call_api, http_get
 from utils import date_of, fmt_date, fmt_int, is_any, is_counted, is_hc, is_missable, norm, sort_achievements
 from widgets import Bar, Card, RoundBtn, SLabel, SYMF, TRANSPARENT_KEY, Tip, has_sym, is_sym, setup_ttk_styles
+import appinfo
+import updater
+import desktop_texts  # noqa: F401  (adds the texts of the new settings to i18n)
+import notes_io
+import translator
+
+# Translation shared with the Android app: several free endpoints, cache file, readable errors.
+TRANSLATOR = translator.Translator(os.path.join(HOME, ".ra_companion_translations.json"))
+
+
+def _is_light(color):
+    """True for a light background colour '#rrggbb'."""
+    try:
+        r, g, b = (int(color[i:i + 2], 16) for i in (1, 3, 5))
+        return 0.299 * r + 0.587 * g + 0.114 * b > 140
+    except Exception:
+        return False
+
+
+def _darken_light_pixels(im):
+    """White logo on a light skin: turn its light pixels dark (a Tk image cannot be tinted any other way)."""
+    try:
+        for x in range(im.width()):
+            for y in range(im.height()):
+                if im.transparency_get(x, y):
+                    continue
+                r, g, b = im.get(x, y)
+                if r + g + b > 600:
+                    im.put("#24292f", (x, y))
+    except Exception:
+        pass
+
+
+def _fit(im, size):
+    """Scale a Tk image to about `size` pixels (up or down) with whole-number zoom / subsample factors (no third-party library)."""
+    try:
+        from fractions import Fraction
+        ratio = Fraction(size, im.width()).limit_denominator(8)
+        if ratio.numerator > 1:
+            im = im.zoom(ratio.numerator)
+        if ratio.denominator > 1:
+            im = im.subsample(ratio.denominator)
+    except Exception:
+        pass
+    return im
+
+
+# ---------------------------------------------------------------------------
+# Sizes you can change (pixels). Every number below is used by the whole application.
+# ---------------------------------------------------------------------------
+MAIN_WINDOW = "580x760"        # main window when it opens: width x height
+SETTINGS_WINDOW = "430x690"    # settings window: width x height
+TAB_BTN = (14, 6)              # Achievements / Duel / Group tabs: (horizontal padding, vertical padding)
+FILTER_BTN = (10, 4)           # All / Locked / Unlocked / Missable buttons
+ICON_BTN = (12, 5)             # buttons with an icon and a text (Refresh, Last played game)
+SETTINGS_BTN = (12, 6)         # small buttons of the settings (export, import, update, test notification)
+SETTINGS_BTN_FONT = 10         # font size of those buttons
+SAVE_BTN = (11, 9)             # Save button of the settings: (font size, vertical padding)
 
 
 class App(tk.Tk):
@@ -44,8 +102,8 @@ class App(tk.Tk):
         except Exception:
             pass
         self.configure(bg=skin.BACKGROUND)
-        self.geometry("580x760")
-        self.minsize(500, 297)
+        self.geometry(MAIN_WINDOW)
+        self.minsize(500, 310)
         # Messages from worker threads to the UI thread (Tk widgets must only be touched from the main thread).
         self.q = queue.Queue()
         self.imgs = {}
@@ -145,6 +203,8 @@ class App(tk.Tk):
                     im = im.subsample(max(1, round(im.width() / 36)))
                 elif im.width() < 24:
                     im = im.zoom(max(1, round(32 / im.width())))
+                if key == "github" and _is_light(skin.BACKGROUND):
+                    _darken_light_pixels(im)
             except Exception:
                 return
             if lab.winfo_exists():
@@ -168,7 +228,7 @@ class App(tk.Tk):
 
     def icon_btn(self, parent, icon, text, cmd):
         """Rounded button with an icon (symbol font) followed by a text."""
-        b = RoundBtn(parent, text=text, icon=icon, bg=skin.CARD_ALT, padx=12, pady=5)
+        b = RoundBtn(parent, text=text, icon=icon, bg=skin.CARD_ALT, padx=ICON_BTN[0], pady=ICON_BTN[1])
         b.bind("<Button-1>", lambda e: cmd())
         return b
 
@@ -313,7 +373,7 @@ class App(tk.Tk):
         self.gicon.pack(side="left")
         self.btn(top, "🔍", self.open_search, lambda: T("tip_search"), font=(skin.SYMBOL_FONT, 13), width=3).pack(side="right",
             anchor="n")
-        self.b_hc = self.btn(top, "🔥", self.toggle_hc,
+        self.b_hc = self.btn(top, "⚡", self.toggle_hc,
             lambda: T("tip_hc_on") if self.cfg["hc_only"] else T("tip_hc_off"), font=(skin.SYMBOL_FONT, 13), width=3)
         self.b_hc.pack(side="right", anchor="n", padx=(0, 6))
         gi = tk.Frame(top, bg=skin.CARD)
@@ -334,9 +394,9 @@ class App(tk.Tk):
         tabs.pack(fill="x", padx=10, pady=(2, 0))
         self.tabs = {}
         for key, name in (("ach", "tab_ach"), ("duel", "tab_duel"), ("group", "tab_group")):
-            c = RoundBtn(tabs, text=T(name), font=(skin.FONT, 10, "bold"), padx=14, pady=6,
+            c = RoundBtn(tabs, text=T(name), font=(skin.FONT, 10, "bold"), padx=TAB_BTN[0], pady=TAB_BTN[1],
                 radius=skin.RADIUS_BUTTON_LARGE)
-            c.pack(side="left", padx=(0, 6))
+            c.pack(side="left", fill="x", expand=True, padx=(0, 0 if key == "group" else 6))
             c.bind("<Button-1>", lambda e, k=key: self.show_view(k))
             self.tabs[key] = c
         self.footer = tk.Frame(self, bg=skin.BACKGROUND)
@@ -349,9 +409,10 @@ class App(tk.Tk):
         self.int_var = tk.StringVar(value=str(self.cfg["interval"]))
         af = tk.Frame(self.footer, bg=skin.BACKGROUND)
         af.pack(side="right", padx=(0, 8))
-        tk.Checkbutton(af, text="Auto", variable=self.auto_var, command=self.on_auto, bg=skin.BACKGROUND, fg=skin.TEXT,
-            selectcolor=skin.CARD, activebackground=skin.BACKGROUND, activeforeground=skin.TEXT, font=(skin.FONT, 10),
-            bd=0, highlightthickness=0, cursor="hand2").pack(side="left")
+        self.auto_btn = RoundBtn(af, text="Auto", font=(skin.FONT, 10, "bold"), padx=10, pady=3, radius=skin.RADIUS_BUTTON)
+        self.auto_btn.pack(side="left")
+        self.auto_btn.bind("<Button-1>", lambda e: self.toggle_auto())
+        self.paint_auto()
         sp = tk.Spinbox(af, from_=10, to=3600, increment=5, width=4, textvariable=self.int_var, command=self.on_interval,
             bg=skin.CARD, fg=skin.TEXT, insertbackground=skin.TEXT, buttonbackground=skin.CARD_ALT, relief="flat",
             font=(skin.FONT, 10), justify="center", highlightthickness=0)
@@ -367,21 +428,22 @@ class App(tk.Tk):
         self.fbar.pack(fill="x")
         self.chips = {}
         for key, txt in (("all", T("f_all")), ("todo", T("f_todo")), ("done", T("f_done"))):
-            c = RoundBtn(self.fbar, text=txt, font=(skin.FONT, 9, "bold"), padx=10, pady=4, radius=skin.RADIUS_BUTTON)
-            c.pack(side="left", padx=(0, 6), pady=4)
+            c = RoundBtn(self.fbar, text=txt, font=(skin.FONT, 9, "bold"), padx=FILTER_BTN[0], pady=FILTER_BTN[1],
+                radius=skin.RADIUS_BUTTON)
+            c.pack(side="left", fill="both", expand=True, padx=(0, 6), pady=4)
             c.bind("<Button-1>", lambda e, k=key: self.set_filter(k))
             self.chips[key] = c
-        self.miss_chip = RoundBtn(self.fbar, text=T("f_miss"), font=(skin.FONT, 9, "bold"), padx=10, pady=4,
+        self.miss_chip = RoundBtn(self.fbar, text="⚠ " + T("f_miss"), font=(skin.FONT, 9, "bold"), padx=FILTER_BTN[0], pady=FILTER_BTN[1],
             radius=skin.RADIUS_BUTTON)
-        self.miss_chip.pack(side="left", padx=(10, 0), pady=4)
+        self.miss_chip.pack(side="left", fill="both", expand=True, padx=(0, 6), pady=4)
         self.miss_chip.bind("<Button-1>", lambda e: self.toggle_miss())
         self.paint_miss()
         self.b_sort = self.btn(self.fbar, "⇅", self.open_sort_menu, font=(skin.SYMBOL_FONT, 13), width=3)
-        self.b_sort.pack(side="right", pady=4)
+        self.b_sort.pack(side="right", fill="y", pady=4)
         self.set_filter(self.filter.get(), rebuild=False)
         self.make_scroll(v, "ach").pack(fill="both", expand=True)
-        self.fbar.pack_configure(padx=(0, self.sbw))
-        rb.pack_configure(padx=(0, self.sbw))
+        self.fbar.pack_configure(padx=0)
+        rb.pack_configure(padx=0)
         v = self.views["duel"]
         bar = tk.Frame(v, bg=skin.BACKGROUND)
         bar.pack(fill="x", pady=(4, 2))
@@ -466,7 +528,6 @@ class App(tk.Tk):
     def apply_window(self):
         """Apply window options (always-on-top, opacity) and the on/off look of the toggle buttons."""
         self.attributes("-topmost", bool(self.cfg["ontop"]))
-        self.attributes("-alpha", max(0.3, self.cfg["alpha"] / 100))
         for b, on in ((self.b_pin, self.cfg["ontop"]), (self.b_tr, self.cfg["translate"]),
             (self.b_hc, self.cfg["hc_only"])):
             b.config(bg=skin.ACCENT if on else skin.CARD_ALT, fg=skin.TEXT_ON_ACCENT if on else skin.TEXT)
@@ -493,6 +554,7 @@ class App(tk.Tk):
         save_cfg(self.cfg)
         self.apply_window()
         if self.cfg["translate"]:
+            TRANSLATOR.reset_failures()
             self.translate_labels()
         else:
             for lab, orig in self.desc_items + self.duel_items:
@@ -506,28 +568,37 @@ class App(tk.Tk):
 
         def one(it):
             lab, orig = it
+            if not orig or not orig.strip():
+                return
             try:
-                t = translate(orig, lang)
-            except Exception:
+                if (lang, orig) in TRANSLATOR.cache:
+                    t = TRANSLATOR.cache[(lang, orig)]
+                elif TRANSLATOR.pending(lang, orig):
+                    t = TRANSLATOR.translate(orig, lang)
+                else:
+                    return
+            except Exception as e:
+                text = T("tr_error", e=e)
+                self.q.put(("call", lambda: self.l_status.config(text=text, fg=skin.DANGER)))
                 return
             self.q.put(("call", lambda: lab.winfo_exists() and self.cfg["translate"] and lab.config(text=t)))
 
         def job():
-            with ThreadPoolExecutor(6) as ex:
+            with ThreadPoolExecutor(3) as ex:
                 list(ex.map(one, items))
+            TRANSLATOR.save()
         threading.Thread(target=job, daemon=True).start()
-
     # ----------------------------------------------------------------------
     # Settings window, duel and group configuration
     # ----------------------------------------------------------------------
     def settings(self):
-        """Open the settings window (language, skin, account, API key, opacity, translation)."""
+        """Open the settings window: account, API key, languages, skin, notifications and personal notes."""
         w = tk.Toplevel(self)
         w.title(T("s_title"))
         w.configure(bg=skin.BACKGROUND)
         w.transient(self)
         w.grab_set()
-        w.geometry("430x500")
+        w.geometry(SETTINGS_WINDOW)
 
         def row(text, hint=""):
             self.lbl(w, text, 10, bold=True, anchor="w").pack(fill="x", padx=18, pady=(10, 0))
@@ -535,14 +606,6 @@ class App(tk.Tk):
                 self.lbl(w, hint, 8, skin.TEXT_MUTED, anchor="w").pack(fill="x", padx=18)
 
         sys_label = T("s_uisys")
-        row(T("s_uilang"))
-        ui = tk.StringVar(value=next((n for n, c in UI_LANGS.items() if c == self.cfg["ui_lang"]), sys_label))
-        ttk.Combobox(w, textvariable=ui, values=[sys_label] + list(UI_LANGS), state="readonly").pack(fill="x", padx=18)
-        row(T("s_skin"))
-        skin_names = skins.available()
-        sk = tk.StringVar(value=next((n for n, m in skin_names.items() if m == self.cfg.get("skin", "default")),
-                skin.NAME))
-        ttk.Combobox(w, textvariable=sk, values=list(skin_names), state="readonly").pack(fill="x", padx=18)
         row(T("s_user"))
         u = tk.StringVar(value=self.cfg["user"])
         self.entry(w, u).pack(fill="x", padx=18, ipady=5)
@@ -550,19 +613,53 @@ class App(tk.Tk):
         self.link(w, API_KEY_URL, API_KEY_URL, 8).pack(anchor="w", padx=18)
         k = tk.StringVar(value=self.cfg["key"])
         self.entry(w, k, show="•").pack(fill="x", padx=18, ipady=5)
-        row(T("s_opacity"))
-        al = tk.IntVar(value=self.cfg["alpha"])
-        tk.Scale(w, from_=30, to=100, orient="horizontal", variable=al, bg=skin.BACKGROUND, fg=skin.TEXT,
-            highlightthickness=0, troughcolor=skin.CARD).pack(fill="x", padx=18)
+        row(T("s_uilang"))
+        ui = tk.StringVar(value=next((n for n, c in UI_LANGS.items() if c == self.cfg["ui_lang"]), sys_label))
+        ttk.Combobox(w, textvariable=ui, values=[sys_label] + list(UI_LANGS), state="readonly").pack(fill="x", padx=18)
         row(T("s_trlang"))
         lg = tk.StringVar(value=next((n for n, c in LANGS.items() if c == self.cfg["lang"]), sys_label))
         ttk.Combobox(w, textvariable=lg, values=[sys_label] + list(LANGS), state="readonly").pack(fill="x", padx=18)
+        row(T("s_skin"))
+        skin_names = skins.available()
+        sk = tk.StringVar(value=next((n for n, m in skin_names.items() if m == self.cfg.get("skin", "default")), skin.NAME))
+        ttk.Combobox(w, textvariable=sk, values=list(skin_names), state="readonly").pack(fill="x", padx=18)
+        nv = tk.BooleanVar(value=bool(self.cfg.get("notify", True)))
+        tk.Checkbutton(w, text=T("s_notify"), variable=nv, bg=skin.BACKGROUND, fg=skin.TEXT, selectcolor=skin.CARD,
+            activebackground=skin.BACKGROUND, activeforeground=skin.TEXT, font=(skin.FONT, 10, "bold"), bd=0,
+            highlightthickness=0, cursor="hand2").pack(anchor="w", padx=14, pady=(14, 0))
+        bt = RoundBtn(w, text=T("s_test_notif"), font=(skin.FONT, SETTINGS_BTN_FONT, "bold"), padx=SETTINGS_BTN[0],
+            pady=SETTINGS_BTN[1], radius=skin.RADIUS_BUTTON)
+        bt.pack(fill="x", padx=18, pady=(10, 0))
+        bt.bind("<Button-1>", lambda e: self.toast({"Title": "RA Companion", "Description": T("notif_test"), "Points": 0,
+            "BadgeName": ""}))
+        row(T("s_notes"))
+        nb = tk.Frame(w, bg=skin.BACKGROUND)
+        nb.pack(fill="x", padx=18, pady=(2, 0))
+        msg = self.lbl(w, "", 8, skin.TEXT_MUTED, anchor="w")
+        be = RoundBtn(nb, text=T("s_notes_export"), font=(skin.FONT, SETTINGS_BTN_FONT, "bold"), padx=SETTINGS_BTN[0], pady=SETTINGS_BTN[1], radius=skin.RADIUS_BUTTON)
+        be.pack(side="left", fill="x", expand=True, padx=(0, 4))
+        be.bind("<Button-1>", lambda e: self.export_notes(w, msg))
+        bi = RoundBtn(nb, text=T("s_notes_import"), font=(skin.FONT, SETTINGS_BTN_FONT, "bold"), padx=SETTINGS_BTN[0], pady=SETTINGS_BTN[1], radius=skin.RADIUS_BUTTON)
+        bi.pack(side="left", fill="x", expand=True, padx=(4, 0))
+        bi.bind("<Button-1>", lambda e: self.import_notes(w, msg))
+        msg.pack(fill="x", padx=18, pady=(4, 0))
+
+        row(T("s_version", v=appinfo.__version__))
+        ub = tk.Frame(w, bg=skin.BACKGROUND)
+        ub.pack(fill="x", padx=18, pady=(2, 0))
+        upd_msg = self.lbl(w, "", 8, skin.TEXT_MUTED, anchor="w")
+        upd_get = tk.Frame(w, bg=skin.BACKGROUND)
+        bu = RoundBtn(ub, text=T("s_update_check"), font=(skin.FONT, SETTINGS_BTN_FONT, "bold"), padx=SETTINGS_BTN[0], pady=SETTINGS_BTN[1], radius=skin.RADIUS_BUTTON)
+        bu.pack(fill="x")
+        bu.bind("<Button-1>", lambda e: self.check_update(upd_msg, upd_get))
+        upd_msg.pack(fill="x", padx=18, pady=(4, 0))
+        upd_get.pack(fill="x", padx=18)
 
         def ok():
             old = i18n.CUR
             new_skin = skin_names.get(sk.get(), "default")
             skin_changed = new_skin != self.cfg.get("skin", "default")
-            self.cfg.update(user=u.get().strip(), key=k.get().strip(), alpha=al.get(), skin=new_skin,
+            self.cfg.update(user=u.get().strip(), key=k.get().strip(), skin=new_skin, notify=bool(nv.get()),
                 lang=LANGS.get(lg.get(), "auto"), ui_lang=UI_LANGS.get(ui.get(), "auto"))
             save_cfg(self.cfg)
             i18n.set_language(resolve_ui(self.cfg["ui_lang"]))
@@ -579,7 +676,7 @@ class App(tk.Tk):
             else:
                 self.apply_window()
             self.refresh()
-        b = RoundBtn(w, text=T("save"), bg=skin.ACCENT, fg=skin.TEXT_ON_ACCENT, font=(skin.FONT, 11, "bold"), pady=9,
+        b = RoundBtn(w, text=T("save"), bg=skin.ACCENT, fg=skin.TEXT_ON_ACCENT, font=(skin.FONT, SAVE_BTN[0], "bold"), pady=SAVE_BTN[1],
             radius=skin.RADIUS_BUTTON_LARGE)
         b.pack(fill="x", padx=18, pady=(14, 8))
         b.bind("<Button-1>", lambda e: ok())
@@ -587,6 +684,75 @@ class App(tk.Tk):
         links.pack(pady=(0, 12))
         self.logo_link(links, "github", REPO_URL, "GitHub").pack(side="left", padx=10)
         self.logo_link(links, "ra", SITE_URL, "retroachievements.org").pack(side="left", padx=10)
+
+    def export_notes(self, win, msg):
+        """Save the personal notes in a JSON file chosen by the user (same format as the Android app)."""
+        if not any(str(v).strip() for v in self.notes.values()):
+            msg.config(text=T("n_export_none"), fg=skin.TEXT_MUTED)
+            return
+        path = filedialog.asksaveasfilename(parent=win, defaultextension=".json", initialfile="ra_companion_notes.json",
+            filetypes=[("JSON", "*.json")])
+        if not path:
+            return
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(notes_io.export_text(self.notes))
+            msg.config(text=T("n_export_ok", n=len([1 for v in self.notes.values() if str(v).strip()])), fg=skin.SUCCESS)
+        except OSError as e:
+            msg.config(text=T("n_error", e=e), fg=skin.DANGER)
+
+    def import_notes(self, win, msg):
+        """Add the notes of a JSON file (merged with the existing ones) and refresh the lists."""
+        path = filedialog.askopenfilename(parent=win, filetypes=[("JSON", "*.json"), ("*", "*.*")])
+        if not path:
+            return
+        try:
+            with open(path, encoding="utf-8") as f:
+                imported = notes_io.parse_notes(f.read())
+        except OSError as e:
+            msg.config(text=T("n_error", e=e), fg=skin.DANGER)
+            return
+        except ValueError:
+            msg.config(text=T("n_import_bad"), fg=skin.DANGER)
+            return
+        added, merged, unchanged = notes_io.merge(self.notes, imported)
+        write_json(NOTES_FILE, self.notes)
+        msg.config(text=T("n_import_ok", a=added, m=merged, u=unchanged), fg=skin.SUCCESS)
+        self.sig = None
+        self.sigs = {"duel": None, "group": None}
+        if self.payload:
+            self.on_data(self.payload)
+
+    def check_update(self, msg, holder):
+        """Look for a newer .exe in the GitHub releases (in a thread) and show the result in the settings window."""
+        for child in holder.winfo_children():
+            child.destroy()
+        msg.config(text=T("upd_checking"), fg=skin.TEXT_MUTED)
+
+        def show(text, color, url, version):
+            if not msg.winfo_exists():
+                return
+            msg.config(text=text, fg=color)
+            if url:
+                b = RoundBtn(holder, text=T("s_update_get", v=version), bg=skin.ACCENT, fg=skin.TEXT_ON_ACCENT,
+                    font=(skin.FONT, SETTINGS_BTN_FONT, "bold"), padx=SETTINGS_BTN[0], pady=SETTINGS_BTN[1], radius=skin.RADIUS_BUTTON)
+                b.pack(fill="x", pady=(6, 0))
+                b.bind("<Button-1>", lambda e: webbrowser.open(url))
+
+        def job():
+            url = version = ""
+            try:
+                res = updater.check(appinfo.UPDATE_REPO, appinfo.__version__, ext=".exe")
+                if res["status"] == "newer":
+                    text, color, url, version = T("upd_available", v=res["version"]), skin.SUCCESS, res["url"], res["version"]
+                elif res["status"] == "uptodate":
+                    text, color = T("upd_uptodate", v=appinfo.__version__), skin.SUCCESS
+                else:
+                    text, color = T("upd_noexe"), skin.TEXT_MUTED
+            except Exception as e:
+                text, color = T("upd_error", e=updater.describe(e)), skin.DANGER
+            self.q.put(("call", lambda: show(text, color, url, version)))
+        threading.Thread(target=job, daemon=True).start()
 
     def set_friend(self):
         """Start comparing with the friend typed in the Duel tab."""
@@ -720,6 +886,17 @@ class App(tk.Tk):
                 self.refresh()
         self.after(1000, self.tick)
 
+    def paint_auto(self):
+        """Color the 'Auto' button according to the automatic refresh state."""
+        on = bool(self.auto_var.get())
+        self.auto_btn.config(bg=skin.ACCENT if on else skin.CARD_ALT, fg=skin.TEXT_ON_ACCENT if on else skin.TEXT)
+
+    def toggle_auto(self):
+        """Click on the 'Auto' button."""
+        self.auto_var.set(not self.auto_var.get())
+        self.on_auto()
+        self.paint_auto()
+
     def on_auto(self):
         """Enable / disable the automatic refresh."""
         self.cfg["auto_refresh"] = bool(self.auto_var.get())
@@ -750,8 +927,7 @@ class App(tk.Tk):
         if key not in self.imgs:
             try:
                 im = tk.PhotoImage(data=b)
-                if size and im.width() > size:
-                    im = im.subsample(max(1, round(im.width() / size)))
+                im = _fit(im, size)
                 self.imgs[key] = im
             except Exception:
                 try:
@@ -841,7 +1017,7 @@ class App(tk.Tk):
             if self.known is not None and gid == self.last_game_id:
                 for a in ach:
                     if is_any(a) and a["ID"] not in self.known:
-                        self.toast(a)
+                        self.notify_unlock(a)
             self.known = ids
             self.last_game_id = gid
             fg = self.fgame
@@ -852,7 +1028,7 @@ class App(tk.Tk):
                 if self.f_known is not None and self.f_key == fkey:
                     for a in fach:
                         if is_any(a) and a["ID"] not in self.f_known:
-                            self.toast(a, who=self.cfg["friend"])
+                            self.notify_unlock(a, who=self.cfg["friend"])
                 self.f_known = fids
                 self.f_key = fkey
             else:
@@ -952,12 +1128,12 @@ class App(tk.Tk):
             self.lbl(trow, a.get("Title", ""), 10, skin.TEXT if e else skin.TEXT_MUTED, bold=True, bg=row["bg"],
                 anchor="w").pack(side="left")
             if self.note_of(a):
-                self.lbl(trow, "📝", 9, skin.TEXT_MUTED, bg=row["bg"]).pack(side="left", padx=(6, 0))
+                self.lbl(trow, "✎", 9, skin.TEXT_MUTED, bg=row["bg"]).pack(side="left", padx=(6, 0))
             if is_missable(a):
                 self.lbl(trow, "⚠ " + T("f_miss"), 8, skin.WARNING, bold=True, bg=row["bg"]).pack(side="left",
                     padx=(8, 0))
             orig = a.get("Description", "")
-            shown = TRANSLATION_CACHE.get((lang, orig), orig) if self.cfg["translate"] else orig
+            shown = TRANSLATOR.cached(lang, orig) if self.cfg["translate"] else orig
             d = self.lbl(mid, shown, 9, skin.TEXT_MUTED, bg=row["bg"], anchor="w", justify="left", wraplength=280)
             d.pack(fill="x")
             self.desc_labels.append(d)
@@ -1060,7 +1236,7 @@ class App(tk.Tk):
                 self.lbl(trow, "⚠ " + T("f_miss"), 8, skin.WARNING, bold=True, bg=row["bg"]).pack(side="left",
                     padx=(8, 0))
             orig = a.get("Description", "")
-            shown = TRANSLATION_CACHE.get((lang, orig), orig) if self.cfg["translate"] else orig
+            shown = TRANSLATOR.cached(lang, orig) if self.cfg["translate"] else orig
             d = self.lbl(mid, shown, 9, skin.TEXT_MUTED, bg=row["bg"], anchor="w", justify="left", wraplength=280)
             d.pack(fill="x")
             self.duel_items.append((d, orig))
@@ -1070,9 +1246,9 @@ class App(tk.Tk):
             tag_b = T("earned_hc") if b and is_hc(b) else T("earned_sc")
             col_a = skin.INFO if is_hc(a) else skin.SUCCESS
             col_b = skin.WARNING if b and is_hc(b) else skin.SUCCESS
-            self.lbl(mid, f"{user}: " + (f"✔ {da} • {tag_a}" if me_e else "—"), 8, col_a if me_e else skin.TEXT_MUTED,
+            self.lbl(mid, (f"{user} • {da} • {tag_a}" if me_e else f"{user}: —"), 8, col_a if me_e else skin.TEXT_MUTED,
                 bg=row["bg"], anchor="w").pack(fill="x")
-            self.lbl(mid, f"{fr}: " + (f"✔ {db} • {tag_b}" if fr_e else "—"), 8, col_b if fr_e else skin.TEXT_MUTED,
+            self.lbl(mid, (f"{fr} • {db} • {tag_b}" if fr_e else f"{fr}: —"), 8, col_b if fr_e else skin.TEXT_MUTED,
                 bg=row["bg"], anchor="w").pack(fill="x")
             self.lbl(row, str(a.get("Points", 0)), 13, skin.ACCENT if any_e else skin.TEXT_MUTED, bold=True,
                 bg=row["bg"]).pack(side="right", padx=12)
@@ -1440,6 +1616,8 @@ class App(tk.Tk):
             tag = T("earned_hc") if is_hc(a) else T("earned_sc")
             self.lbl(c, f"✔ {fmt_date(date_of(a))} • {tag}", 9, skin.INFO if is_hc(a) else skin.SUCCESS, bg=skin.CARD,
                 anchor="w").pack(fill="x")
+        else:
+            self.lbl(c, T("not_earned"), 9, skin.TEXT_MUTED, bg=skin.CARD, anchor="w").pack(fill="x")
         nid = str(a["ID"])
         nbar = tk.Frame(w, bg=skin.BACKGROUND)
         nbar.pack(fill="x", padx=10)
@@ -1504,26 +1682,31 @@ class App(tk.Tk):
             for r in cm or []:
                 body = r.get("CommentText", "")
                 if st["tr"]:
-                    body = TRANSLATION_CACHE.get((lang, body), body)
+                    body = TRANSLATOR.cached(lang, body)
                 txt.insert("end", r.get("User", "?"), "u")
                 txt.insert("end", "  " + fmt_date(r.get("Submitted", "")) + '\n', "d")
                 txt.insert("end", body.strip() + '\n\n')
             txt.config(state="disabled")
-            desc.config(text=TRANSLATION_CACHE.get((lang, orig), orig) if st["tr"] else orig)
+            desc.config(text=TRANSLATOR.cached(lang, orig) if st["tr"] else orig)
 
         def one(t):
+            if not TRANSLATOR.pending(lang, t):
+                return
             try:
-                translate(t, lang)
-            except Exception:
-                pass
+                TRANSLATOR.translate(t, lang)
+            except Exception as e:
+                st["tr_err"] = str(e)
 
         def run_tr():
+            TRANSLATOR.reset_failures()
+            st["tr_err"] = ""
 
             def job():
                 texts = [orig] + [r.get("CommentText", "") for r in st["comments"] or []]
-                with ThreadPoolExecutor(6) as ex:
+                with ThreadPoolExecutor(3) as ex:
                     list(ex.map(one, texts))
-                self.q.put(("call", lambda: (w.winfo_exists() and info.config(text=st["info"]), render())))
+                TRANSLATOR.save()
+                self.q.put(("call", lambda: (w.winfo_exists() and info.config(text=T("tr_error", e=st["tr_err"]) if st.get("tr_err") else st["info"]), render())))
             threading.Thread(target=job, daemon=True).start()
 
         def set_btn():
@@ -1574,6 +1757,11 @@ class App(tk.Tk):
     TOAST_MAX = 4        # notifications shown at the same time, the others wait in a queue
     TOAST_GAP = 8        # pixels between two stacked notifications
     TOAST_MS = 7000      # display duration of one notification
+
+    def notify_unlock(self, a, who=None):
+        """Show the unlock notification unless notifications are switched off in the settings."""
+        if self.cfg.get("notify", True):
+            self.toast(a, who=who)
 
     def toast(self, a, who=None):
         """Queue an unlock notification; several of them are stacked in the bottom-right corner."""
@@ -1635,7 +1823,7 @@ class App(tk.Tk):
         self.lbl(c, a.get("Title", ""), 12, bold=True, bg=skin.CARD, anchor="w").pack(fill="x")
         d = a.get("Description", "")
         if self.cfg["translate"]:
-            d = TRANSLATION_CACHE.get((tr_lang(self.cfg), d), d)
+            d = TRANSLATOR.cached(tr_lang(self.cfg), d)
         self.lbl(c, d, 9, skin.TEXT_MUTED, bg=skin.CARD, anchor="w", wraplength=260, justify="left").pack(fill="x")
         self.lbl(c, T("plus_pts", n=a.get("Points", 0)), 10, skin.SUCCESS, bold=True, bg=skin.CARD, anchor="w").pack(fill="x")
         t.update_idletasks()

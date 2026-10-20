@@ -1,0 +1,1240 @@
+#:import dp kivy.metrics.dp
+#:import sp kivy.metrics.sp
+#:import NoTransition kivy.uix.screenmanager.NoTransition
+#:import tr uitext.tr
+#:import miss_tag uitext.miss_tag
+#:import ICON_GLOBE uitext.ICON_GLOBE
+#:import ICON_SEARCH uitext.ICON_SEARCH
+#:import ICON_TROPHY uitext.ICON_TROPHY
+#:import ICON_GROUP uitext.ICON_GROUP
+#:import ICON_SWORDS uitext.ICON_SWORDS
+#:import ICON_BOLT uitext.ICON_BOLT
+#:import ICON_GEAR uitext.ICON_GEAR
+#:import ICON_SORT uitext.ICON_SORT
+#:import ICON_NOTE uitext.ICON_NOTE
+#:import ICON_REFRESH uitext.ICON_REFRESH
+#:import ICON_PLAY uitext.ICON_PLAY
+#:import API_KEY_URL uitext.API_KEY_URL
+#:import REPO_URL uitext.REPO_URL
+#:import SITE_URL uitext.SITE_URL
+#:import LOGO_GITHUB uitext.LOGO_GITHUB
+#:import LOGO_RA uitext.LOGO_RA
+#:import APP_VERSION appinfo.__version__
+
+# ---------------------------------------------------------------- IMAGE SIZES
+# Change a number here and every place that uses it follows (row heights adapt automatically).
+# Badge in the achievement list:
+#:set BADGE_SIZE dp(72)
+# Badge in the Duel list:
+#:set DUEL_BADGE_SIZE dp(72)
+# Avatar in the Group list:
+#:set GROUP_AVATAR_SIZE dp(56)
+# Your avatar (profile card):
+#:set AVATAR_SIZE dp(72)
+# Game icon (game card):
+#:set GAME_ICON_SIZE dp(72)
+# Badge on the achievement page:
+#:set DETAIL_BADGE_SIZE dp(104)
+# Free space on the right of the scrolling lists (the scroll bar lives there):
+#:set BAR_GUTTER dp(30)
+
+# All colors come from the current skin: `app.c_*` are properties of the App (see themes.py), so they follow a skin change.
+
+# ---------------------------------------------------------------- shared widgets
+<Card>:
+    canvas.before:
+        Color:
+            rgba: app.c_card
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(12),]
+
+<FlatButton>:
+    background_normal: ''
+    background_down: ''
+    background_color: 0, 0, 0, 0
+    canvas.before:
+        Color:
+            rgba: app.c_press if self.state == 'down' else (app.c_accent if self.active else app.c_alt)
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(10),]
+    color: app.c_on_accent if self.active else (self.idle_color or app.c_text)
+    font_size: sp(13)
+    bold: self.active
+    halign: 'center'
+    valign: 'middle'
+    shorten: True
+    shorten_from: 'right'
+    text_size: self.width - dp(8), self.height
+    size_hint_y: None
+    height: dp(44)
+
+<DarkInput>:
+    background_normal: ''
+    background_active: ''
+    background_color: app.c_alt
+    foreground_color: app.c_text
+    cursor_color: app.c_accent
+    hint_text_color: app.c_muted
+    padding: [dp(10), dp(12), dp(10), dp(12)]
+    font_size: sp(15)
+    multiline: False
+    write_tab: False
+    size_hint_y: None
+    height: dp(48)
+
+<SmallInput>:
+    padding: [dp(2), dp(12), dp(2), dp(12)]
+    font_size: sp(14)
+    halign: 'center'
+    input_filter: 'int'
+    input_type: 'number'
+    size_hint_x: None
+    width: dp(52)
+    height: dp(44)
+
+<NoteInput>:
+    multiline: True
+    font_size: sp(14)
+    height: dp(120)
+
+<DarkSpinner@Spinner>:
+    background_normal: ''
+    background_down: ''
+    background_color: 0, 0, 0, 0
+    canvas.before:
+        Color:
+            rgba: app.c_alt
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(10),]
+    color: app.c_text
+    font_size: sp(14)
+    size_hint_y: None
+    height: dp(48)
+
+<TextLabel>:
+    color: app.c_text
+    font_size: sp(13)
+    halign: 'left'
+    valign: 'middle'
+    text_size: self.width, None
+    size_hint_y: None
+    height: self.texture_size[1]
+
+<LinkLabel>:
+    markup: True
+
+<LinkLogo>:
+    size_hint_y: None
+    height: dp(48)
+    padding: dp(8)
+    spacing: dp(10)
+    canvas.before:
+        Color:
+            rgba: app.c_press if self.state == 'down' else app.c_alt
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(10),]
+    Pic:
+        source: root.logo_url
+        color: root.logo_color
+        size_hint: None, None
+        size: dp(32), dp(32)
+        pos_hint: {'center_y': 0.5}
+    Label:
+        text: root.caption
+        font_size: sp(13)
+        color: app.c_text
+        halign: 'left'
+        valign: 'middle'
+        shorten: True
+        shorten_from: 'right'
+        text_size: self.size
+
+# ---------------------------------------------------------------- list rows
+<AchievementRow>:
+    size_hint_y: None
+    height: BADGE_SIZE + dp(24)
+    padding: dp(8)
+    spacing: dp(10)
+    canvas.before:
+        Color:
+            rgba: app.c_press if self.state == 'down' else (app.c_card if root.status == 'unlocked' else app.c_locked)
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(10),]
+    Pic:
+        source: root.badge_url
+        size_hint: None, None
+        size: BADGE_SIZE, BADGE_SIZE
+        pos_hint: {'center_y': 0.5}
+    BoxLayout:
+        orientation: 'vertical'
+        spacing: dp(2)
+        size_hint_y: None
+        height: self.minimum_height
+        pos_hint: {'center_y': 0.5}
+        BoxLayout:
+            size_hint_y: None
+            height: dp(22)
+            spacing: dp(6)
+            Label:
+                text: root.title
+                font_size: sp(14)
+                bold: True
+                color: app.c_text
+                halign: 'left'
+                valign: 'middle'
+                shorten: True
+                shorten_from: 'right'
+                text_size: self.size
+            Label:
+                text: ICON_NOTE if root.has_note else ''
+                font_size: sp(13)
+                color: app.c_muted
+                size_hint_x: None
+                width: dp(16) if root.has_note else 0
+            Label:
+                text: miss_tag() if root.missable else ''
+                font_size: sp(10)
+                bold: True
+                color: app.c_warning
+                halign: 'right'
+                valign: 'middle'
+                size_hint_x: None
+                width: dp(92) if root.missable else 0
+                text_size: self.size
+        Label:
+            text: root.description
+            font_size: sp(11)
+            color: app.c_muted
+            halign: 'left'
+            valign: 'top'
+            max_lines: 3
+            text_size: self.width, None
+            size_hint_y: None
+            height: self.texture_size[1]
+        Label:
+            text: root.date
+            font_size: sp(10)
+            color: app.c_info if root.status == 'unlocked' else app.c_muted
+            halign: 'left'
+            valign: 'middle'
+            shorten: True
+            shorten_from: 'right'
+            text_size: self.size
+            size_hint_y: None
+            height: dp(16)
+    Label:
+        text: root.points
+        font_size: sp(15)
+        bold: True
+        color: app.c_accent
+        halign: 'right'
+        valign: 'middle'
+        text_size: self.size
+        size_hint_x: None
+        width: dp(40)
+
+<DuelRow>:
+    size_hint_y: None
+    height: max(dp(120), DUEL_BADGE_SIZE + dp(24))
+    padding: dp(8)
+    spacing: dp(10)
+    canvas.before:
+        Color:
+            rgba: app.c_press if self.state == 'down' else (app.c_locked if root.side == 'none' else app.c_card)
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(10),]
+    Pic:
+        source: root.badge_url
+        size_hint: None, None
+        size: DUEL_BADGE_SIZE, DUEL_BADGE_SIZE
+        pos_hint: {'center_y': 0.5}
+    BoxLayout:
+        orientation: 'vertical'
+        spacing: dp(1)
+        BoxLayout:
+            size_hint_y: None
+            height: dp(20)
+            spacing: dp(6)
+            Label:
+                text: root.title
+                font_size: sp(13)
+                bold: True
+                color: app.c_text if root.side != 'none' else app.c_muted
+                halign: 'left'
+                valign: 'middle'
+                shorten: True
+                shorten_from: 'right'
+                text_size: self.size
+            Label:
+                text: ICON_NOTE if root.has_note else ''
+                font_size: sp(12)
+                color: app.c_muted
+                size_hint_x: None
+                width: dp(16) if root.has_note else 0
+            Label:
+                text: miss_tag() if root.missable else ''
+                font_size: sp(10)
+                bold: True
+                color: app.c_warning
+                halign: 'right'
+                valign: 'middle'
+                size_hint_x: None
+                width: dp(92) if root.missable else 0
+                text_size: self.size
+        Label:
+            text: root.description
+            font_size: sp(10)
+            color: app.c_muted
+            halign: 'left'
+            valign: 'middle'
+            shorten: True
+            shorten_from: 'right'
+            text_size: self.size
+            size_hint_y: None
+            height: dp(18)
+        Label:
+            text: root.me_line
+            font_size: sp(10)
+            color: app.c_info
+            halign: 'left'
+            valign: 'middle'
+            shorten: True
+            shorten_from: 'right'
+            text_size: self.size
+            size_hint_y: None
+            height: dp(18)
+        Label:
+            text: root.fr_line
+            font_size: sp(10)
+            color: app.c_warning
+            halign: 'left'
+            valign: 'middle'
+            shorten: True
+            shorten_from: 'right'
+            text_size: self.size
+            size_hint_y: None
+            height: dp(18)
+    Label:
+        text: root.points
+        font_size: sp(15)
+        bold: True
+        color: app.c_accent if root.side != 'none' else app.c_muted
+        halign: 'right'
+        valign: 'middle'
+        text_size: self.size
+        size_hint_x: None
+        width: dp(40)
+
+<GroupRow>:
+    size_hint_y: None
+    height: max(dp(100), GROUP_AVATAR_SIZE + dp(24))
+    padding: dp(8)
+    spacing: dp(10)
+    canvas.before:
+        Color:
+            rgba: app.c_card
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(12),]
+    Pic:
+        source: root.pic_url
+        size_hint: None, None
+        size: GROUP_AVATAR_SIZE, GROUP_AVATAR_SIZE
+        pos_hint: {'center_y': 0.5}
+    BoxLayout:
+        orientation: 'vertical'
+        spacing: dp(2)
+        BoxLayout:
+            size_hint_y: None
+            height: dp(24)
+            Label:
+                text: root.member
+                font_size: sp(15)
+                bold: True
+                color: app.c_accent if root.me else app.c_text
+                halign: 'left'
+                valign: 'middle'
+                shorten: True
+                shorten_from: 'right'
+                text_size: self.size
+            Label:
+                text: root.points_line
+                font_size: sp(11)
+                color: app.c_muted
+                halign: 'right'
+                valign: 'middle'
+                text_size: self.size
+                size_hint_x: None
+                width: dp(90)
+        Label:
+            text: root.err if root.err else ((ICON_PLAY + ' ' + root.play) if root.play and root.play != '…' else root.play)
+            font_size: sp(11)
+            color: app.c_danger if root.err else app.c_success
+            halign: 'left'
+            valign: 'middle'
+            shorten: True
+            shorten_from: 'right'
+            text_size: self.size
+            size_hint_y: None
+            height: dp(18)
+        ProgressBar:
+            max: 1
+            value: root.progress
+            size_hint_y: None
+            height: dp(10)
+        Label:
+            text: root.progress_text
+            font_size: sp(11)
+            color: app.c_text
+            halign: 'left'
+            valign: 'middle'
+            text_size: self.size
+            size_hint_y: None
+            height: dp(18)
+    FlatButton:
+        text: 'X'
+        size_hint: None, None
+        size: dp(40), dp(40)
+        pos_hint: {'center_y': 0.5}
+        opacity: 1 if root.removable else 0
+        disabled: not root.removable
+        on_release: app.root.get_screen('profile').remove_member(root.member)
+
+<GameRow>:
+    orientation: 'vertical'
+    size_hint_y: None
+    height: dp(64)
+    padding: dp(12), dp(6)
+    spacing: dp(2)
+    canvas.before:
+        Color:
+            rgba: app.c_press if self.state == 'down' else app.c_card
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(10),]
+    Label:
+        text: root.title
+        font_size: sp(14)
+        bold: True
+        color: app.c_text
+        halign: 'left'
+        valign: 'middle'
+        shorten: True
+        shorten_from: 'right'
+        text_size: self.size
+    Label:
+        text: root.subtitle
+        font_size: sp(11)
+        color: app.c_muted
+        halign: 'left'
+        valign: 'middle'
+        shorten: True
+        shorten_from: 'right'
+        text_size: self.size
+        size_hint_y: None
+        height: dp(18)
+
+<CommentItem>:
+    orientation: 'vertical'
+    size_hint_y: None
+    height: self.minimum_height
+    padding: dp(10)
+    spacing: dp(4)
+    canvas.before:
+        Color:
+            rgba: app.c_card
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(10),]
+    TextLabel:
+        text: root.user_line
+        font_size: sp(12)
+        bold: True
+        color: app.c_accent
+    TextLabel:
+        text: root.body
+        font_size: sp(13)
+
+# ---------------------------------------------------------------- main screen
+<ProfileScreen>:
+    canvas.before:
+        Color:
+            rgba: app.c_bg
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(10)
+        spacing: dp(8)
+
+        # ---- profile card: avatar | name + rank, then the 3 point lines | translate + settings buttons
+        Card:
+            size_hint_y: None
+            height: max(dp(122), AVATAR_SIZE + dp(24))
+            padding: dp(10)
+            spacing: dp(10)
+            Pic:
+                source: root.avatar_url
+                size_hint: None, None
+                size: AVATAR_SIZE, AVATAR_SIZE
+                pos_hint: {'center_y': 0.5}
+            BoxLayout:
+                orientation: 'vertical'
+                spacing: dp(2)
+                BoxLayout:
+                    size_hint_y: None
+                    height: dp(30)
+                    spacing: dp(6)
+                    Label:
+                        text: root.username if root.username else tr('not_logged')
+                        font_size: sp(17)
+                        bold: True
+                        color: app.c_text
+                        halign: 'left'
+                        valign: 'middle'
+                        shorten: True
+                        shorten_from: 'right'
+                        text_size: self.size
+                        size_hint_x: None
+                        width: root.name_width
+                    Label:
+                        text: root.rank_line
+                        font_size: sp(12)
+                        color: app.c_muted
+                        halign: 'left'
+                        valign: 'middle'
+                        shorten: True
+                        shorten_from: 'right'
+                        text_size: self.size
+                Label:
+                    text: root.hc_line
+                    font_size: sp(12)
+                    color: app.c_info
+                    halign: 'left'
+                    valign: 'middle'
+                    shorten: True
+                    shorten_from: 'right'
+                    text_size: self.size
+                Label:
+                    text: root.retro_line
+                    font_size: sp(12)
+                    color: app.c_text
+                    halign: 'left'
+                    valign: 'middle'
+                    shorten: True
+                    shorten_from: 'right'
+                    text_size: self.size
+                Label:
+                    text: root.sc_line
+                    font_size: sp(12)
+                    color: app.c_muted
+                    halign: 'left'
+                    valign: 'middle'
+                    shorten: True
+                    shorten_from: 'right'
+                    text_size: self.size
+            BoxLayout:
+                orientation: 'vertical'
+                size_hint_x: None
+                width: dp(96)
+                BoxLayout:
+                    size_hint_y: None
+                    height: dp(46)
+                    spacing: dp(6)
+                    FlatButton:
+                        text: ICON_GLOBE
+                        font_size: sp(18)
+                        height: dp(46)
+                        active: root.translate_on
+                        on_release: root.toggle_translate()
+                    FlatButton:
+                        text: ICON_GEAR
+                        font_size: sp(18)
+                        height: dp(46)
+                        on_release: root.manager.current = 'settings'
+                Widget:
+
+        # ---- game card: icon | title, console, rich presence (wraps), progress, HC / SC counters | hardcore + search buttons
+        Card:
+            size_hint_y: None
+            height: max(self.minimum_height, dp(140))
+            padding: dp(10)
+            spacing: dp(8)
+            Pic:
+                source: root.game_icon_url
+                size_hint: None, None
+                size: GAME_ICON_SIZE, GAME_ICON_SIZE
+                pos_hint: {'center_y': 0.5}
+            BoxLayout:
+                orientation: 'vertical'
+                spacing: dp(3)
+                size_hint_y: None
+                height: self.minimum_height
+                pos_hint: {'center_y': 0.5}
+                Label:
+                    text: root.current_game
+                    font_size: sp(15)
+                    bold: True
+                    color: app.c_text
+                    halign: 'left'
+                    valign: 'middle'
+                    shorten: True
+                    shorten_from: 'right'
+                    text_size: self.size
+                    size_hint_y: None
+                    height: dp(24)
+                Label:
+                    text: root.game_console
+                    font_size: sp(11)
+                    color: app.c_muted
+                    halign: 'left'
+                    valign: 'middle'
+                    shorten: True
+                    shorten_from: 'right'
+                    text_size: self.size
+                    size_hint_y: None
+                    height: dp(16)
+                TextLabel:
+                    text: root.rich_presence
+                    font_size: sp(11)
+                    color: app.c_success
+                    max_lines: 4
+                ProgressBar:
+                    max: 1
+                    value: root.game_ratio
+                    size_hint_y: None
+                    height: dp(10)
+                Label:
+                    text: root.game_progress
+                    font_size: sp(12)
+                    color: app.c_text
+                    halign: 'left'
+                    valign: 'middle'
+                    shorten: True
+                    shorten_from: 'right'
+                    text_size: self.size
+                    size_hint_y: None
+                    height: dp(20)
+                Label:
+                    text: root.hcsc_line
+                    font_size: sp(11)
+                    color: app.c_muted
+                    halign: 'left'
+                    valign: 'middle'
+                    shorten: True
+                    shorten_from: 'right'
+                    text_size: self.size
+                    size_hint_y: None
+                    height: dp(18)
+            BoxLayout:
+                orientation: 'vertical'
+                size_hint_x: None
+                width: dp(88)
+                BoxLayout:
+                    size_hint_y: None
+                    height: dp(40)
+                    spacing: dp(4)
+                    FlatButton:
+                        text: ICON_BOLT
+                        font_size: sp(18)
+                        height: dp(40)
+                        active: root.hc_on
+                        on_release: root.toggle_hc()
+                    FlatButton:
+                        text: ICON_SEARCH
+                        font_size: sp(18)
+                        height: dp(40)
+                        on_release: root.manager.current = 'search'
+                Widget:
+
+        # ---- tab bar
+        BoxLayout:
+            size_hint_y: None
+            height: dp(48)
+            spacing: dp(6)
+            FlatButton:
+                text: ICON_TROPHY + ' ' + tr('tab_ach')
+                height: dp(48)
+                active: root.current_tab == 'success'
+                on_release: root.switch_tab('success')
+            FlatButton:
+                text: ICON_SWORDS + ' ' + tr('tab_duel')
+                height: dp(48)
+                active: root.current_tab == 'duel'
+                on_release: root.switch_tab('duel')
+            FlatButton:
+                text: ICON_GROUP + ' ' + tr('tab_group')
+                height: dp(48)
+                active: root.current_tab == 'group'
+                on_release: root.switch_tab('group')
+
+        # ---- tab contents: one real screen per tab (a hidden tab is not in the widget tree, so its list is laid out when shown)
+        ScreenManager:
+            id: tabs
+            transition: NoTransition()
+
+            Screen:
+                name: 'success'
+                BoxLayout:
+                    orientation: 'vertical'
+                    spacing: dp(6)
+                    ChipRow:
+                        size_hint_y: None
+                        height: dp(44)
+                        spacing: dp(6)
+                        ChipButton:
+                            text: tr('f_all')
+                            font_size: sp(12)
+                            active: root.current_filter == 'all'
+                            on_release: root.set_filter('all')
+                        ChipButton:
+                            text: tr('f_todo')
+                            font_size: sp(12)
+                            active: root.current_filter == 'locked'
+                            on_release: root.set_filter('locked')
+                        ChipButton:
+                            text: tr('f_done')
+                            font_size: sp(12)
+                            active: root.current_filter == 'unlocked'
+                            on_release: root.set_filter('unlocked')
+                        ChipButton:
+                            text: miss_tag()
+                            font_size: sp(12)
+                            idle_color: app.c_warning
+                            active: root.miss_on
+                            on_release: root.toggle_miss()
+                        FlatButton:
+                            text: ICON_SORT
+                            font_size: sp(18)
+                            size_hint_x: None
+                            width: dp(44)
+                            on_release: root.open_sort_menu()
+                    RecycleView:
+                        viewclass: 'AchievementRow'
+                        data: root.success_rows
+                        bar_width: dp(14)
+                        bar_margin: dp(2)
+                        scroll_type: ['bars', 'content']
+                        bar_color: [app.c_accent[0], app.c_accent[1], app.c_accent[2], 0.9]
+                        bar_inactive_color: [app.c_accent[0], app.c_accent[1], app.c_accent[2], 0.45]
+                        RecycleBoxLayout:
+                            padding: 0, 0, (BAR_GUTTER if self.parent and self.height > self.parent.height + 1 else 0), 0
+                            default_size: None, BADGE_SIZE + dp(24)
+                            default_size_hint: 1, None
+                            size_hint_y: None
+                            height: self.minimum_height
+                            orientation: 'vertical'
+                            spacing: dp(6)
+
+            Screen:
+                name: 'duel'
+                BoxLayout:
+                    orientation: 'vertical'
+                    spacing: dp(6)
+                    BoxLayout:
+                        size_hint_y: None
+                        height: dp(48)
+                        spacing: dp(6)
+                        DarkInput:
+                            id: friend_input
+                            hint_text: tr('duel_user')
+                            text: root.friend_name
+                            on_text_validate: root.set_friend(self.text)
+                        FlatButton:
+                            text: tr('duel_go')
+                            size_hint_x: None
+                            width: dp(104)
+                            height: dp(48)
+                            active: True
+                            on_release: root.set_friend(friend_input.text)
+                        FlatButton:
+                            text: tr('duel_stop')
+                            size_hint_x: None
+                            width: dp(90)
+                            height: dp(48)
+                            on_release: root.clear_friend()
+                    TextLabel:
+                        text: root.duel_title
+                        bold: True
+                        color: app.c_accent
+                    TextLabel:
+                        text: root.duel_detail
+                        font_size: sp(11)
+                        color: app.c_muted
+                    RecycleView:
+                        viewclass: 'DuelRow'
+                        data: root.duel_rows
+                        bar_width: dp(14)
+                        bar_margin: dp(2)
+                        scroll_type: ['bars', 'content']
+                        bar_color: [app.c_accent[0], app.c_accent[1], app.c_accent[2], 0.9]
+                        bar_inactive_color: [app.c_accent[0], app.c_accent[1], app.c_accent[2], 0.45]
+                        RecycleBoxLayout:
+                            padding: 0, 0, (BAR_GUTTER if self.parent and self.height > self.parent.height + 1 else 0), 0
+                            default_size: None, max(dp(120), DUEL_BADGE_SIZE + dp(24))
+                            default_size_hint: 1, None
+                            size_hint_y: None
+                            height: self.minimum_height
+                            orientation: 'vertical'
+                            spacing: dp(6)
+
+            Screen:
+                name: 'group'
+                BoxLayout:
+                    orientation: 'vertical'
+                    spacing: dp(6)
+                    BoxLayout:
+                        size_hint_y: None
+                        height: dp(48)
+                        spacing: dp(6)
+                        DarkInput:
+                            id: member_input
+                            hint_text: tr('g_user')
+                            on_text_validate: root.add_member(self.text)
+                        FlatButton:
+                            text: tr('g_add')
+                            size_hint_x: None
+                            width: dp(104)
+                            height: dp(48)
+                            active: True
+                            on_release: root.add_member(member_input.text)
+                    TextLabel:
+                        text: root.group_hint
+                        font_size: sp(12)
+                        color: app.c_muted
+                    RecycleView:
+                        viewclass: 'GroupRow'
+                        data: root.group_rows
+                        bar_width: dp(14)
+                        bar_margin: dp(2)
+                        scroll_type: ['bars', 'content']
+                        bar_color: [app.c_accent[0], app.c_accent[1], app.c_accent[2], 0.9]
+                        bar_inactive_color: [app.c_accent[0], app.c_accent[1], app.c_accent[2], 0.45]
+                        RecycleBoxLayout:
+                            padding: 0, 0, (BAR_GUTTER if self.parent and self.height > self.parent.height + 1 else 0), 0
+                            default_size: None, max(dp(100), GROUP_AVATAR_SIZE + dp(24))
+                            default_size_hint: 1, None
+                            size_hint_y: None
+                            height: self.minimum_height
+                            orientation: 'vertical'
+                            spacing: dp(6)
+
+        # ---- footer (same layout as on Windows): status on the left, Auto + seconds + Refresh on the right
+        BoxLayout:
+            size_hint_y: None
+            height: dp(46)
+            spacing: dp(4)
+            Label:
+                text: root.status_text
+                font_size: sp(10)
+                color: app.c_muted
+                halign: 'left'
+                valign: 'middle'
+                max_lines: 2
+                text_size: self.size
+            FlatButton:
+                text: tr('auto')
+                size_hint_x: None
+                width: dp(54)
+                height: dp(44)
+                active: root.auto_on
+                on_release: root.toggle_auto()
+            SmallInput:
+                id: interval_input
+                text: root.interval_text
+                on_text_validate: root.set_interval(self.text)
+                on_focus: root.interval_focus(self, self.focus)
+            BoxLayout:
+                orientation: 'vertical'
+                size_hint_x: None
+                width: dp(40)
+                spacing: dp(2)
+                FlatButton:
+                    text: '▲'
+                    font_size: sp(10)
+                    height: dp(22)
+                    on_release: root.step_interval(5)
+                FlatButton:
+                    text: '▼'
+                    font_size: sp(10)
+                    height: dp(22)
+                    on_release: root.step_interval(-5)
+            Label:
+                text: 's'
+                font_size: sp(12)
+                color: app.c_muted
+                size_hint_x: None
+                width: dp(10)
+            FlatButton:
+                text: ICON_REFRESH + ' ' + tr('refresh_btn')
+                size_hint_x: None
+                width: dp(118)
+                height: dp(44)
+                on_release: root.refresh(force=True)
+
+# ---------------------------------------------------------------- achievement page
+<DetailScreen>:
+    canvas.before:
+        Color:
+            rgba: app.c_bg
+        Rectangle:
+            pos: self.pos
+            size: self.size
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(10)
+        spacing: dp(8)
+        BoxLayout:
+            size_hint_y: None
+            height: dp(48)
+            spacing: dp(8)
+            FlatButton:
+                text: tr('back')
+                size_hint_x: None
+                width: dp(110)
+                height: dp(48)
+                on_release: root.go_back()
+            Label:
+                text: root.game_title
+                font_size: sp(13)
+                color: app.c_muted
+                halign: 'left'
+                valign: 'middle'
+                shorten: True
+                shorten_from: 'right'
+                text_size: self.size
+            FlatButton:
+                text: ICON_GLOBE
+                font_size: sp(18)
+                size_hint_x: None
+                width: dp(52)
+                height: dp(48)
+                active: root.translate_on
+                on_release: root.toggle_translate()
+        ScrollView:
+            do_scroll_x: False
+            bar_width: dp(14)
+            bar_margin: dp(2)
+            scroll_type: ['bars', 'content']
+            bar_color: [app.c_accent[0], app.c_accent[1], app.c_accent[2], 0.9]
+            bar_inactive_color: [app.c_accent[0], app.c_accent[1], app.c_accent[2], 0.45]
+            BoxLayout:
+                orientation: 'vertical'
+                size_hint_y: None
+                height: self.minimum_height
+                spacing: dp(10)
+                padding: 0, 0, (BAR_GUTTER if self.parent and self.height > self.parent.height + 1 else 0), dp(12)
+                Card:
+                    size_hint_y: None
+                    height: self.minimum_height
+                    padding: dp(12)
+                    spacing: dp(12)
+                    Pic:
+                        source: root.badge_url
+                        size_hint: None, None
+                        size: DETAIL_BADGE_SIZE, DETAIL_BADGE_SIZE
+                    BoxLayout:
+                        orientation: 'vertical'
+                        size_hint_y: None
+                        height: self.minimum_height
+                        spacing: dp(4)
+                        TextLabel:
+                            text: root.ach_title
+                            font_size: sp(17)
+                            bold: True
+                        TextLabel:
+                            text: root.ach_missable
+                            font_size: sp(11)
+                            bold: True
+                            color: app.c_warning
+                        TextLabel:
+                            text: root.ach_desc
+                            font_size: sp(13)
+                        TextLabel:
+                            text: root.ach_meta
+                            font_size: sp(12)
+                            color: app.c_accent
+                        TextLabel:
+                            text: root.ach_earned
+                            font_size: sp(12)
+                            color: app.c_info if root.earned else app.c_muted
+                BoxLayout:
+                    size_hint_y: None
+                    height: dp(24)
+                    TextLabel:
+                        text: ICON_NOTE + ' ' + tr('d_note_title')
+                        font_size: sp(15)
+                        bold: True
+                        color: app.c_accent
+                    TextLabel:
+                        text: root.note_status
+                        font_size: sp(11)
+                        color: app.c_success
+                        halign: 'right'
+                NoteInput:
+                    id: note_input
+                    hint_text: tr('d_note_hint')
+                    on_text: root.note_changed()
+                    on_focus: root.note_focus(self.focus)
+                TextLabel:
+                    text: root.comments_title
+                    font_size: sp(15)
+                    bold: True
+                    color: app.c_accent
+                TextLabel:
+                    text: root.comments_info
+                    font_size: sp(11)
+                    color: app.c_muted
+                BoxLayout:
+                    id: comments_box
+                    orientation: 'vertical'
+                    size_hint_y: None
+                    height: self.minimum_height
+                    spacing: dp(8)
+
+# ---------------------------------------------------------------- settings
+<SettingsScreen>:
+    canvas.before:
+        Color:
+            rgba: app.c_bg
+        Rectangle:
+            pos: self.pos
+            size: self.size
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(16)
+        spacing: dp(8)
+        Label:
+            text: tr('s_title')
+            font_size: sp(22)
+            bold: True
+            color: app.c_text
+            size_hint_y: None
+            height: dp(44)
+        ScrollView:
+            do_scroll_x: False
+            bar_width: dp(14)
+            bar_margin: dp(2)
+            scroll_type: ['bars', 'content']
+            bar_color: [app.c_accent[0], app.c_accent[1], app.c_accent[2], 0.9]
+            bar_inactive_color: [app.c_accent[0], app.c_accent[1], app.c_accent[2], 0.45]
+            BoxLayout:
+                orientation: 'vertical'
+                size_hint_y: None
+                height: self.minimum_height
+                spacing: dp(8)
+                padding: 0, 0, (BAR_GUTTER if self.parent and self.height > self.parent.height + 1 else 0), dp(8)
+                TextLabel:
+                    text: tr('s_user')
+                    font_size: sp(12)
+                    color: app.c_muted
+                DarkInput:
+                    id: username_input
+                    text: root.username
+                TextLabel:
+                    text: tr('s_key')
+                    font_size: sp(12)
+                    color: app.c_muted
+                LinkLabel:
+                    text: '[ref=%s][color=%s][u]%s[/u][/color][/ref]' % (API_KEY_URL, app.info_hex, API_KEY_URL)
+                    font_size: sp(10)
+                DarkInput:
+                    id: apikey_input
+                    text: root.api_key
+                    password: True
+                TextLabel:
+                    text: tr('s_ui_lang')
+                    font_size: sp(12)
+                    color: app.c_muted
+                DarkSpinner:
+                    id: ui_lang_spinner
+                    text: root.ui_lang_text
+                    values: root.ui_lang_values
+                TextLabel:
+                    text: tr('s_tr_lang')
+                    font_size: sp(12)
+                    color: app.c_muted
+                DarkSpinner:
+                    id: tr_lang_spinner
+                    text: root.tr_lang_text
+                    values: root.tr_lang_values
+                TextLabel:
+                    text: tr('s_skin')
+                    font_size: sp(12)
+                    color: app.c_muted
+                DarkSpinner:
+                    id: skin_spinner
+                    text: root.skin_text
+                    values: root.skin_values
+                BoxLayout:
+                    size_hint_y: None
+                    height: dp(48)
+                    spacing: dp(10)
+                    Label:
+                        text: tr('s_notify')
+                        color: app.c_text
+                        font_size: sp(13)
+                        halign: 'left'
+                        valign: 'middle'
+                        text_size: self.size
+                    Switch:
+                        id: notify_switch
+                        active: root.notify_on
+                        size_hint_x: None
+                        width: dp(90)
+                FlatButton:
+                    text: tr('s_test_notif')
+                    height: dp(44)
+                    on_release: root.test_notification()
+                TextLabel:
+                    text: tr('s_notes')
+                    font_size: sp(14)
+                    color: app.c_text
+                BoxLayout:
+                    size_hint_y: None
+                    height: dp(44)
+                    spacing: dp(8)
+                    FlatButton:
+                        text: tr('s_notes_export')
+                        height: dp(44)
+                        on_release: root.export_notes()
+                    FlatButton:
+                        text: tr('s_notes_import')
+                        height: dp(44)
+                        on_release: root.import_notes()
+                TextLabel:
+                    text: root.notes_msg
+                    font_size: sp(11)
+                    color: app.c_success
+                TextLabel:
+                    text: tr('s_version', v=APP_VERSION)
+                    font_size: sp(14)
+                    color: app.c_text
+                FlatButton:
+                    text: tr('s_update_check')
+                    height: dp(44)
+                    on_release: root.check_update()
+                TextLabel:
+                    text: root.update_msg
+                    font_size: sp(11)
+                    color: app.c_success
+                FlatButton:
+                    text: tr('s_update_get', v=root.update_version)
+                    active: True
+                    height: dp(44) if root.update_url else 0
+                    opacity: 1 if root.update_url else 0
+                    disabled: not root.update_url
+                    on_release: root.download_update()
+                LinkLogo:
+                    url: REPO_URL
+                    logo_url: LOGO_GITHUB
+                    logo_color: app.github_color
+                    caption: 'GitHub'
+                LinkLogo:
+                    url: SITE_URL
+                    logo_url: LOGO_RA
+                    caption: 'retroachievements.org'
+                TextLabel:
+                    text: root.data_info
+                    font_size: sp(9)
+                    color: app.c_muted
+        BoxLayout:
+            size_hint_y: None
+            height: dp(48)
+            spacing: dp(10)
+            FlatButton:
+                text: tr('back')
+                height: dp(48)
+                on_release: root.manager.current = 'profile'
+            FlatButton:
+                text: tr('save')
+                height: dp(48)
+                active: True
+                on_release: root.save_settings(username_input.text, apikey_input.text, notify_switch.active, ui_lang_spinner.text, tr_lang_spinner.text, skin_spinner.text)
+
+# ---------------------------------------------------------------- game search
+<SearchScreen>:
+    canvas.before:
+        Color:
+            rgba: app.c_bg
+        Rectangle:
+            pos: self.pos
+            size: self.size
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(12)
+        spacing: dp(8)
+        BoxLayout:
+            size_hint_y: None
+            height: dp(48)
+            spacing: dp(8)
+            FlatButton:
+                text: tr('back')
+                size_hint_x: None
+                width: dp(110)
+                height: dp(48)
+                on_release: root.go_back()
+            Label:
+                text: ICON_SEARCH + ' ' + tr('se_title')
+                font_size: sp(17)
+                bold: True
+                color: app.c_text
+                halign: 'left'
+                valign: 'middle'
+                text_size: self.size
+        DarkSpinner:
+            id: console_spinner
+            text: root.all_label
+            values: root.console_values
+            on_text: root.schedule_search()
+        DarkInput:
+            id: query
+            hint_text: tr('se_name')
+            on_text: root.schedule_search()
+            on_text_validate: root.run_search()
+        Label:
+            text: root.status
+            font_size: sp(11)
+            color: app.c_muted
+            halign: 'left'
+            valign: 'middle'
+            text_size: self.size
+            size_hint_y: None
+            height: dp(22)
+        RecycleView:
+            viewclass: 'GameRow'
+            data: root.results
+            bar_width: dp(14)
+            bar_margin: dp(2)
+            scroll_type: ['bars', 'content']
+            bar_color: [app.c_accent[0], app.c_accent[1], app.c_accent[2], 0.9]
+            bar_inactive_color: [app.c_accent[0], app.c_accent[1], app.c_accent[2], 0.45]
+            RecycleBoxLayout:
+                padding: 0, 0, (BAR_GUTTER if self.parent and self.height > self.parent.height + 1 else 0), 0
+                default_size: None, dp(64)
+                default_size_hint: 1, None
+                size_hint_y: None
+                height: self.minimum_height
+                orientation: 'vertical'
+                spacing: dp(6)
+        FlatButton:
+            text: tr('se_auto')
+            height: dp(48)
+            on_release: root.follow_auto()
