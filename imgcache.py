@@ -13,6 +13,8 @@ import time
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 
+from kivy.logger import Logger
+
 from ra_api import http_get
 
 FOREVER = ("/Badge/", "/Images/")
@@ -69,12 +71,14 @@ def get_bytes(folder, url):
     try:
         if path is None:
             path = download(folder, url)
-    except Exception:
+    except Exception as exc:
+        Logger.warning("imgcache: download failed for %s in %s: %r", url, folder, exc)
         path = path_for(folder, url)
     try:
         with open(path, "rb") as f:
             return f.read() or None
-    except OSError:
+    except OSError as exc:
+        Logger.warning("imgcache: cannot read %s: %r", path, exc)
         return None
 
 
@@ -92,7 +96,8 @@ def fetch_async(folder, url, done):
         path = None
         try:
             path = download(folder, url)
-        except Exception:
+        except Exception as exc:
+            Logger.warning("imgcache: async download failed for %s in %s: %r", url, folder, exc)
             _FAILED[url] = time.time()
         with _LOCK:
             callbacks = _WAITING.pop(url, [])
@@ -101,5 +106,6 @@ def fetch_async(folder, url, done):
                 try:
                     callback(path)
                 except Exception:
-                    pass
+                    Logger.exception("imgcache: callback failed")
+
     _POOL.submit(job)

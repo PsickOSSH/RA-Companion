@@ -18,14 +18,16 @@
 | ![Group](docs/group.png) | ![Skin](docs/skin.png) |
 
 A companion for [RetroAchievements](https://retroachievements.org): keep it open next to your emulator and follow your
-progress live. It comes in two versions that look and behave the same way:
+progress live. It comes in three versions that look and behave the same way:
 
 - **Windows**: a desktop application (Python + Tkinter, also available as a ready-to-use `.exe`).
 - **Android**: a phone application (Python + Kivy, installed from an `.apk`).
+- **iOS** (experimental): the same Kivy interface, built with [kivy-ios](https://github.com/kivy/kivy-ios) and Xcode
+  (see *Building for iOS* below).
 
 ## Features
 
-- **Persistent image cache** on Windows and Android: previously downloaded achievement badges and game icons
+- **Persistent image cache** on Windows, Android and iOS: previously downloaded achievement badges and game icons
   are reused after restarting the app, reducing repeated requests to the RetroAchievements media server.
 
 - **Live profile**: hardcore / softcore points, RetroPoints, rank (`#1 234`) and percentile, current game with rich presence
@@ -34,16 +36,19 @@ progress live. It comes in two versions that look and behave the same way:
   time zone, and the share of players who earned each locked achievement
 - **Achievement page**: description, points, unlock date, **personal note** (`✎`) and the community **comments**,
   with one-click **translation** (`🌐`)
-- **Personal notes**: saved locally, exported to / imported from a JSON file (the same file works on both versions)
+- **Personal notes**: saved locally, exported to / imported from a JSON file (the same file works on all versions)
 - **Notifications** when you (or your friend) unlock an achievement (can be switched off in the settings; a
-  **Send a test notification** button checks that they work, on both versions)
+  **Send a test notification** button checks that they work, on all versions)
 - **Duel**: compare your progress with a friend on the same game, see who is ahead and who unlocked what
 - **Group dashboard**: follow several players at once, ranked by progress on the current game
 - **Game search** by name (all consoles or a single one) to track any game
 - **Automatic refresh** with a configurable interval (`Auto` button + seconds) or manual refresh
 - **6 interface languages** (English, Français, Español, Deutsch, Italiano, Português), a separate **translation
-  language**, and **skins** (default, dark and light are included; a skin file works on both versions)
+  language**, and **skins** (default, dark and light are included; a skin file works on all versions)
 - **Update check** in the settings: looks for a newer `.exe` (Windows) or `.apk` (Android) in the GitHub releases
+- **iOS support** (experimental): safe-area margins for the notch and home indicator, in-app banner when an
+  achievement unlocks while the app is open, system notifications when the app has just been sent to the background,
+  native clipboard (copy / paste / select all) and automatic detection of the device language.
 
 ## Install
 
@@ -66,6 +71,11 @@ Download the file of your platform from the [latest release](../../releases/late
 
 An update is installed over the previous version only if the `.apk` was signed with the same key.
 
+### iOS
+
+The iOS version is not distributed as a ready-to-use file yet: it has to be built from the source with Xcode
+(see *Building for iOS* below).
+
 ### From the source code
 
 ```
@@ -74,11 +84,11 @@ python ra_companion.py
 
 Needs Python 3.9 or newer with Tkinter (included in the official Windows installer). No third-party package is required.
 
-To try the Android interface on a PC: `pip install kivy certifi`, then `python main.py` (Kivy 2.1 or newer).
+To try the Android / iOS interface on a PC: `pip install kivy certifi`, then `python main.py` (Kivy 2.1 or newer).
 
 ## Project layout
 
-Both versions live in the same repository and share the API, skins and update code.
+All versions live in the same repository and share the API, skins and update code.
 
 | Windows only | Android only | Shared |
 |---|---|---|
@@ -88,7 +98,7 @@ Both versions live in the same repository and share the API, skins and update co
 | `desktop_texts.py` texts | `uitext.py`, `mobile_i18n.py` texts | `i18n.py` translations |
 | `notes_io.py` notes export / import | `notify.py`, `androidutil.py` system access | `translator.py` translation |
 | `build-exe.bat`, `docs/logo.ico` | `layoututil.py`, `buildozer.spec`, `docs/icon.png`, `fonts/` | `updater.py`, `appinfo.py` update check, version |
-| | | `imgcache.py` persistent image cache |
+| | `iosutil.py` iOS safe areas, language, clipboard | `imgcache.py` persistent image cache |
 | | | `skins/` visual themes |
 
 Other folders: `docs/` (logo and screenshots of this README), `tests/` (unit tests of the logic).
@@ -209,6 +219,84 @@ After changing `android.ndk` or `p4a.branch`, delete the `.buildozer/` folder of
 
 Keep the signing key: without it, a new `.apk` cannot replace the installed one.
 
+### iOS (experimental)
+
+The iOS version is built with [kivy-ios](https://github.com/kivy/kivy-ios) and Xcode. It was tested on an
+Intel Mac with macOS Ventura 13.7 and Xcode 15.2, deploying to an iPhone 11.
+
+**1. Requirements (once)**
+
+- Xcode 15.2 or newer, with the iOS platform downloaded (Xcode → Settings → Platforms).
+- [MacPorts](https://www.macports.org/install.php) (Homebrew no longer installs on Intel Macs).
+
+```bash
+sudo port install autoconf automake libtool pkgconfig
+```
+
+**2. Python environment and kivy-ios**
+
+```bash
+python3 -m venv ~/kivyios-venv
+source ~/kivyios-venv/bin/activate
+pip install "Cython==3.0.11" kivy-ios
+```
+
+**3. Build the iOS libraries** (in a folder **outside** the project, so `build/` and `dist/` are not
+copied into the app):
+
+```bash
+mkdir -p ~/kivy-ios-build
+cd ~/kivy-ios-build
+toolchain build python3 kivy
+```
+
+**4. Prepare a clean app folder** (only the files needed by the Kivy interface, without `tests/`, `docs/`
+or the Windows files):
+
+```bash
+mkdir -p ~/RA-Companion-iOS-app
+cd ~/RA-Companion
+cp main.py main.kv features.py storage.py themes.py uitext.py mobile_i18n.py notify.py \
+   androidutil.py layoututil.py ra_api.py utils.py config.py i18n.py translator.py \
+   updater.py appinfo.py iosutil.py imgcache.py ~/RA-Companion-iOS-app/
+cp -R skins fonts ~/RA-Companion-iOS-app/
+```
+
+**5. Create and open the Xcode project**
+
+```bash
+cd ~/kivy-ios-build
+toolchain create RACompanion ~/RA-Companion-iOS-app
+open racompanion-ios/racompanion.xcodeproj
+```
+
+**6. In Xcode**
+
+- Target **racompanion** → **Signing & Capabilities**: select your team and set a unique Bundle Identifier.
+- Target **racompanion** → **General** → **Frameworks, Libraries, and Embedded Content**: add
+  `UserNotifications.framework` (needed for notifications).
+- Target **racompanion** → **Build Settings** → **iOS Deployment Target**: set it to `12.0` or newer.
+- Connect the iPhone, enable *Developer Mode* on it (Settings → Privacy & Security), then press **Run**.
+
+**7. After changing the Python code**
+
+Copy the changed files to `~/RA-Companion-iOS-app/`, then:
+
+```bash
+cd ~/kivy-ios-build
+toolchain update racompanion-ios
+```
+
+and press **Run** again in Xcode.
+
+**Known limitations on iOS**
+
+- Notifications are shown as an in-app banner while the app is open; system notifications appear only when
+  the app has just been sent to the background. Reliable background notifications would require push
+  notifications through APNs and a paid Apple developer account.
+- The image cache works, but reinstalling the app from Xcode can reset its data folder.
+- The long-press copy/paste menu relies on Kivy's built-in bubble, which can be unreliable on iOS.
+
 ## Publishing a release
 
 1. Change `__version__` in `appinfo.py` (for example `1.0.1`; `1.0` and `1.0.0` are the same version).
@@ -232,22 +320,22 @@ Every variable is documented in `skins/default.py`. When you add a skin variable
 
 - **Windows**: in `i18n.py`, copy the `"en"` block of `I18N`, translate the values, add the language to `UI_LANGS`,
   `REFRESH_LABELS` and `SORT_LABELS`, then add its texts to `desktop_texts.py`. Date formats are in `utils.py`.
-- **Android**: add the language to `mobile_i18n.py` and to the tables of `uitext.py`, then run the tests:
+- **Android / iOS**: add the language to `mobile_i18n.py` and to the tables of `uitext.py`, then run the tests:
   `tests/test_i18n.py` lists every text that is still missing.
 
 ## Data, privacy and network
 
 - Your settings (including the **API key**, stored as plain text) and personal notes are saved on your device only:
-  in your home directory as `.ra_companion*.json` on Windows, in the private folder of the app on Android.
+  in your home directory as `.ra_companion*.json` on Windows, in the private folder of the app on Android and iOS.
   Never publish these files.
 - **Image cache:** achievement badges (colored and locked versions), game icons and avatars are saved on disk,
   not just in memory. Previously downloaded badges and game icons are reused across app restarts.
   Images are cached separately by URL, so the colored and locked badge versions each have their own file.
   The cache is stored in `.ra_companion_cache/img/` in your home directory on Windows and in `img_cache/`
-  inside the app's private data folder on Android.
+  inside the app's private data folder on Android and iOS.
 - The current cache policy keeps badges (`/Badge/`) and game images (`/Images/`) without automatic expiry.
   Other images handled by this cache, including avatars, expire after seven days and are refreshed when requested.
-  Windows settings logos still use their separate existing disk cache; Android settings logos use the shared image cache.
+  Windows settings logos still use their separate existing disk cache; Android and iOS settings logos use the shared image cache.
   There is currently no automatic size limit or eviction for old badge files.
 - The image cache does **not** make the whole app available offline: profile and achievement data still need the API.
 - Network access: the RetroAchievements API and media server (profile, games, badges, comments), the GitHub API
@@ -266,9 +354,16 @@ Every variable is documented in `skins/default.py`. When you add a skin variable
 - **Antivirus flags the exe:** single-file PyInstaller executables are sometimes reported as false positives.
   Run from source or build the exe yourself.
 - **Crossed boxes instead of symbols on Android:** `ttf` is missing from `source.include_exts` in `buildozer.spec`.
-- **No notifications:** on Android check the permission in the Android settings. On both versions use the *Send a test
+- **No notifications:** on Android check the permission in the Android settings. On all versions use the *Send a test
   notification* button of the settings. The phone may freeze the app after a few minutes in the background, so
   notifications can be delayed while the screen is off.
+- **iOS: the app does not build (`PhaseScriptExecution failed`)**: make sure `build/` and `dist/` are not
+  inside the app folder given to `toolchain create`. Build the libraries in a separate folder
+  (see *Building for iOS*).
+- **iOS: no notification while the app is open:** this is expected; iOS shows the in-app banner instead.
+  System notifications appear when the app has just been sent to the background.
+- **iOS: the device language is not detected:** check that `iosutil.py` is present in the app folder and
+  that `uitext.py` calls `iosutil.device_language()`.
 - **Translation unavailable:** the message in the status bar names the cause (for example `HTTP 429`: the service
   limits the requests, retry a minute later by pressing the translation button again).
 - **The update does not install:** the `.apk` must be signed with the same key as the installed one.
@@ -286,7 +381,7 @@ Every variable is documented in `skins/default.py`. When you add a skin variable
 
 ## Third-party components
 
-The Android app embeds the [DejaVu Sans](https://dejavu-fonts.github.io/) font (free license, see `fonts/LICENSE_DEJAVU`),
+The Android and iOS apps embed the [DejaVu Sans](https://dejavu-fonts.github.io/) font (free license, see `fonts/LICENSE_DEJAVU`),
 extended with a few drawn symbols.
 
 ## License

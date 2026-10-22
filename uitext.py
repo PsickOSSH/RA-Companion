@@ -115,6 +115,13 @@ _current = "en"
 def system_language():
     """Two-letter language code of the device (Android locale through pyjnius, system locale on a PC)."""
     try:
+        import iosutil
+        code = iosutil.device_language()
+        if code:
+            return code
+    except Exception:
+        pass
+    try:
         from jnius import autoclass
         return str(autoclass("java.util.Locale").getDefault().getLanguage()).lower()[:2]
     except Exception:

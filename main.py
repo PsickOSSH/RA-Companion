@@ -9,10 +9,12 @@ from concurrent.futures import ThreadPoolExecutor
 import kivy
 kivy.require("2.1.0")
 
+from kivy.animation import Animation
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.core.text import LabelBase
 from kivy.core.window import Window
+from kivy.graphics import Color, Rectangle, RoundedRectangle
 from kivy.lang import Builder
 from kivy.logger import Logger
 from kivy.metrics import dp, sp
@@ -20,6 +22,7 @@ from kivy.properties import BooleanProperty, ListProperty, NumericProperty, Stri
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
+from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.label import Label
 from kivy.uix.modalview import ModalView
 from kivy.uix.scrollview import ScrollView
@@ -28,6 +31,7 @@ from kivy.uix.textinput import TextInput
 from kivy.uix.image import AsyncImage
 
 import androidutil
+import iosutil
 import appinfo
 import updater
 import features
@@ -57,7 +61,8 @@ else:
     Logger.warning("RA: no font in fonts/: is 'ttf' in source.include_exts of buildozer.spec?")
 
 # The soft keyboard must push the screen up so the text field being edited stays visible.
-Window.softinput_mode = "below_target"
+if kivy.utils.platform != "ios":
+    Window.softinput_mode = "below_target"
 
 CFG_DEFAULTS = {"friend": "", "group": [], "game_id": "", "auto": True, "hc_only": False, "interval": 30,
                 "auto_refresh": True, "sort": "disp_asc", "miss_only": False, "notify": True, "translate": False,
@@ -245,7 +250,12 @@ class ChipRow(BoxLayout):
 
 
 class DarkInput(TextInput):
-    """Single-line text field."""
+    """Single-line text field with its own long-press menu (Copy / Paste / Select all)."""
+
+    def __init__(self, **kw):
+        kw["use_bubble"] = True
+        kw["use_handles"] = True
+        super().__init__(**kw)
 
 
 class SmallInput(DarkInput):
@@ -1010,7 +1020,9 @@ class SettingsScreen(Screen):
 
     def test_notification(self):
         notify.request_permission()
-        notify.send(tr("toast"), tr("notif_test"), 1, tr("notif_channel"), tr("notif_channel_desc"))
+        if kivy.utils.platform == "ios":
+            UnlockBanner(tr("toast"), tr("notif_test")).show()
+        notify.send(tr("toast"), tr("notif_test"), 1, tr("notif_channel"), tr("notif_channel_desc"), delay=5)
 
     # ---- personal notes: export / import (same JSON format as the Windows version, so the file works on both)
     def export_notes(self):
@@ -1227,8 +1239,47 @@ class SearchScreen(Screen):
 Builder.load_file(os.path.join(BASE, "main.kv"))
 
 
+class UnlockBanner(FloatLayout):
+    """Small in-app banner shown at the top when an achievement unlocks while the app is open."""
+
+    def __init__(self, title, text, **kw):
+        super().__init__(**kw)
+        self.size_hint = (None, None)
+        self.size = (Window.width - dp(24), dp(90))
+        self.pos = (dp(12), Window.height - self.height - dp(60))
+        with self.canvas.before:
+            Color(0.05, 0.07, 0.12, 0.97)
+            self._bg = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(12)])
+        self.bind(pos=self._sync, size=self._sync)
+        lbl = Label(markup=True,
+                    text=f"[b]{title}[/b]\n{text}",
+                    color=(0.96, 0.73, 0.26, 1),
+                    font_size=sp(13),
+                    halign="center",
+                    valign="middle",
+                    size_hint=(0.9, 0.8),
+                    pos_hint={"center_x": 0.5, "center_y": 0.5})
+        lbl.bind(size=lambda instance, value: setattr(instance, "text_size", value))
+        self.add_widget(lbl)
+
+    def _sync(self, *_args):
+        self._bg.pos = self.pos
+        self._bg.size = self.size
+
+    def show(self, duration=4.0):
+        Window.add_widget(self)
+        Clock.schedule_once(lambda dt: self.dismiss(), duration)
+
+    def dismiss(self, *_args):
+        if self.parent:
+            Window.remove_widget(self)
+
 class RACompanionApp(App):
     title = "RA Companion"
+    safe_left = NumericProperty(0)
+    safe_top = NumericProperty(0)
+    safe_right = NumericProperty(0)
+    safe_bottom = NumericProperty(0)
     # Colors of the current skin (rgba). main.kv uses them as `app.c_card`... so a skin change is applied immediately everywhere.
     c_bg = ListProperty([0.059, 0.078, 0.125, 1])
     c_card = ListProperty([0.102, 0.129, 0.200, 1])
@@ -1261,10 +1312,23 @@ class RACompanionApp(App):
         if os.path.exists(os.path.join(BASE, "icon.png")):
             self.icon = os.path.join(BASE, "icon.png")
         Logger.info("RA: data folder: %s", self.user_data_dir)
+        cache_dir = os.path.join(self.user_data_dir, "img_cache")
+        os.makedirs(cache_dir, exist_ok=True)
+        try:
+            files = os.listdir(cache_dir)
+        except OSError as exc:
+            files = []
+            Logger.error("RA: cannot list cache dir: %r", exc)
+        Logger.info("RA: img_cache=%s files=%d", cache_dir, len(files))
         sm = ScreenManager()
         for screen in self._make_screens():
             sm.add_widget(screen)
         Window.bind(on_keyboard=self._on_keyboard)
+        def apply_safe_area(*_args):
+            self.safe_left, self.safe_top, self.safe_right, self.safe_bottom = iosutil.safe_area()
+            Logger.info("RA: safe area l=%s t=%s r=%s b=%s", self.safe_left, self.safe_top, self.safe_right, self.safe_bottom)
+        Clock.schedule_once(apply_safe_area, 0)
+        Window.bind(size=apply_safe_area)
         return sm
 
     def _load_settings(self):
@@ -1340,16 +1404,23 @@ class RACompanionApp(App):
 
     # ---- notifications ---------------------------------------------------
     def notify_unlocks(self, items, who=None):
-        """One status-bar notification per new achievement (at most 5, then a summary)."""
+        """One notification per new achievement (at most 5, then a summary)."""
         if not items or not self.cfg.get("notify", True):
             return
         title = tr("f_toast", u=who) if who else tr("toast")
         channel = (tr("notif_channel"), tr("notif_channel_desc"))
         for a in items[:5]:
+            text = f"{a.get('Title', '')} (+{a.get('Points', 0)})"
+            if kivy.utils.platform == "ios":
+                UnlockBanner(title, text).show()
             nid = zlib.crc32(f"{who}:{a.get('ID')}".encode()) & 0x7FFFFFFF
-            notify.send(title, f"{a.get('Title', '')} (+{a.get('Points', 0)})", nid, *channel)
+            notify.send(title, text, nid, *channel)
         if len(items) > 5:
-            notify.send(title, tr("more_unlocks", n=len(items) - 5), zlib.crc32(f"{who}:more".encode()) & 0x7FFFFFFF, *channel)
+            text = tr("more_unlocks", n=len(items) - 5)
+            if kivy.utils.platform == "ios":
+                UnlockBanner(title, text).show()
+            nid = zlib.crc32(f"{who}:more".encode()) & 0x7FFFFFFF
+            notify.send(title, text, nid, *channel)
 
     # ---- background polling while the app is paused -------------------------
     def _start_background_poll(self):
