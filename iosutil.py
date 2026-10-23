@@ -29,6 +29,7 @@ def device_language():
         print(f"[iosutil] language lookup failed: {exc!r}", flush=True)
         return ""
 
+
 def clipboard_copy(text):
     """Put `text` in the iOS system pasteboard (falls back to Kivy's clipboard)."""
     text = str(text or "")
@@ -71,3 +72,18 @@ def clipboard_paste():
         print(f"[iosutil] kivy paste failed: {exc!r}", flush=True)
         return ""
 
+
+def open_url(url):
+    """Open a web address in Safari (iOS). Returns True when the request was handed to the system."""
+    if platform != "ios":
+        return False
+    try:
+        from pyobjus import autoclass, objc_str
+        nsurl = autoclass("NSURL").URLWithString_(objc_str(str(url)))
+        app = autoclass("UIApplication").sharedApplication()
+        options = autoclass("NSDictionary").dictionary()
+        app.openURL_options_completionHandler_(nsurl, options, None)
+        return True
+    except Exception as exc:
+        print(f"[iosutil] open_url failed: {exc!r}", flush=True)
+        return False

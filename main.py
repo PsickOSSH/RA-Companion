@@ -1000,7 +1000,8 @@ class SettingsScreen(Screen):
         def job():
             url, version = "", ""
             try:
-                res = updater.check(appinfo.UPDATE_REPO, appinfo.__version__)
+                ext = ".ipa" if kivy.utils.platform == "ios" else ".apk"
+                res = updater.check(appinfo.UPDATE_REPO, appinfo.__version__, ext=ext)
                 if res["status"] == "newer":
                     msg, url, version = tr("upd_available", v=res["version"]), res["url"], res["version"]
                 elif res["status"] == "uptodate":

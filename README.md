@@ -22,7 +22,7 @@ progress live. It comes in three versions that look and behave the same way:
 
 - **Windows**: a desktop application (Python + Tkinter, also available as a ready-to-use `.exe`).
 - **Android**: a phone application (Python + Kivy, installed from an `.apk`).
-- **iOS** (experimental): the same Kivy interface, built with [kivy-ios](https://github.com/kivy/kivy-ios) and Xcode
+- **iOS**: the same Kivy interface, built with [kivy-ios](https://github.com/kivy/kivy-ios) and Xcode
   (see *Building for iOS* below).
 
 ## Features
@@ -45,8 +45,8 @@ progress live. It comes in three versions that look and behave the same way:
 - **Automatic refresh** with a configurable interval (`Auto` button + seconds) or manual refresh
 - **6 interface languages** (English, Français, Español, Deutsch, Italiano, Português), a separate **translation
   language**, and **skins** (default, dark and light are included; a skin file works on all versions)
-- **Update check** in the settings: looks for a newer `.exe` (Windows) or `.apk` (Android) in the GitHub releases
-- **iOS support** (experimental): safe-area margins for the notch and home indicator, in-app banner when an
+- **Update check** in the settings: looks for a newer `.exe` (Windows), `.apk` (Android) or `.ipa` (iOS) in the GitHub releases
+- **iOS support**: safe-area margins for the notch and home indicator, in-app banner when an
   achievement unlocks while the app is open, system notifications when the app has just been sent to the background,
   native clipboard (copy / paste / select all) and automatic detection of the device language.
 
@@ -73,8 +73,9 @@ An update is installed over the previous version only if the `.apk` was signed w
 
 ### iOS
 
-The iOS version is not distributed as a ready-to-use file yet: it has to be built from the source with Xcode
-(see *Building for iOS* below).
+The iOS version is not distributed through the App Store. Either build it from the source with Xcode (see
+*Building → iOS*), or install the unsigned `.ipa` from the release with
+[AltStore Classic](https://altstore.io) (free Apple ID, to be refreshed every 7 days).
 
 ### From the source code
 
@@ -88,18 +89,23 @@ To try the Android / iOS interface on a PC: `pip install kivy certifi`, then `py
 
 ## Project layout
 
-All versions live in the same repository and share the API, skins and update code.
+All versions live in the same repository and share the API, skins and update code. Android and iOS use the same
+Kivy interface; only a few files are specific to one of them.
 
-| Windows only | Android only | Shared |
-|---|---|---|
-| `ra_companion.py` entry point | `main.py` + `main.kv` screens | `ra_api.py` RetroAchievements Web API |
-| `app.py` window and logic | `features.py` logic, notes, duel, group | `utils.py` formatting, sorting |
-| `widgets.py` rounded widgets | `storage.py`, `themes.py` | `config.py` paths and constants |
-| `desktop_texts.py` texts | `uitext.py`, `mobile_i18n.py` texts | `i18n.py` translations |
-| `notes_io.py` notes export / import | `notify.py`, `androidutil.py` system access | `translator.py` translation |
-| `build-exe.bat`, `docs/logo.ico` | `layoututil.py`, `buildozer.spec`, `docs/icon.png`, `fonts/` | `updater.py`, `appinfo.py` update check, version |
-| | `iosutil.py` iOS safe areas, language, clipboard | `imgcache.py` persistent image cache |
-| | | `skins/` visual themes |
+| Windows only | Android and iOS (Kivy) | Android only | iOS only | Shared |
+|---|---|---|---|---|
+| `ra_companion.py` entry point | `main.py` + `main.kv` screens | `androidutil.py` system access (files, links) | `iosutil.py` safe areas, device language, clipboard | `ra_api.py` RetroAchievements Web API |
+| `app.py` window and logic | `features.py` logic, notes, duel, group | `buildozer.spec` APK build settings | | `utils.py` formatting, sorting, hardcore median helpers |
+| `widgets.py` rounded widgets | `storage.py`, `themes.py` | `docs/icon.png` app icon | | `config.py` paths and constants |
+| `desktop_texts.py` texts | `uitext.py`, `mobile_i18n.py` texts | | | `i18n.py` translations |
+| `notes_io.py` notes export / import | `notify.py` notifications (Android and iOS code paths) | | | `translator.py` translation |
+| `build-exe.bat`, `docs/logo.ico` | `layoututil.py`, `fonts/` | | | `updater.py`, `appinfo.py` update check, version |
+| | | | | `imgcache.py` persistent image cache |
+| | | | | `medians.py` hardcore median unlock times (cached for a day) |
+| | | | | `skins/` visual themes |
+
+The iOS app is built outside the repository with kivy-ios and Xcode (see *Building → iOS*), from a copy of the
+Kivy files listed above.
 
 Other folders: `docs/` (logo and screenshots of this README), `tests/` (unit tests of the logic).
 
@@ -219,7 +225,7 @@ After changing `android.ndk` or `p4a.branch`, delete the `.buildozer/` folder of
 
 Keep the signing key: without it, a new `.apk` cannot replace the installed one.
 
-### iOS (experimental)
+### iOS
 
 The iOS version is built with [kivy-ios](https://github.com/kivy/kivy-ios) and Xcode. It was tested on an
 Intel Mac with macOS Ventura 13.7 and Xcode 15.2, deploying to an iPhone 11.
@@ -257,7 +263,7 @@ or the Windows files):
 mkdir -p ~/RA-Companion-iOS-app
 cd ~/RA-Companion
 cp main.py main.kv features.py storage.py themes.py uitext.py mobile_i18n.py notify.py \
-   androidutil.py layoututil.py ra_api.py utils.py config.py i18n.py translator.py \
+   androidutil.py layoututil.py ra_api.py utils.py medians.py config.py i18n.py translator.py \
    updater.py appinfo.py iosutil.py imgcache.py ~/RA-Companion-iOS-app/
 cp -R skins fonts ~/RA-Companion-iOS-app/
 ```
@@ -289,6 +295,61 @@ toolchain update racompanion-ios
 
 and press **Run** again in Xcode.
 
+**8. Export an unsigned `.ipa` (for AltStore or other sideloading tools)**
+
+A free Apple account cannot export a signed `.ipa` from Xcode (*Product → Archive → Distribute App* needs the paid
+Apple Developer Program). AltStore signs the app itself with your Apple ID when it installs it, so an **unsigned**
+`.ipa` is enough. Build the app without code signing from the command line:
+
+```bash
+rm -rf "$HOME/kivy-ios-build/ipa-build"
+
+xcodebuild \
+  -project racompanion-ios/RA\ Companion.xcodeproj \
+  -configuration Debug \
+  -sdk iphoneos \
+  -destination 'generic/platform=iOS' \
+  CONFIGURATION_BUILD_DIR="$HOME/kivy-ios-build/ipa-build" \
+  CODE_SIGN_IDENTITY="" \
+  CODE_SIGNING_REQUIRED=NO \
+  CODE_SIGNING_ALLOWED=NO \
+  build
+```
+
+Run it from `~/kivy-ios-build` and wait for `** BUILD SUCCEEDED **`. Then wrap the `.app` in a `Payload` folder and
+zip it as an `.ipa`:
+
+```bash
+(
+  set -e
+
+  APP="$(find "$HOME/kivy-ios-build/ipa-build" \
+    -maxdepth 1 -type d -name '*.app' -print -quit)"
+
+  if [ -z "$APP" ]; then
+    echo "No .app found: check that the build succeeded."
+    exit 1
+  fi
+
+  WORK="$(mktemp -d)"
+  mkdir "$WORK/Payload"
+  ditto "$APP" "$WORK/Payload/$(basename "$APP")"
+
+  mkdir -p "$HOME/Desktop/RA-Companion-export"
+  cd "$WORK"
+
+  ditto -c -k --keepParent Payload \
+    "$HOME/Desktop/RA-Companion-export/RA-Companion.ipa"
+
+  echo "IPA created:"
+  ls -lh "$HOME/Desktop/RA-Companion-export/RA-Companion.ipa"
+)
+```
+
+The file is `RA-Companion.ipa` in `RA-Companion-export` on the Desktop. Transfer it to the iPhone and import it
+with the **+** button of *My Apps* in AltStore Classic. With a free Apple ID, the signature expires after 7 days
+and the app has to be refreshed from AltStore.
+
 **Known limitations on iOS**
 
 - Notifications are shown as an in-app banner while the app is open; system notifications appear only when
@@ -300,8 +361,8 @@ and press **Run** again in Xcode.
 ## Publishing a release
 
 1. Change `__version__` in `appinfo.py` (for example `1.0.1`; `1.0` and `1.0.0` are the same version).
-2. Build the `.exe` and the `.apk`.
-3. Create a GitHub release whose tag is the new version (`v1.0.1`) and attach both files.
+2. Build the `.exe`, the `.apk` and, if you want it, the unsigned `.ipa` (see *Building → iOS*, step 8).
+3. Create a GitHub release whose tag is the new version (`v1.0.1`) and attach the files.
 
 The in-app update check compares the installed version with the newest release that contains a file of its kind.
 `UPDATE_REPO` in `appinfo.py` is the repository it looks at (it must be public).
@@ -364,6 +425,11 @@ Every variable is documented in `skins/default.py`. When you add a skin variable
   System notifications appear when the app has just been sent to the background.
 - **iOS: the device language is not detected:** check that `iosutil.py` is present in the app folder and
   that `uitext.py` calls `iosutil.device_language()`.
+- **iOS: AltStore refuses the `.ipa` (“not a standard .ipa”):** the archive must contain `Payload/<name>.app` at
+  its root. Check it with `unzip -l RA-Companion.ipa`, and make sure the `.app` comes from an `iphoneos` build, not
+  from the simulator.
+- **iOS: the app stops opening after a week:** the signature of a free Apple ID lasts 7 days; refresh the app from
+  AltStore.
 - **Translation unavailable:** the message in the status bar names the cause (for example `HTTP 429`: the service
   limits the requests, retry a minute later by pressing the translation button again).
 - **The update does not install:** the `.apk` must be signed with the same key as the installed one.
