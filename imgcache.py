@@ -6,6 +6,7 @@ downloaded is not requested again for two minutes, so a missing badge does not h
 """
 
 import hashlib
+import logging
 import os
 import re
 import threading
@@ -13,9 +14,9 @@ import time
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 
-from kivy.logger import Logger
-
 from ra_api import http_get
+
+Logger = logging.getLogger("imgcache")
 
 FOREVER = ("/Badge/", "/Images/")
 MAX_AGE = 7 * 24 * 3600

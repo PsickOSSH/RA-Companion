@@ -18,6 +18,7 @@ import skins
 from config import API_KEY_URL, GAMES_FILE, GAMES_TTL, HOME, LOGO_URLS, MEDIA, NOTES_FILE, REPO_URL, SITE_URL, load_cfg, read_json, save_cfg, write_json
 from i18n import LANGS, REFRESH_LABELS, SORT_ICONS, SORT_IDS, T, UI_LANGS, resolve_ui, sort_label, tr_lang
 from ra_api import call_api, http_get
+import medians
 import imgcache
 from utils import date_of, fmt_date, fmt_int, is_any, is_counted, is_hc, is_missable, norm, sort_achievements
 from widgets import Bar, Card, RoundBtn, SLabel, SYMF, TRANSPARENT_KEY, Tip, has_sym, is_sym, setup_ttk_styles
@@ -825,6 +826,7 @@ class App(tk.Tk):
             game = fgame = group = None
             if gid:
                 game = call_api("API_GetGameInfoAndUserProgress.php", key, u=user, g=gid)
+                medians.apply(game, medians.fetch(call_api, key, gid, os.path.join(HOME, ".ra_companion_cache", "medians")))
                 self.img(game.get("ImageIcon", ""))
                 paths = []
                 for a in (game.get("Achievements") or {}).values():

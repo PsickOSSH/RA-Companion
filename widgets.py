@@ -9,6 +9,30 @@ from tkinter import ttk
 from skins import active as skin
 
 
+def screen_bounds(x, y):
+    """(left, top, right, bottom) of the work area of the monitor that contains the point (x, y), or None if unknown."""
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class MonitorInfo(ctypes.Structure):
+            _fields_ = [("cbSize", wintypes.DWORD), ("rcMonitor", wintypes.RECT), ("rcWork", wintypes.RECT),
+                        ("dwFlags", wintypes.DWORD)]
+        user32 = ctypes.windll.user32
+        user32.MonitorFromPoint.argtypes = [wintypes.POINT, wintypes.DWORD]
+        user32.MonitorFromPoint.restype = ctypes.c_void_p
+        user32.GetMonitorInfoW.argtypes = [ctypes.c_void_p, ctypes.POINTER(MonitorInfo)]
+        monitor = user32.MonitorFromPoint(wintypes.POINT(int(x), int(y)), 2)
+        info = MonitorInfo()
+        info.cbSize = ctypes.sizeof(MonitorInfo)
+        if monitor and user32.GetMonitorInfoW(monitor, ctypes.byref(info)):
+            r = info.rcWork
+            return r.left, r.top, r.right, r.bottom
+    except Exception:
+        pass
+    return None
+
+
 class Tip:
     """Tooltip shown when the mouse rests on a widget; `fn` returns the (possibly dynamic) text."""
 
@@ -56,7 +80,10 @@ class Tip:
             x = self.w.winfo_rootx()
             y = self.w.winfo_rooty() + self.w.winfo_height() + 6
             tw.update_idletasks()
-            x = max(0, min(x, self.w.winfo_screenwidth() - tw.winfo_width() - 4))
+            left, top, right, bottom = screen_bounds(x, y) or (0, 0, self.w.winfo_screenwidth(), self.w.winfo_screenheight())
+            x = max(left, min(x, right - tw.winfo_width() - 4))
+            if y + tw.winfo_height() > bottom:
+                y = self.w.winfo_rooty() - tw.winfo_height() - 6
             tw.geometry(f"+{x}+{y}")
         except Exception:
             self.tw = None

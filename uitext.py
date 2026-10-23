@@ -36,20 +36,26 @@ ICON_STAR_EMPTY = "\u2606"  # softcore points
 # Texts added after mobile_i18n.py was written (same 6 languages).
 # ---------------------------------------------------------------------------
 SORT_IDS = ["unlocked_first", "disp_asc", "disp_desc", "awd_desc", "awd_asc", "pts_desc", "pts_asc",
-            "title_asc", "title_desc", "type_asc", "type_desc"]
+            "title_asc", "title_desc", "type_asc", "type_desc", "med_asc", "med_desc"]
 _SORT = {
     "en": ["Sort order", "Unlocked first", "Display order: first", "Display order: last", "Earned by most players", "Earned by fewest players",
-           "Most points", "Fewest points", "Title A-Z", "Title Z-A", "Type ascending", "Type descending"],
+           "Most points", "Fewest points", "Title A-Z", "Title Z-A", "Type ascending", "Type descending",
+        "Hardcore median (shortest)", "Hardcore median (longest)"],
     "fr": ["Ordre de tri", "Débloqués d'abord", "Ordre d'affichage (début)", "Ordre d'affichage (fin)", "Obtenu par le plus de joueurs", "Obtenu par le moins de joueurs",
-           "Plus de points", "Moins de points", "Titre A-Z", "Titre Z-A", "Type croissant", "Type décroissant"],
+           "Plus de points", "Moins de points", "Titre A-Z", "Titre Z-A", "Type croissant", "Type décroissant",
+        "Médiane hardcore (la plus courte)", "Médiane hardcore (la plus longue)"],
     "es": ["Orden", "Desbloqueados primero", "Orden de visualización (inicio)", "Orden de visualización (final)", "Obtenido por más jugadores", "Obtenido por menos jugadores",
-           "Más puntos", "Menos puntos", "Título A-Z", "Título Z-A", "Tipo ascendente", "Tipo descendente"],
+           "Más puntos", "Menos puntos", "Título A-Z", "Título Z-A", "Tipo ascendente", "Tipo descendente",
+        "Mediana hardcore (la más corta)", "Mediana hardcore (la más larga)"],
     "de": ["Sortierung", "Freigeschaltete zuerst", "Anzeigereihenfolge (Anfang)", "Anzeigereihenfolge (Ende)", "Von den meisten erreicht", "Von den wenigsten erreicht",
-           "Meiste Punkte", "Wenigste Punkte", "Titel A-Z", "Titel Z-A", "Typ aufsteigend", "Typ absteigend"],
+           "Meiste Punkte", "Wenigste Punkte", "Titel A-Z", "Titel Z-A", "Typ aufsteigend", "Typ absteigend",
+        "Hardcore-Median (kürzester)", "Hardcore-Median (längster)"],
     "it": ["Ordinamento", "Sbloccati prima", "Ordine di visualizzazione (inizio)", "Ordine di visualizzazione (fine)", "Ottenuto da più giocatori", "Ottenuto da meno giocatori",
-           "Più punti", "Meno punti", "Titolo A-Z", "Titolo Z-A", "Tipo crescente", "Tipo decrescente"],
+           "Più punti", "Meno punti", "Titolo A-Z", "Titolo Z-A", "Tipo crescente", "Tipo decrescente",
+        "Mediana hardcore (la più breve)", "Mediana hardcore (la più lunga)"],
     "pt": ["Ordenação", "Desbloqueadas primeiro", "Ordem de exibição (início)", "Ordem de exibição (fim)", "Obtida por mais jogadores", "Obtida por menos jogadores",
-           "Mais pontos", "Menos pontos", "Título A-Z", "Título Z-A", "Tipo ascendente", "Tipo descendente"],
+           "Mais pontos", "Menos pontos", "Título A-Z", "Título Z-A", "Tipo ascendente", "Tipo descendente",
+        "Mediana hardcore (a mais curta)", "Mediana hardcore (a mais longa)"],
 }
 
 _EXTRA_KEYS = ["hc_on", "hc_off", "hcsc", "d_note_title", "d_note_hint", "d_note_saved", "s_skin", "s_notes", "s_notes_export",

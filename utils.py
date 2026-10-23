@@ -75,6 +75,9 @@ def sort_achievements(ach, mode, hc_only=False):
     if mode == "unlocked_first":
         return sorted(ach, key=lambda a: (not is_counted(a, hc_only), int(a.get("DisplayOrder", 0) or 0)))
     key, _, direction = mode.rpartition("_")
+    if key == "med":
+        sign = -1 if direction == "desc" else 1
+        return sorted(ach, key=lambda a: (median_unlock_hc(a) is None, sign * (median_unlock_hc(a) or 0)))
     if key == "disp":
         k = lambda a: int(a.get("DisplayOrder", 0) or 0)
     elif key == "awd":
@@ -86,3 +89,50 @@ def sort_achievements(ach, mode, hc_only=False):
     else:
         k = lambda a: (not (a.get("type") or a.get("Type")), str(a.get("type") or a.get("Type") or ""))
     return sorted(ach, key=k, reverse=direction == "desc")
+
+# ---------------------------------------------------------------------------
+# Median times from API_GetGameProgression.php (hardcore only)
+# ---------------------------------------------------------------------------
+# The API also returns "standard" medians (MedianTimeToUnlock, MedianTimeToBeat, MedianTimeToComplete). They are ignored on
+# purpose: softcore allows save states and other shortcuts, so only the hardcore values describe the real effort.
+
+
+def _seconds(value):
+    """Positive number of seconds from an API value, or None when it is missing, zero or not a number."""
+    try:
+        s = float(value)
+    except (TypeError, ValueError):
+        return None
+    return s if s > 0 else None
+
+
+def median_unlock_hc(a):
+    """Median time (seconds) the hardcore players needed to unlock this achievement, or None if the API has no value."""
+    return _seconds(a.get("MedianTimeToUnlockHardcore"))
+
+
+def median_beat_hc(game):
+    """Median time (seconds) the hardcore players needed to beat the game, or None."""
+    return _seconds(game.get("MedianTimeToBeatHardcore"))
+
+
+def median_master(game):
+    """Median time (seconds) to master the game. A mastery is earned in hardcore, so this value is a hardcore one."""
+    return _seconds(game.get("MedianTimeToMaster"))
+
+
+def fmt_duration(seconds):
+    """Format seconds as '45 s', '4 min 34 s', '5 h 12 min' or '134 h'. Empty string when the value is unknown."""
+    s = _seconds(seconds)
+    if s is None:
+        return ""
+    s = int(round(s))
+    if s < 60:
+        return f"{s} s"
+    minutes, sec = divmod(s, 60)
+    if minutes < 60:
+        return f"{minutes} min {sec:02d} s"
+    hours, minutes = divmod(minutes, 60)
+    if hours >= 100:
+        return f"{hours} h"
+    return f"{hours} h {minutes:02d} min" if minutes else f"{hours} h"

@@ -35,6 +35,7 @@ import iosutil
 import appinfo
 import updater
 import features
+import medians
 import imgcache
 import layoututil
 import notify
@@ -517,6 +518,8 @@ class ProfileScreen(Screen):
                 raise ValueError(tr("err_resp"))
             gid = forced or summary.get("LastGameID") or (summary.get("LastGame") or {}).get("ID")
             game = call_api("API_GetGameInfoAndUserProgress.php", key, u=user, g=gid) if gid else None
+            if game:
+                medians.apply(game, medians.fetch(call_api, key, gid, os.path.join(App.get_running_app().user_data_dir, "medians")))
             friend_game = None
             if friend and gid:
                 try:
