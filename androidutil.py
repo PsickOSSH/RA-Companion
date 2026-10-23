@@ -12,6 +12,13 @@ _bound = False
 
 
 def open_url(url):
+    if platform == "ios":
+        try:
+            import iosutil
+            if iosutil.open_url(url):
+                return True
+        except Exception as e:
+            print("open_url: iOS failed:", e)
     if platform == "android":
         try:
             from jnius import autoclass

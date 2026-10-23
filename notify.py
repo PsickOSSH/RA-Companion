@@ -1,4 +1,4 @@
-"""System (status-bar) notifications on Android through pyjnius. Every function is a no-op on a PC."""
+"""System notifications: Android through pyjnius, iOS through pyobjus (UserNotifications). No-op on a PC."""
 
 from kivy.utils import platform
 
@@ -6,12 +6,24 @@ CHANNEL_ID = "ra_unlocks"
 
 
 def available():
-    return platform == "android"
+    return platform in ("android", "ios")
+
+
+def _ios_center():
+    from pyobjus import autoclass
+    return autoclass("UNUserNotificationCenter").currentNotificationCenter()
 
 
 def request_permission():
-    """Android 13+ asks the user once for the right to show notifications."""
-    if not available():
+    """Android 13+ and iOS ask the user once for the right to show notifications."""
+    if platform == "ios":
+        try:
+            # 7 = alert (4) + sound (2) + badge (1)
+            _ios_center().requestAuthorizationWithOptions_completionHandler_(7, None)
+        except Exception as e:
+            print("notify: iOS permission request failed:", e)
+        return
+    if platform != "android":
         return
     try:
         from android.permissions import request_permissions
@@ -20,9 +32,28 @@ def request_permission():
         print("notify: permission request failed:", e)
 
 
-def send(title, text, notif_id=1, channel_name="Achievements", channel_desc=""):
-    """Show one notification (tapping it opens the app). Returns True when it was handed to Android."""
-    if not available():
+def _send_ios(title, text, notif_id, delay=1.0):
+    try:
+        from pyobjus import autoclass, objc_str
+        content = autoclass("UNMutableNotificationContent").alloc().init()
+        content.setTitle_(objc_str(str(title)))
+        content.setBody_(objc_str(str(text)))
+        trigger = autoclass("UNTimeIntervalNotificationTrigger").triggerWithTimeInterval_repeats_(float(delay), False)
+        request = autoclass("UNNotificationRequest").requestWithIdentifier_content_trigger_(
+            objc_str(f"ra_{notif_id}"), content, trigger)
+        _ios_center().addNotificationRequest_withCompletionHandler_(request, None)
+        print(f"notify: iOS notification scheduled in {delay}s", flush=True)
+        return True
+    except Exception as e:
+        print("notify: iOS notification failed:", e, flush=True)
+        return False
+
+
+def send(title, text, notif_id=1, channel_name="Achievements", channel_desc="", delay=1.0):
+    """Show one notification (tapping it opens the app). Returns True when it was handed to the system."""
+    if platform == "ios":
+        return _send_ios(title, text, notif_id, delay)
+    if platform != "android":
         return False
     try:
         from jnius import autoclass, cast

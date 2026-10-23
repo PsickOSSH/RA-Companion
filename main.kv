@@ -490,7 +490,7 @@
 
     BoxLayout:
         orientation: 'vertical'
-        padding: dp(10)
+        padding: dp(10) + app.safe_left, app.safe_top + dp(4), dp(10) + app.safe_right, app.safe_bottom + dp(2)
         spacing: dp(8)
 
         # ---- landscape: the cards are in a scrollable left column, tabs + lists on the right.
@@ -946,7 +946,7 @@
             size: self.size
     BoxLayout:
         orientation: 'vertical'
-        padding: dp(10)
+        padding: dp(10) + app.safe_left, app.safe_top + dp(4), dp(10) + app.safe_right, app.safe_bottom + dp(2)
         spacing: dp(8)
         BoxLayout:
             size_hint_y: None
@@ -1066,7 +1066,7 @@
             size: self.size
     BoxLayout:
         orientation: 'vertical'
-        padding: dp(16)
+        padding: dp(16) + app.safe_left, app.safe_top + dp(4), dp(16) + app.safe_right, app.safe_bottom + dp(2)
         spacing: dp(8)
         Label:
             text: tr('s_title')
@@ -1226,7 +1226,7 @@
             size: self.size
     BoxLayout:
         orientation: 'vertical'
-        padding: dp(12)
+        padding: dp(12) + app.safe_left, app.safe_top + dp(4), dp(12) + app.safe_right, app.safe_bottom + dp(2)
         spacing: dp(8)
         BoxLayout:
             size_hint_y: None

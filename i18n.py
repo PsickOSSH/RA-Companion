@@ -17,31 +17,38 @@ REFRESH_LABELS = {"fr": "Actualiser", "en": "Refresh", "es": "Actualizar", "de":
 
 
 SORT_IDS = ["unlocked_first", "disp_asc", "disp_desc", "awd_desc", "awd_asc", "pts_desc", "pts_asc",
-            "title_asc", "title_desc", "type_asc", "type_desc"]
+            "title_asc", "title_desc", "type_asc", "type_desc", "med_asc", "med_desc"]
 
 
 SORT_ICONS = {"unlocked_first": "🔓", "disp_asc": "↓1", "disp_desc": "↑1", "awd_desc": "👥", "awd_asc": "👥", "pts_desc": "🏅",
-              "pts_asc": "🏅", "title_asc": "A↓", "title_desc": "Z↓", "type_asc": "🏷", "type_desc": "🏷"}
+              "pts_asc": "🏅", "title_asc": "A↓", "title_desc": "Z↓", "type_asc": "🏷", "type_desc": "🏷",
+              "med_asc": "⏱", "med_desc": "⏱"}
 
 
 SORT_LABELS = {
  "fr": ["Ordre de tri", "Débloqué d'abord", "Ordre d'affichage (premier)", "Ordre d'affichage (dernier)", "Obtenu par (le plus)",
         "Obtenu par (le moins)", "Points (le plus)", "Points (le moins)", "Titre (A-Z)", "Titre (Z-A)",
-        "Type (ascendant)", "Type (descendant)"],
+        "Type (ascendant)", "Type (descendant)",
+        "Médiane hardcore (la plus courte)", "Médiane hardcore (la plus longue)"],
  "en": ["Sort order", "Unlocked first", "Display order (first)", "Display order (last)", "Earned by (most)", "Earned by (least)",
-        "Points (most)", "Points (least)", "Title (A-Z)", "Title (Z-A)", "Type (ascending)", "Type (descending)"],
+        "Points (most)", "Points (least)", "Title (A-Z)", "Title (Z-A)", "Type (ascending)", "Type (descending)",
+        "Hardcore median (shortest)", "Hardcore median (longest)"],
  "es": ["Orden", "Desbloqueados primero", "Orden de visualización (primero)", "Orden de visualización (último)", "Obtenido por (más)",
         "Obtenido por (menos)", "Puntos (más)", "Puntos (menos)", "Título (A-Z)", "Título (Z-A)",
-        "Tipo (ascendente)", "Tipo (descendente)"],
+        "Tipo (ascendente)", "Tipo (descendente)",
+        "Mediana hardcore (la más corta)", "Mediana hardcore (la más larga)"],
  "de": ["Sortierung", "Freigeschaltete zuerst", "Anzeigereihenfolge (erste zuerst)", "Anzeigereihenfolge (letzte zuerst)",
         "Erreicht von (meiste)", "Erreicht von (wenigste)", "Punkte (meiste)", "Punkte (wenigste)",
-        "Titel (A-Z)", "Titel (Z-A)", "Typ (aufsteigend)", "Typ (absteigend)"],
+        "Titel (A-Z)", "Titel (Z-A)", "Typ (aufsteigend)", "Typ (absteigend)",
+        "Hardcore-Median (kürzester)", "Hardcore-Median (längster)"],
  "it": ["Ordinamento", "Sbloccati prima", "Ordine di visualizzazione (primo)", "Ordine di visualizzazione (ultimo)",
         "Ottenuto da (più)", "Ottenuto da (meno)", "Punti (più)", "Punti (meno)", "Titolo (A-Z)",
-        "Titolo (Z-A)", "Tipo (crescente)", "Tipo (decrescente)"],
+        "Titolo (Z-A)", "Tipo (crescente)", "Tipo (decrescente)",
+        "Mediana hardcore (la più breve)", "Mediana hardcore (la più lunga)"],
  "pt": ["Ordenação", "Desbloqueadas primeiro", "Ordem de exibição (primeiro)", "Ordem de exibição (último)", "Obtida por (mais)",
         "Obtida por (menos)", "Pontos (mais)", "Pontos (menos)", "Título (A-Z)", "Título (Z-A)",
-        "Tipo (ascendente)", "Tipo (descendente)"],
+        "Tipo (ascendente)", "Tipo (descendente)",
+        "Mediana hardcore (a mais curta)", "Mediana hardcore (a mais longa)"],
 }
 
 
