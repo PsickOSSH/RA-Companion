@@ -12,9 +12,9 @@
       "tintColor": "#CC9900",
       "versions": [
         {
-          "version": "1.4",
+          "version": "1.5",
           "date": "2026-10-26",
-          "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v1.4/ra-companion-1.4.ipa",
+          "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v1.4/ra-companion-1.5.ipa",
           "size": 15000000,
           "localizedDescription": "Add iOS support"
         }

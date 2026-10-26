@@ -13,12 +13,14 @@ from kivy.animation import Animation
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.core.text import LabelBase
+from kivy.core.text import Label as CoreLabel
 from kivy.core.window import Window
 from kivy.graphics import Color, Rectangle, RoundedRectangle
 from kivy.lang import Builder
 from kivy.logger import Logger
 from kivy.metrics import dp, sp
 from kivy.properties import BooleanProperty, ListProperty, NumericProperty, StringProperty
+from kivy.uix.anchorlayout import AnchorLayout
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
@@ -1024,8 +1026,7 @@ class SettingsScreen(Screen):
 
     def test_notification(self):
         notify.request_permission()
-        if kivy.utils.platform == "ios":
-            UnlockBanner(tr("toast"), tr("notif_test")).show()
+        UnlockBanner(tr("toast"), tr("notif_test")).show()
         notify.send(tr("toast"), tr("notif_test"), 1, tr("notif_channel"), tr("notif_channel_desc"), delay=5)
 
     # ---- personal notes: export / import (same JSON format as the Windows version, so the file works on both)
@@ -1242,41 +1243,112 @@ class SearchScreen(Screen):
 
 Builder.load_file(os.path.join(BASE, "main.kv"))
 
+class UnlockBanner(BoxLayout):
+    """In-app banner with the layout of the Windows toast: badge, header, title, description, points.
+    Up to 4 are stacked from the top of the screen, each one stays 7 s, a tap closes it."""
+    _active = []
+    MAX_SHOWN = 4
 
-class UnlockBanner(FloatLayout):
-    """Small in-app banner shown at the top when an achievement unlocks while the app is open."""
+    def __init__(self, header, title, desc="", pts="", badge="", friend=False, **kw):
+        super().__init__(orientation="horizontal", size_hint=(None, None),
+                         padding=dp(12), spacing=dp(12), **kw)
+        app = App.get_running_app()
+        self._gone = False
+        self._ev = None
+        edge = app.c_info if friend else app.c_accent
 
-    def __init__(self, title, text, **kw):
-        super().__init__(**kw)
-        self.size_hint = (None, None)
-        self.size = (Window.width - dp(24), dp(90))
-        self.pos = (dp(12), Window.height - self.height - dp(60))
+        width = min(Window.width - dp(24), dp(520))
+        text_w = width - dp(24) - dp(6) - ((dp(52) + dp(12)) if badge else 0)
+
+        def fit(text, size, bold, max_lines):
+            """Height and number of lines the text really needs at this width (capped at max_lines)."""
+            one = CoreLabel(text="Ag", font_size=sp(size), bold=bold)
+            one.refresh()
+            line_h = one.texture.height
+            full = CoreLabel(text=text, font_size=sp(size), bold=bold, text_size=(text_w, None))
+            full.refresh()
+            lines = max(1, min(max_lines, round(full.texture.height / line_h)))
+            return lines * line_h + dp(4), lines
+
+        specs = [(header, 12, True, edge, 1), (title, 15, True, app.c_text, 2)]
+        if desc:
+            specs.append((desc, 12, False, app.c_muted, 5))
+        if pts:
+            specs.append((pts, 13, True, app.c_success, 1))
+        rows = []
+        for text, size, bold, color, max_lines in specs:
+            height, lines = fit(text, size, bold, max_lines)
+            rows.append((text, size, bold, color, height, lines))
+
+        col = BoxLayout(orientation="vertical", spacing=dp(1), size_hint=(1, None))
+        for text, size, bold, color, height, lines in rows:
+            lbl = Label(text=text, font_size=sp(size), bold=bold, color=color, halign="left", valign="middle",
+                        size_hint_y=None, height=height, max_lines=lines)
+            lbl.bind(size=lambda w, s: setattr(w, "text_size", s))
+            col.add_widget(lbl)
+        col.height = sum(r[4] for r in rows) + dp(1) * (len(rows) - 1)
+
+        self.width = width
+        self.height = max(col.height, dp(52)) + dp(24)
+        self.x = (Window.width - self.width) / 2
+        self.top = Window.height + self.height                       # starts above the screen
+
         with self.canvas.before:
-            Color(0.05, 0.07, 0.12, 0.97)
-            self._bg = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(12)])
+            Color(*edge)
+            self.edge = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(16)])
+            Color(*app.c_card)
+            self.fill = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(14)])
         self.bind(pos=self._sync, size=self._sync)
-        lbl = Label(markup=True,
-                    text=f"[b]{title}[/b]\n{text}",
-                    color=(0.96, 0.73, 0.26, 1),
-                    font_size=sp(13),
-                    halign="center",
-                    valign="middle",
-                    size_hint=(0.9, 0.8),
-                    pos_hint={"center_x": 0.5, "center_y": 0.5})
-        lbl.bind(size=lambda instance, value: setattr(instance, "text_size", value))
-        self.add_widget(lbl)
 
-    def _sync(self, *_args):
-        self._bg.pos = self.pos
-        self._bg.size = self.size
+        if badge:
+            holder = AnchorLayout(anchor_x="center", anchor_y="center", size_hint=(None, 1), width=dp(52))
+            holder.add_widget(Pic(url=badge, size_hint=(None, None), size=(dp(52), dp(52))))
+            self.add_widget(holder)
+        text_holder = AnchorLayout(anchor_x="left", anchor_y="center")
+        text_holder.add_widget(col)
+        self.add_widget(text_holder)
 
-    def show(self, duration=4.0):
+    def _sync(self, *_):
+        self.edge.pos, self.edge.size = self.pos, self.size
+        self.fill.pos = (self.x + dp(2), self.y + dp(2))
+        self.fill.size = (self.width - dp(4), self.height - dp(4))
+
+    @classmethod
+    def _restack(cls):
+        app = App.get_running_app()
+        y = Window.height - max(getattr(app, "safe_top", 0), dp(24)) - dp(8)
+        for b in cls._active:
+            Animation.cancel_all(b, "top")
+            Animation(top=y, d=0.25, t="out_cubic").start(b)
+            y -= b.height + dp(8)
+
+    def show(self, duration=7.0):
+        while len(UnlockBanner._active) >= self.MAX_SHOWN:
+            UnlockBanner._active[0].dismiss()
+        UnlockBanner._active.append(self)
         Window.add_widget(self)
-        Clock.schedule_once(lambda dt: self.dismiss(), duration)
+        UnlockBanner._restack()
+        self._ev = Clock.schedule_once(self.dismiss, duration)
 
-    def dismiss(self, *_args):
-        if self.parent:
-            Window.remove_widget(self)
+    def dismiss(self, *_):
+        if self._gone:
+            return
+        self._gone = True
+        if self._ev is not None:
+            self._ev.cancel()
+        if self in UnlockBanner._active:
+            UnlockBanner._active.remove(self)
+        UnlockBanner._restack()
+        Animation.cancel_all(self)
+        anim = Animation(top=Window.height + self.height, opacity=0, d=0.2)
+        anim.bind(on_complete=lambda *a: self.parent and Window.remove_widget(self))
+        anim.start(self)
+
+    def on_touch_down(self, touch):
+        if self.collide_point(*touch.pos):
+            self.dismiss()
+            return True
+        return super().on_touch_down(touch)
 
 class RACompanionApp(App):
     title = "RA Companion"
@@ -1284,6 +1356,7 @@ class RACompanionApp(App):
     safe_top = NumericProperty(0)
     safe_right = NumericProperty(0)
     safe_bottom = NumericProperty(0)
+    foreground = True
     # Colors of the current skin (rgba). main.kv uses them as `app.c_card`... so a skin change is applied immediately everywhere.
     c_bg = ListProperty([0.059, 0.078, 0.125, 1])
     c_card = ListProperty([0.102, 0.129, 0.200, 1])
@@ -1408,23 +1481,33 @@ class RACompanionApp(App):
 
     # ---- notifications ---------------------------------------------------
     def notify_unlocks(self, items, who=None):
-        """One notification per new achievement (at most 5, then a summary)."""
+        """One notification per new achievement (at most 5, then a summary).
+        App open: in-app banner. App in the background: system notification."""
         if not items or not self.cfg.get("notify", True):
             return
         title = tr("f_toast", u=who) if who else tr("toast")
         channel = (tr("notif_channel"), tr("notif_channel_desc"))
         for a in items[:5]:
             text = f"{a.get('Title', '')} (+{a.get('Points', 0)})"
-            if kivy.utils.platform == "ios":
-                UnlockBanner(title, text).show()
-            nid = zlib.crc32(f"{who}:{a.get('ID')}".encode()) & 0x7FFFFFFF
-            notify.send(title, text, nid, *channel)
+            if self.foreground:
+                desc = str(a.get("Description", "") or "")
+                if self.cfg.get("translate", False):
+                    desc = cached_translation(desc)
+                badge = a.get("BadgeName", "")
+                Clock.schedule_once(
+                    lambda dt, a=a, desc=desc, badge=badge: UnlockBanner(
+                        title, str(a.get("Title", "")), desc, f"+{a.get('Points', 0)} pts",
+                        f"{MEDIA}/Badge/{badge}.png" if badge else "", bool(who)).show(), 0)
+            else:
+                nid = zlib.crc32(f"{who}:{a.get('ID')}".encode()) & 0x7FFFFFFF
+                notify.send(title, text, nid, *channel)
         if len(items) > 5:
             text = tr("more_unlocks", n=len(items) - 5)
-            if kivy.utils.platform == "ios":
-                UnlockBanner(title, text).show()
-            nid = zlib.crc32(f"{who}:more".encode()) & 0x7FFFFFFF
-            notify.send(title, text, nid, *channel)
+            if self.foreground:
+                Clock.schedule_once(lambda dt, text=text: UnlockBanner(title, text).show(), 0)
+            else:
+                nid = zlib.crc32(f"{who}:more".encode()) & 0x7FFFFFFF
+                notify.send(title, text, nid, *channel)
 
     # ---- background polling while the app is paused -------------------------
     def _start_background_poll(self):
@@ -1479,11 +1562,13 @@ class RACompanionApp(App):
         return False
 
     def on_pause(self):
+        self.foreground = False
         self.flush()
         self._start_background_poll()
         return True   # keep the app alive when it goes to the background
 
     def on_resume(self):
+        self.foreground = True
         self._stop_background_poll()
         if self.root.current == "profile":
             self.root.get_screen("profile").refresh()
