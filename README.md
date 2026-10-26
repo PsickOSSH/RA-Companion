@@ -46,9 +46,9 @@ progress live. It comes in three versions that look and behave the same way:
 - **6 interface languages** (English, Français, Español, Deutsch, Italiano, Português), a separate **translation
   language**, and **skins** (default, dark and light are included; a skin file works on all versions)
 - **Update check** in the settings: looks for a newer `.exe` (Windows), `.apk` (Android) or `.ipa` (iOS) in the GitHub releases
-- **iOS support**: safe-area margins for the notch and home indicator, in-app banner when an
-  achievement unlocks while the app is open, system notifications when the app has just been sent to the background,
-  native clipboard (copy / paste / select all) and automatic detection of the device language.
+- **iOS support** (experimental): safe-area margins for the notch and home indicator, native clipboard copy/paste/select all and automatic detection of the device language
+- **In-app unlock banner** (Android and iOS): when the app is open, a new achievement shows a banner with its badge, title, description, points and a gold outline for your unlocks or a blue one for a friend's; up to 4 banners are stacked, a tap dismisses them, and the height adapts to the text
+- **System notifications** (Android and iOS): when the app has just been sent to the background, unlocks are shown as system notifications instead
 
 ## Install
 
@@ -73,9 +73,22 @@ An update is installed over the previous version only if the `.apk` was signed w
 
 ### iOS
 
-The iOS version is not distributed through the App Store. Either build it from the source with Xcode (see
-*Building → iOS*), or install the unsigned `.ipa` from the release with
-[AltStore Classic](https://altstore.io) (free Apple ID, to be refreshed every 7 days).
+The iOS version is not distributed through the App Store.
+
+#### Option A: Sideloading source (Recommended - SideStore, AltStore Classic, Feather)
+You can add the project repository source directly to your sideloading app to install and receive one-tap updates:
+
+1. Copy the source URL: https://raw.githubusercontent.com/PsickOSSH/RA-Companion/main/apps.json
+2. Open **SideStore** or **AltStore Classic**, go to **Sources**, tap **+** (Add Source), and paste the URL.
+3. Find **RA Companion** in the list and tap **INSTALL** (or **UPDATE** when a new release is available).
+
+#### Option B: Manual IPA installation
+Download the unsigned `.ipa` from the latest GitHub release, transfer it to your iPhone, and import it using the `+` button in AltStore Classic or SideStore.
+
+#### Option C: Build from source
+Build it from source using a Mac with Xcode and `kivy-ios` (see [Building for iOS](#ios) below).
+
+> **Note:** When using a free Apple ID, the developer certificate signature expires after 7 days and the app must be refreshed periodically from SideStore or AltStore. AltStore PAL (EU DMA version) is not supported as it requires Apple-notarized marketplace distribution.
 
 ### From the source code
 
@@ -352,17 +365,19 @@ and the app has to be refreshed from AltStore.
 
 **Known limitations on iOS**
 
-- Notifications are shown as an in-app banner while the app is open; system notifications appear only when
-  the app has just been sent to the background. Reliable background notifications would require push
-  notifications through APNs and a paid Apple developer account.
+- While the app is open, unlocks are shown as an in-app banner; system notifications appear only when the app has just been sent to the background. Reliable background notifications would require push notifications through APNs and a paid Apple developer account.
 - The image cache works, but reinstalling the app from Xcode can reset its data folder.
 - The long-press copy/paste menu relies on Kivy's built-in bubble, which can be unreliable on iOS.
 
-## Publishing a release
+### Publishing a release
 
-1. Change `__version__` in `appinfo.py` (for example `1.0.1`; `1.0` and `1.0.0` are the same version).
-2. Build the `.exe`, the `.apk` and, if you want it, the unsigned `.ipa` (see *Building → iOS*, step 8).
-3. Create a GitHub release whose tag is the new version (`v1.0.1`) and attach the files.
+1. Change `VERSION` in `appinfo.py` (for example `1.5`).
+2. Build the `.exe`, the `.apk` and the unsigned `.ipa` (see [Building for iOS](#ios), step 8).
+3. Create a GitHub release tagged with the new version (`v1.5`) and attach the binaries.
+4. Update `apps.json` at the root of the repository:
+   - Add the new version entry at the top of the `versions` array.
+   - Update `downloadURL`, `size` (exact byte count), `date`, and `localizedDescription`.
+   - Commit and push `apps.json` to `main` so sideloading apps detect the update.
 
 The in-app update check compares the installed version with the newest release that contains a file of its kind.
 `UPDATE_REPO` in `appinfo.py` is the repository it looks at (it must be public).
@@ -421,7 +436,7 @@ Every variable is documented in `skins/default.py`. When you add a skin variable
 - **iOS: the app does not build (`PhaseScriptExecution failed`)**: make sure `build/` and `dist/` are not
   inside the app folder given to `toolchain create`. Build the libraries in a separate folder
   (see *Building for iOS*).
-- **iOS: no notification while the app is open:** this is expected; iOS shows the in-app banner instead.
+- Android/iOS no notification while the app is open: this is expected; the app shows the in-app banner instead.
   System notifications appear when the app has just been sent to the background.
 - **iOS: the device language is not detected:** check that `iosutil.py` is present in the app folder and
   that `uitext.py` calls `iosutil.device_language()`.

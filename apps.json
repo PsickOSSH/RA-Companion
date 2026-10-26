@@ -7,16 +7,29 @@
       "bundleIdentifier": "io.github.psickossh.racompanion",
       "developerName": "PsickOSSH",
       "subtitle": "Companion app for RetroAchievements",
-      "localizedDescription": "Add iOS support",
-	  "iconURL": "https://raw.githubusercontent.com/PsickOSSH/RA-Companion/main/docs/icon.png",
       "tintColor": "#CC9900",
+      "iconURL": "https://raw.githubusercontent.com/PsickOSSH/RA-Companion/main/docs/icon.png",
+      "localizedDescription": "Track your RetroAchievements progress directly from your iPhone.\n\nFeatures:\n• Live progression tracking\n• Recent unlocks and badges\n• Game library overview",
+      "screenshots": [
+        "https://raw.githubusercontent.com/PsickOSSH/RA-Companion/main/docs/main.png",
+		"https://raw.githubusercontent.com/PsickOSSH/RA-Companion/main/docs/duel.png",
+		"https://raw.githubusercontent.com/PsickOSSH/RA-Companion/main/docs/group.png",
+		"https://raw.githubusercontent.com/PsickOSSH/RA-Companion/main/docs/detail.png",
+		"https://raw.githubusercontent.com/PsickOSSH/RA-Companion/main/docs/skin.png"
+      ],
+      "appPermissions": {
+        "entitlements": [
+          "aps-environment"
+        ],
+        "privacy": {}
+      },
       "versions": [
         {
-          "version": "1.4",
+          "version": "1.5",
           "date": "2026-10-26",
-          "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v1.4/ra-companion-1.4.ipa",
-          "size": 15000000,
-          "localizedDescription": "Add iOS support"
+          "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v1.5/ra-companion-1.5.ipa",
+          "size": 20752369,
+          "localizedDescription": "In-app unlock banner on iOS and Android: badge, description, points, stacking, auto height.\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v1.3...v1.5"
         }
       ]
     }
