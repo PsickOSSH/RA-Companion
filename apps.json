@@ -1,0 +1,24 @@
+{
+  "name": "RA Companion Repository",
+  "identifier": "io.github.psickossh.racompanion",
+  "apps": [
+    {
+      "name": "RA Companion",
+      "bundleIdentifier": "io.github.psickossh.racompanion",
+      "developerName": "PsickOSSH",
+      "subtitle": "Companion app for RetroAchievements",
+      "localizedDescription": "Add iOS support",
+	  "iconURL": "https://raw.githubusercontent.com/PsickOSSH/RA-Companion/main/docs/icon.png",
+      "tintColor": "#CC9900",
+      "versions": [
+        {
+          "version": "1.4",
+          "date": "2026-10-26",
+          "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v1.4/ra-companion-1.4.ipa",
+          "size": 15000000,
+          "localizedDescription": "Add iOS support"
+        }
+      ]
+    }
+  ]
+}
