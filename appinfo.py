@@ -1,5 +1,5 @@
 """Version of the app and place where its updates are published. Edit the two values below for each release."""
 
-__version__ = "1.4"
+__version__ = "1.5"
 # GitHub repository whose Releases contain the .apk / .ipa files ("owner/name"):
 UPDATE_REPO = "PsickOSSH/RA-Companion"
