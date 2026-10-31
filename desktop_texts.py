@@ -4,6 +4,8 @@ ALIGN: the wording of the Android app, for every text that exists on both (so bo
 TEXTS: texts that only exist since the last updates (settings: notifications, notes, version and update check, translation errors).
 Everything is injected into i18n.I18N, so T(\"key\") finds it like any other text."""
 
+import urllib.error
+
 import i18n
 
 ALIGN = {
@@ -453,3 +455,29 @@ for _lang, _text in _NOT_EARNED.items():
 _TEST_NOTIF = {'en': {'s_test_notif': 'Send a test notification', 'notif_test': 'Notifications work.'}, 'fr': {'s_test_notif': 'Envoyer une notification de test', 'notif_test': 'Les notifications fonctionnent.'}, 'es': {'s_test_notif': 'Enviar una notificación de prueba', 'notif_test': 'Las notificaciones funcionan.'}, 'de': {'s_test_notif': 'Testbenachrichtigung senden', 'notif_test': 'Benachrichtigungen funktionieren.'}, 'it': {'s_test_notif': 'Invia una notifica di prova', 'notif_test': 'Le notifiche funzionano.'}, 'pt': {'s_test_notif': 'Enviar uma notificação de teste', 'notif_test': 'As notificações funcionam.'}}
 for _lang, _texts in _TEST_NOTIF.items():
     i18n.I18N.setdefault(_lang, {}).update(_texts)
+
+
+# Readable network / API errors (same wording as the Android app); see friendly_error() below
+_NET_ERRORS = {
+    "en": {"err_key": "Invalid username or API key", "err_rate": "Too many requests, try again later", "err_server": "Server error ({c})", "err_net": "No Internet connection"},
+    "fr": {"err_key": "Pseudo ou clé API invalide", "err_rate": "Trop de requêtes, réessayez plus tard", "err_server": "Erreur du serveur ({c})", "err_net": "Pas de connexion à Internet"},
+    "es": {"err_key": "Usuario o clave API no válidos", "err_rate": "Demasiadas solicitudes, inténtalo más tarde", "err_server": "Error del servidor ({c})", "err_net": "Sin conexión a Internet"},
+    "de": {"err_key": "Ungültiger Benutzername oder API-Schlüssel", "err_rate": "Zu viele Anfragen, bitte später erneut versuchen", "err_server": "Serverfehler ({c})", "err_net": "Keine Internetverbindung"},
+    "it": {"err_key": "Nome utente o chiave API non validi", "err_rate": "Troppe richieste, riprova più tardi", "err_server": "Errore del server ({c})", "err_net": "Nessuna connessione a Internet"},
+    "pt": {"err_key": "Utilizador ou chave API inválidos", "err_rate": "Demasiados pedidos, tente mais tarde", "err_server": "Erro do servidor ({c})", "err_net": "Sem ligação à Internet"},
+}
+for _lang, _texts in _NET_ERRORS.items():
+    i18n.I18N.setdefault(_lang, {}).update(_texts)
+
+
+def friendly_error(e):
+    """Short, readable message (in the current language) for a network / API error."""
+    if isinstance(e, urllib.error.HTTPError):
+        if e.code in (401, 403):
+            return i18n.T("err_key")
+        if e.code == 429:
+            return i18n.T("err_rate")
+        return i18n.T("err_server", c=e.code)
+    if isinstance(e, (urllib.error.URLError, TimeoutError, OSError)):
+        return i18n.T("err_net")
+    return str(e)[:80] or e.__class__.__name__

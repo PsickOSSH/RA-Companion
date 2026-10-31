@@ -25,6 +25,7 @@ from widgets import Bar, Card, RoundBtn, SLabel, SYMF, TRANSPARENT_KEY, Tip, has
 import appinfo
 import updater
 import desktop_texts  # noqa: F401  (adds the texts of the new settings to i18n)
+from desktop_texts import friendly_error
 import notes_io
 import translator
 
@@ -837,7 +838,7 @@ class App(tk.Tk):
                     try:
                         fgame = call_api("API_GetGameInfoAndUserProgress.php", key, u=friend, g=gid)
                     except Exception as ex:
-                        fgame = {"error": str(ex)}
+                        fgame = {"error": friendly_error(ex)}
             if view == "group":
 
                 def one(name):
@@ -848,14 +849,14 @@ class App(tk.Tk):
                         self.img(pic)
                         return (name.lower(), {"user": name, "s": ss, "game": gg, "pic": pic})
                     except Exception as ex:
-                        return (name.lower(), {"user": name, "error": str(ex)})
+                        return (name.lower(), {"user": name, "error": friendly_error(ex)})
                 with ThreadPoolExecutor(4) as ex:
                     group = dict(ex.map(one, members))
             pic = s.get("UserPic") or f"/UserPic/{user}.png"
             self.img(pic)
             self.q.put(("ok", {"s": s, "game": game, "pic": pic, "friend": fgame, "group": group}))
         except Exception as e:
-            self.q.put(("err", str(e)))
+            self.q.put(("err", friendly_error(e)))
 
     def pump(self):
         """Run on the UI thread every 150 ms: process messages posted by the worker threads."""
@@ -1444,7 +1445,7 @@ class App(tk.Tk):
                     gdb["ct"] = time.time()
                     write_json(GAMES_FILE, gdb)
                 except Exception as ex:
-                    msg = str(ex)
+                    msg = friendly_error(ex)
                     self.q.put(("call",
                             lambda: w.winfo_exists() and status.config(text=T("error", e=msg), fg=skin.DANGER)))
                     return
@@ -1747,7 +1748,7 @@ class App(tk.Tk):
                         run_tr()
                 self.q.put(("call", done))
             except Exception as ex:
-                msg = str(ex)
+                msg = friendly_error(ex)
                 self.q.put(("call", lambda: w.winfo_exists() and info.config(text=T("error", e=msg), fg=skin.DANGER)))
         threading.Thread(target=load, daemon=True).start()
 
