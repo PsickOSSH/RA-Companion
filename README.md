@@ -133,6 +133,9 @@ In `app.py`, the sizes of the Windows windows and buttons are constants gathered
 python -m unittest discover -s tests
 ```
 
+The tests cover the logic (API retries, features, translations, image cache, notes, updates...) but not the Tkinter and
+Kivy screens, which have to be tried by hand.
+
 ## Building
 
 ### Windows `.exe`
@@ -141,7 +144,8 @@ Install [PyInstaller](https://pyinstaller.org) (`pip install pyinstaller`), then
 folder. The executable is created in `dist\RA-Companion.exe`.
 
 The skins are loaded by name, so PyInstaller needs them listed explicitly (`--hidden-import skins.<name>` and
-`--add-data "skins;skins"`). If you add a skin, add it to the build script too.
+`--add-data "skins;skins"`). `build-exe.bat` already lists all the skins of the repository. If you add a skin, add a
+matching `--hidden-import skins.<name>` to the build script too, otherwise it may be missing from the `.exe`.
 
 ### Android: prepare the build environment (once)
 
@@ -419,6 +423,9 @@ Every variable is documented in `skins/default.py`. When you add a skin variable
   the translated texts are sent to Google Translate, with MyMemory as a fallback).
   Existing cached images are reused according to the policy above instead of downloaded at every launch.
 - The game list of each console is downloaded once and kept for 30 days.
+- Calls to the RetroAchievements API are retried twice (after 1 s, then 3 s, or the pause requested by the server, at
+  most 10 s) on temporary errors: HTTP 429 or 5xx, timeouts and network errors. A wrong key or a missing page fails
+  immediately.
 
 ## Troubleshooting
 
@@ -456,8 +463,12 @@ Every variable is documented in `skins/default.py`. When you add a skin variable
   says the SDK packages are installed. Delete `.buildozer/state.db` of the project (or the whole project `.buildozer`)
   and build again.
 - **The Android build is very slow or fails on permissions:** the project is on `/mnt/c/...`; move it to the Linux home.
-- `cannot import name 'active' from 'skins'`: the `skins` folder has no `__init__.py`; put it back next to
-  `default.py`.
+- `cannot import name 'active' from 'skins'`: `skins/__init__.py` is part of the repository; this error only appears
+  if the file was deleted by hand. Restore it next to `default.py` (for example with `git checkout skins/__init__.py`).
+- **"Too many requests, try again later":** the RetroAchievements API limits the number of requests. Increase the
+  refresh interval or reduce the number of players in the group, then try again a minute later.
+- **"Invalid username or API key":** check both in the settings. The Web API key is on
+  <https://retroachievements.org/settings?tab=applications>, and it is not your password.
 - Nothing is displayed: check your username and Web API key in the settings.
 
 ## Third-party components
