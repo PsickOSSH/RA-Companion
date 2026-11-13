@@ -69,7 +69,8 @@ if kivy.utils.platform != "ios":
 
 CFG_DEFAULTS = {"friend": "", "group": [], "game_id": "", "auto": True, "hc_only": False, "interval": 30,
                 "auto_refresh": True, "sort": "disp_asc", "miss_only": False, "notify": True, "translate": False,
-                "ui_lang": "auto", "lang": "auto", "skin": "default", "filter": "all", "tab": "success"}
+                "ui_lang": "auto", "lang": "auto", "skin": "default", "filter": "all", "tab": "success",
+                "tr_service": "auto", "deepl_key": "", "libre_url": "", "libre_key": ""}
 
 
 def _cfg():
@@ -135,6 +136,12 @@ class _Retry:
 
 
 _TRIED = _Retry()
+
+
+def service_names():
+    """{setting value: label} of the translation services, in the order of the list of the settings."""
+    return {"auto": tr("s_tr_auto"), "deepl": "DeepL", "libretranslate": "LibreTranslate", "google": "Google",
+            "mymemory": "MyMemory"}
 
 
 def target_lang():
@@ -964,6 +971,11 @@ class SettingsScreen(Screen):
     ui_lang_values = ListProperty([])
     tr_lang_values = ListProperty([])
     skin_values = ListProperty([])
+    tr_service_values = ListProperty([])
+    tr_service_text = StringProperty("")
+    deepl_key = StringProperty("")
+    libre_url = StringProperty("")
+    libre_key = StringProperty("")
     ui_lang_text = StringProperty("")
     tr_lang_text = StringProperty("")
     skin_text = StringProperty("")
@@ -983,6 +995,12 @@ class SettingsScreen(Screen):
         self.ui_lang_values = [auto] + [n for _c, n in uitext.UI_LANGS]
         self.tr_lang_values = [auto] + [n for _c, n in uitext.TR_LANGS]
         self.skin_values = [s["name"] for s in app.skins]
+        names = service_names()
+        self.tr_service_values = list(names.values())
+        self.tr_service_text = names.get(cfg.get("tr_service", "auto"), names["auto"])
+        self.deepl_key = str(cfg.get("deepl_key", ""))
+        self.libre_url = str(cfg.get("libre_url", ""))
+        self.libre_key = str(cfg.get("libre_key", ""))
         ui = cfg.get("ui_lang", "auto")
         lg = cfg.get("lang", "auto")
         self.ui_lang_text = auto if ui == "auto" else (uitext.lang_label(uitext.UI_LANGS, ui) or auto)
@@ -1064,7 +1082,8 @@ class SettingsScreen(Screen):
         self.notes_msg = tr("n_import_ok", a=added, m=merged, u=unchanged)
         self.manager.get_screen("profile").render_all()
 
-    def save_settings(self, username, api_key, notify_on, ui_label, tr_label, skin_label):
+    def save_settings(self, username, api_key, notify_on, ui_label, tr_label, skin_label, service_label="",
+                      deepl_key="", libre_url="", libre_key=""):
         app = App.get_running_app()
         cfg = app.cfg
         old_account = (cfg.get("user"), cfg.get("key"))
@@ -1072,6 +1091,12 @@ class SettingsScreen(Screen):
         cfg["user"] = username.strip()
         cfg["key"] = api_key.strip()
         cfg["notify"] = bool(notify_on)
+        cfg["tr_service"] = next((i for i, n in service_names().items() if n == service_label), "auto")
+        cfg["deepl_key"] = deepl_key.strip()
+        cfg["libre_url"] = libre_url.strip()
+        cfg["libre_key"] = libre_key.strip()
+        TRANSLATOR.configure_from(cfg)
+        TRANSLATOR.reset_failures()                  # texts that failed with the old service are tried again
         cfg["ui_lang"] = "auto" if ui_label == tr("s_auto") else uitext.lang_code(uitext.UI_LANGS, ui_label)
         cfg["lang"] = "auto" if tr_label == tr("s_auto") else uitext.lang_code(uitext.TR_LANGS, tr_label)
         app.set_skin(next((s["id"] for s in app.skins if s["name"] == skin_label), "default"))
@@ -1385,6 +1410,7 @@ class RACompanionApp(App):
         self.games_index = features.GameIndex(os.path.join(self.user_data_dir, "games_index.json"))
         self.notes = features.NotesStore(os.path.join(self.user_data_dir, "notes.json"))
         TRANSLATOR.set_cache_file(os.path.join(self.user_data_dir, "translations.json"))
+        TRANSLATOR.configure_from(self.cfg)
         self._bg_stop = None
         if os.path.exists(os.path.join(BASE, "icon.png")):
             self.icon = os.path.join(BASE, "icon.png")

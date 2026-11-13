@@ -25,6 +25,13 @@
       },
       "versions": [
         {
+          "version": "1.7",
+          "date": "2026-11-13",
+          "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v1.7/ra-companion-1.7.ipa",
+          "size": 21782291,
+          "localizedDescription": "Translation services: DeepL and LibreTranslate (key / server in the settings) with a preferred service, the others take over if one fails. Windows: global refresh shortcut that works while an emulator has the focus (Ctrl+Alt+R by default), windows open on the screen of the app.\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v1.6...v1.7"
+        },
+        {
           "version": "1.6",
           "date": "2026-11-13",
           "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v1.6/ra-companion-1.6.ipa",

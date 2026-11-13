@@ -35,7 +35,9 @@ progress live. It comes in three versions that look and behave the same way:
   11 sort orders, optional hardcore-only counting (`⚡`), HC / SC counters, badges, unlock dates in your language and
   time zone, and the share of players who earned each locked achievement
 - **Achievement page**: description, points, unlock date, **personal note** (`✎`) and the community **comments**,
-  with one-click **translation** (`🌐`)
+  with one-click **translation** (`🌐`) through several services: if one stops working, the next one takes over
+  (free Google and MyMemory by default; **DeepL** and **LibreTranslate** once you enter a key / server address in the
+  settings, with a *Translation service* choice to put your preferred one first)
 - **Personal notes**: saved locally, exported to / imported from a JSON file (the same file works on all versions)
 - **Notifications** when you (or your friend) unlock an achievement (can be switched off in the settings; a
   **Send a test notification** button checks that they work, on all versions)
@@ -424,7 +426,11 @@ Every variable is documented in `skins/default.py`. When you add a skin variable
 - The image cache does **not** make the whole app available offline: profile and achievement data still need the API.
 - Network access: the RetroAchievements API and media server (profile, games, badges, comments), the GitHub API
   (update check, only when you press the button), and the translation services (only when translation is enabled:
-  the translated texts are sent to Google Translate, with MyMemory as a fallback).
+  the translated texts are sent to the first service that answers, in this order unless you choose another one in the
+  settings: DeepL and LibreTranslate if you configured them, then Google Translate, then MyMemory).
+- **Translation keys:** the DeepL key (a free key ends with `:fx`, see <https://www.deepl.com/pro-api>) and the
+  LibreTranslate address / key are stored as plain text in the settings, like the RetroAchievements API key. A service
+  without key (DeepL) or address (LibreTranslate) is simply skipped.
   Existing cached images are reused according to the policy above instead of downloaded at every launch.
 - The game list of each console is downloaded once and kept for 30 days.
 - Calls to the RetroAchievements API are retried twice (after 1 s, then 3 s, or the pause requested by the server, at
@@ -457,7 +463,9 @@ Every variable is documented in `skins/default.py`. When you add a skin variable
 - **iOS: the app stops opening after a week:** the signature of a free Apple ID lasts 7 days; refresh the app from
   AltStore.
 - **Translation unavailable:** the message in the status bar names the cause (for example `HTTP 429`: the service
-  limits the requests, retry a minute later by pressing the translation button again).
+  limits the requests, retry a minute later by pressing the translation button again). The message lists every
+  service that was tried (for example `deepl: HTTP 403` means a wrong DeepL key, `HTTP 456` that its monthly quota is
+  used up); the other services take over automatically.
 - **The update does not install:** the `.apk` must be signed with the same key as the installed one.
 - **The Android build fails while creating its virtual environment** (`BuildDependencyInstallError`, `pip`,
   Python 3.14): set `p4a.branch = develop` in `buildozer.spec` and delete the project `.buildozer/` folder.

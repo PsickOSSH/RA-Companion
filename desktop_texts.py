@@ -492,6 +492,36 @@ _HOTKEY_BUSY = {
 for _lang, _text in _HOTKEY_BUSY.items():
     i18n.I18N.setdefault(_lang, {})["hotkey_busy"] = _text
 
+# Translation services (settings): preferred service, DeepL and LibreTranslate keys (same wording as the Android app)
+_TR_SERVICES = {
+    "en": {"s_trservice": "Translation service", "s_tr_auto": "Automatic", "s_trkeys": "Keys…",
+           "s_trkeys_title": "Translation services", "s_deepl_key": "DeepL API key (empty = disabled)",
+           "s_libre_url": "LibreTranslate server address (empty = disabled)", "s_libre_key": "LibreTranslate key (optional)",
+           "s_trkeys_hint": "If the preferred service fails, the others take over. The texts to translate are sent to the services you use."},
+    "fr": {"s_trservice": "Service de traduction", "s_tr_auto": "Automatique", "s_trkeys": "Clés…",
+           "s_trkeys_title": "Services de traduction", "s_deepl_key": "Clé API DeepL (vide = désactivé)",
+           "s_libre_url": "Adresse du serveur LibreTranslate (vide = désactivé)", "s_libre_key": "Clé LibreTranslate (facultative)",
+           "s_trkeys_hint": "Si le service préféré échoue, les autres prennent le relais. Les textes à traduire sont envoyés aux services utilisés."},
+    "es": {"s_trservice": "Servicio de traducción", "s_tr_auto": "Automático", "s_trkeys": "Claves…",
+           "s_trkeys_title": "Servicios de traducción", "s_deepl_key": "Clave API de DeepL (vacío = desactivado)",
+           "s_libre_url": "Dirección del servidor LibreTranslate (vacío = desactivado)", "s_libre_key": "Clave de LibreTranslate (opcional)",
+           "s_trkeys_hint": "Si el servicio preferido falla, los demás toman el relevo. Los textos a traducir se envían a los servicios que uses."},
+    "de": {"s_trservice": "Übersetzungsdienst", "s_tr_auto": "Automatisch", "s_trkeys": "Schlüssel…",
+           "s_trkeys_title": "Übersetzungsdienste", "s_deepl_key": "DeepL-API-Schlüssel (leer = deaktiviert)",
+           "s_libre_url": "LibreTranslate-Serveradresse (leer = deaktiviert)", "s_libre_key": "LibreTranslate-Schlüssel (optional)",
+           "s_trkeys_hint": "Fällt der bevorzugte Dienst aus, übernehmen die anderen. Die zu übersetzenden Texte werden an die verwendeten Dienste gesendet."},
+    "it": {"s_trservice": "Servizio di traduzione", "s_tr_auto": "Automatico", "s_trkeys": "Chiavi…",
+           "s_trkeys_title": "Servizi di traduzione", "s_deepl_key": "Chiave API DeepL (vuoto = disattivato)",
+           "s_libre_url": "Indirizzo del server LibreTranslate (vuoto = disattivato)", "s_libre_key": "Chiave LibreTranslate (facoltativa)",
+           "s_trkeys_hint": "Se il servizio preferito non funziona, subentrano gli altri. I testi da tradurre vengono inviati ai servizi usati."},
+    "pt": {"s_trservice": "Serviço de tradução", "s_tr_auto": "Automático", "s_trkeys": "Chaves…",
+           "s_trkeys_title": "Serviços de tradução", "s_deepl_key": "Chave API do DeepL (vazio = desativado)",
+           "s_libre_url": "Endereço do servidor LibreTranslate (vazio = desativado)", "s_libre_key": "Chave do LibreTranslate (opcional)",
+           "s_trkeys_hint": "Se o serviço preferido falhar, os outros assumem. Os textos a traduzir são enviados aos serviços utilizados."},
+}
+for _lang, _texts in _TR_SERVICES.items():
+    i18n.I18N.setdefault(_lang, {}).update(_texts)
+
 
 def friendly_error(e):
     """Short, readable message (in the current language) for a network / API error."""

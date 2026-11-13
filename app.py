@@ -23,7 +23,7 @@ import medians
 import imgcache
 from utils import (DEFAULT_REFRESH_KEY, date_of, fmt_date, fmt_int, is_any, is_counted, is_hc, is_missable, norm,
                    shortcut_from_key, shortcut_label, sort_achievements)
-from widgets import Bar, Card, RoundBtn, SLabel, SYMF, TRANSPARENT_KEY, Tip, has_sym, is_sym, setup_ttk_styles
+from widgets import Bar, Card, RoundBtn, SLabel, SYMF, TRANSPARENT_KEY, Tip, has_sym, is_sym, screen_bounds, setup_ttk_styles
 import appinfo
 import updater
 import desktop_texts  # noqa: F401  (adds the texts of the new settings to i18n)
@@ -76,7 +76,8 @@ def _fit(im, size):
 # Sizes you can change (pixels). Every number below is used by the whole application.
 # ---------------------------------------------------------------------------
 MAIN_WINDOW = "580x760"        # main window when it opens: width x height
-SETTINGS_WINDOW = "430x775"   # settings window: width x height
+TRANSLATION_KEYS_WINDOW = "430x400"   # window of the translation keys (opened from the settings): width x height
+SETTINGS_WINDOW = "430x845"  # settings window: width x height
 TAB_BTN = (14, 6)              # Achievements / Duel / Group tabs: (horizontal padding, vertical padding)
 FILTER_BTN = (10, 4)           # All / Locked / Unlocked / Missable buttons
 ICON_BTN = (12, 5)             # buttons with an icon and a text (Refresh, Last played game)
@@ -98,6 +99,7 @@ class App(tk.Tk):
                 pass
         super().__init__()
         self.cfg = load_cfg()
+        TRANSLATOR.configure_from(self.cfg)
         i18n.set_language(resolve_ui(self.cfg["ui_lang"]))
         self.notes = read_json(NOTES_FILE, {})
         self.title("RA Companion")
@@ -604,7 +606,7 @@ class App(tk.Tk):
         w.configure(bg=skin.BACKGROUND)
         w.transient(self)
         w.grab_set()
-        w.geometry(SETTINGS_WINDOW)
+        self.place_window(w, SETTINGS_WINDOW)
 
         def row(text, hint=""):
             self.lbl(w, text, 10, bold=True, anchor="w").pack(fill="x", padx=18, pady=(10, 0))
@@ -625,6 +627,19 @@ class App(tk.Tk):
         row(T("s_trlang"))
         lg = tk.StringVar(value=next((n for n, c in LANGS.items() if c == self.cfg["lang"]), sys_label))
         ttk.Combobox(w, textvariable=lg, values=[sys_label] + list(LANGS), state="readonly").pack(fill="x", padx=18)
+        row(T("s_trservice"))
+        svc_names = {"auto": T("s_tr_auto"), "deepl": "DeepL", "libretranslate": "LibreTranslate", "google": "Google",
+                     "mymemory": "MyMemory"}
+        sv = tk.StringVar(value=svc_names.get(self.cfg.get("tr_service", "auto"), svc_names["auto"]))
+        sv_row = tk.Frame(w, bg=skin.BACKGROUND)
+        sv_row.pack(fill="x", padx=18)
+        ttk.Combobox(sv_row, textvariable=sv, values=list(svc_names.values()), state="readonly").pack(side="left", fill="x",
+            expand=True)
+        keys_btn = RoundBtn(sv_row, text=T("s_trkeys"), font=(skin.FONT, SETTINGS_BTN_FONT, "bold"), padx=SETTINGS_BTN[0],
+            pady=SETTINGS_BTN[1], radius=skin.RADIUS_BUTTON)
+        keys_btn.pack(side="left", padx=(6, 0))
+        tr_conf = {k: str(self.cfg.get(k, "")) for k in ("deepl_key", "libre_url", "libre_key")}
+        keys_btn.bind("<Button-1>", lambda e: self.translation_keys(w, tr_conf))
         row(T("s_skin"))
         skin_names = skins.available()
         sk = tk.StringVar(value=next((n for n, m in skin_names.items() if m == self.cfg.get("skin", "default")), skin.NAME))
@@ -684,7 +699,10 @@ class App(tk.Tk):
             new_skin = skin_names.get(sk.get(), "default")
             skin_changed = new_skin != self.cfg.get("skin", "default")
             self.cfg.update(user=u.get().strip(), key=k.get().strip(), skin=new_skin, notify=bool(nv.get()),
-                lang=LANGS.get(lg.get(), "auto"), ui_lang=UI_LANGS.get(ui.get(), "auto"), refresh_key=rk["seq"])
+                lang=LANGS.get(lg.get(), "auto"), ui_lang=UI_LANGS.get(ui.get(), "auto"), refresh_key=rk["seq"],
+                tr_service=next((i for i, n in svc_names.items() if n == sv.get()), "auto"), **tr_conf)
+            TRANSLATOR.configure_from(self.cfg)
+            TRANSLATOR.reset_failures()               # texts that failed with the old service are tried again
             save_cfg(self.cfg)
             self.apply_refresh_key()
             i18n.set_language(resolve_ui(self.cfg["ui_lang"]))
@@ -709,6 +727,53 @@ class App(tk.Tk):
         links.pack(pady=(0, 12))
         self.logo_link(links, "github", REPO_URL, "GitHub").pack(side="left", padx=10)
         self.logo_link(links, "ra", SITE_URL, "retroachievements.org").pack(side="left", padx=10)
+
+    def place_window(self, win, size, over=None):
+        """Give `win` its size ("WIDTHxHEIGHT") and open it centered on `over` (the main window by default), kept inside
+        the screen where that window is: without it, Windows opens every new window on the first screen."""
+        width, height = (int(n) for n in size.split("x"))
+        over = over or self
+        self.update_idletasks()
+        x = over.winfo_rootx() + (over.winfo_width() - width) // 2
+        y = over.winfo_rooty() + (over.winfo_height() - height) // 2
+        area = screen_bounds(over.winfo_rootx() + over.winfo_width() // 2, over.winfo_rooty() + over.winfo_height() // 2)
+        if area:
+            left, top, right, bottom = area
+            x = max(left, min(x, right - width))
+            y = max(top, min(y, bottom - height))
+        geo = f"{width}x{height}+{x}+{y}"
+        win.geometry(geo)
+        # Windows may still create the window at its own cascade position (always on the first screen) before the
+        # position requested above is applied, so the position is applied again once the window exists.
+        win.update_idletasks()
+        win.geometry(geo)
+        win.after(50, lambda: win.winfo_exists() and win.geometry(geo))
+
+    def translation_keys(self, parent, conf):
+        """Small window of the settings: DeepL key and LibreTranslate server / key. `conf` is updated when OK is pressed
+        (the settings window saves it with the rest)."""
+        d = tk.Toplevel(parent)
+        d.title(T("s_trkeys_title"))
+        d.configure(bg=skin.BACKGROUND)
+        d.transient(parent)
+        d.grab_set()
+        self.place_window(d, TRANSLATION_KEYS_WINDOW, parent)
+        vars_ = {}
+        for key, label, secret in (("deepl_key", T("s_deepl_key"), True), ("libre_url", T("s_libre_url"), False),
+                                   ("libre_key", T("s_libre_key"), True)):
+            self.lbl(d, label, 10, bold=True, anchor="w").pack(fill="x", padx=18, pady=(10, 0))
+            vars_[key] = tk.StringVar(value=conf.get(key, ""))
+            self.entry(d, vars_[key], **({"show": "•"} if secret else {})).pack(fill="x", padx=18, ipady=5)
+        self.lbl(d, T("s_trkeys_hint"), 8, skin.TEXT_MUTED, anchor="w", wraplength=380, justify="left").pack(fill="x", padx=18,
+            pady=(10, 0))
+
+        def ok():
+            conf.update({k: v.get().strip() for k, v in vars_.items()})
+            d.destroy()
+        b = RoundBtn(d, text=T("save"), bg=skin.ACCENT, fg=skin.TEXT_ON_ACCENT, font=(skin.FONT, SAVE_BTN[0], "bold"),
+            pady=SAVE_BTN[1], radius=skin.RADIUS_BUTTON_LARGE)
+        b.pack(fill="x", padx=18, pady=(14, 12))
+        b.bind("<Button-1>", lambda e: ok())
 
     def export_notes(self, win, msg):
         """Save the personal notes in a JSON file chosen by the user (same format as the Android app)."""
@@ -1393,7 +1458,7 @@ class App(tk.Tk):
         self.search_win = w
         w.title(T("se_title"))
         w.configure(bg=skin.BACKGROUND)
-        w.geometry("540x600")
+        self.place_window(w, "540x600")
         w.transient(self)
         self.lbl(w, T("se_console"), 10, bold=True, anchor="w").pack(fill="x", padx=14, pady=(12, 0))
         all_label = T("se_all")
@@ -1638,7 +1703,7 @@ class App(tk.Tk):
         w = tk.Toplevel(self)
         w.title(a.get("Title", T("ach_default")))
         w.configure(bg=skin.BACKGROUND)
-        w.geometry("520x760")
+        self.place_window(w, "520x760")
         w.attributes("-topmost", bool(self.cfg["ontop"]))
         e = is_counted(a, self.cfg["hc_only"]) or is_any(a)
         _hc = Card(w, radius=skin.RADIUS_PANEL, pad=4)

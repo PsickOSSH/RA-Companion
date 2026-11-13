@@ -1123,6 +1123,41 @@
                     text: root.tr_lang_text
                     values: root.tr_lang_values
                 TextLabel:
+                    text: tr('s_tr_service')
+                    font_size: sp(12)
+                    color: app.c_muted
+                DarkSpinner:
+                    id: tr_service_spinner
+                    text: root.tr_service_text
+                    values: root.tr_service_values
+                TextLabel:
+                    text: tr('s_deepl_key')
+                    font_size: sp(12)
+                    color: app.c_muted
+                DarkInput:
+                    id: deepl_input
+                    text: root.deepl_key
+                    password: True
+                TextLabel:
+                    text: tr('s_libre_url')
+                    font_size: sp(12)
+                    color: app.c_muted
+                DarkInput:
+                    id: libre_url_input
+                    text: root.libre_url
+                TextLabel:
+                    text: tr('s_libre_key')
+                    font_size: sp(12)
+                    color: app.c_muted
+                DarkInput:
+                    id: libre_key_input
+                    text: root.libre_key
+                    password: True
+                TextLabel:
+                    text: tr('s_tr_hint')
+                    font_size: sp(10)
+                    color: app.c_muted
+                TextLabel:
                     text: tr('s_skin')
                     font_size: sp(12)
                     color: app.c_muted
@@ -1214,7 +1249,7 @@
                 text: tr('save')
                 height: dp(48)
                 active: True
-                on_release: root.save_settings(username_input.text, apikey_input.text, notify_switch.active, ui_lang_spinner.text, tr_lang_spinner.text, skin_spinner.text)
+                on_release: root.save_settings(username_input.text, apikey_input.text, notify_switch.active, ui_lang_spinner.text, tr_lang_spinner.text, skin_spinner.text, tr_service_spinner.text, deepl_input.text, libre_url_input.text, libre_key_input.text)
 
 # ---------------------------------------------------------------- game search
 <SearchScreen>:

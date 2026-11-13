@@ -1,8 +1,9 @@
 """Translation of descriptions and comments (no Kivy import: testable on a PC).
 
-Several free endpoints are tried one after the other, the answers are cached in memory and in a JSON file, and a text that
-failed is retried only after a pause (or when the user presses the translation button again). Errors are kept in
-`last_error` so that the interface can show them instead of failing silently."""
+Several services are tried one after the other: DeepL and LibreTranslate when the user gave a key / server address in the
+settings, then the free endpoints (Google, MyMemory). The setting `tr_service` puts one of them first. The answers are
+cached in memory and in a JSON file, and a text that failed is retried only after a pause (or when the user presses the
+translation button again). Errors are kept in `last_error` so that the interface can show them instead of failing silently."""
 
 import json
 import os
@@ -21,6 +22,7 @@ except Exception:
     _CTX = None
 
 USER_AGENT = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36"
+SERVICES = ["auto", "deepl", "libretranslate", "google", "mymemory"]     # values of the setting `tr_service`
 RETRY_AFTER = 60          # seconds before a failed text is tried again
 MAX_CACHED = 6000         # entries kept on disk
 
@@ -31,6 +33,18 @@ class TranslateError(Exception):
 
 def get_json(url, timeout=15):
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json,text/plain,*/*"})
+    kw = {"timeout": timeout}
+    if _CTX is not None:
+        kw["context"] = _CTX
+    with urllib.request.urlopen(req, **kw) as r:
+        return json.loads(r.read().decode("utf-8"))
+
+
+def post_json(url, payload, headers=None, timeout=15):
+    """POST `payload` as JSON and return the decoded JSON answer."""
+    h = {"User-Agent": USER_AGENT, "Accept": "application/json", "Content-Type": "application/json"}
+    h.update(headers or {})
+    req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=h, method="POST")
     kw = {"timeout": timeout}
     if _CTX is not None:
         kw["context"] = _CTX
@@ -63,6 +77,33 @@ def _mymemory(text, lang):
     return (data.get("responseData") or {}).get("translatedText", "")
 
 
+DEEPL_TARGETS = {"en": "EN-US", "pt": "PT-PT", "zh-CN": "ZH"}         # DeepL wants EN-US / PT-PT; others: the code in capitals
+LIBRE_TARGETS = {"zh-CN": "zh-Hans"}
+
+
+def _deepl(text, lang, key):
+    """DeepL API (the free keys end with ':fx' and use another server than the paid ones)."""
+    host = "api-free.deepl.com" if key.endswith(":fx") else "api.deepl.com"
+    data = post_json(f"https://{host}/v2/translate", {"text": [text[:4500]], "target_lang": DEEPL_TARGETS.get(lang, lang.upper())},
+                     {"Authorization": "DeepL-Auth-Key " + key})
+    return "".join(t.get("text", "") for t in data.get("translations", []))
+
+
+def _libretranslate(text, lang, url, key):
+    """LibreTranslate server (own server, or a hosted one with an API key)."""
+    url = url.strip().rstrip("/")
+    if "://" not in url:
+        url = "https://" + url
+    payload = {"q": text[:4500], "source": "auto", "target": LIBRE_TARGETS.get(lang, lang), "format": "text"}
+    if key:
+        payload["api_key"] = key
+    data = post_json(url + "/translate", payload)
+    if "translatedText" not in data:
+        raise TranslateError(str(data.get("error") or "no translation"))
+    return data["translatedText"]
+
+
+# Free endpoints, always available (the order is the order of the tries)
 BACKENDS = [("google", _google_gtx), ("google-chrome", _google_chrome), ("mymemory", _mymemory)]
 
 
@@ -81,9 +122,38 @@ class Translator:
         self.last_error = ""
         self.path = None
         self._lock = threading.Lock()
-        self._good = 0                  # index of the endpoint that worked last
+        self._good = 0                  # index of the endpoint that worked last (automatic mode)
+        self.last_used = ""             # name of the service that gave the last translation
+        self.configure()
         if path:
             self.set_cache_file(path)
+
+    # ---- settings --------------------------------------------------------
+    def configure(self, service="auto", deepl_key="", libre_url="", libre_key=""):
+        """Choose the preferred service and give the keys. A service without key / address is simply skipped."""
+        self.service = service if service in SERVICES else "auto"
+        self.deepl_key = str(deepl_key or "").strip()
+        self.libre_url = str(libre_url or "").strip()
+        self.libre_key = str(libre_key or "").strip()
+        self._good = 0
+
+    def configure_from(self, cfg):
+        """Same as configure(), reading the settings dictionary of the app."""
+        self.configure(cfg.get("tr_service", "auto"), cfg.get("deepl_key", ""), cfg.get("libre_url", ""),
+                       cfg.get("libre_key", ""))
+
+    def chain(self):
+        """The services to try, in order: [(name, function(text, lang))]."""
+        items = []
+        if self.deepl_key:
+            items.append(("deepl", lambda t, l, k=self.deepl_key: _deepl(t, l, k)))
+        if self.libre_url:
+            items.append(("libretranslate", lambda t, l, u=self.libre_url, k=self.libre_key: _libretranslate(t, l, u, k)))
+        items += BACKENDS
+        if self.service != "auto":                                   # the preferred service goes first
+            first = [it for it in items if it[0].split("-")[0] == self.service]
+            items = first + [it for it in items if it not in first]
+        return items
 
     # ---- cache -----------------------------------------------------------
     def set_cache_file(self, path):
@@ -132,15 +202,19 @@ class Translator:
         if (lang, text) in self.cache:
             return self.cache[(lang, text)]
         errors = []
-        n = len(BACKENDS)
+        chain = self.chain()
+        n = len(chain)
+        start = self._good % n if self.service == "auto" else 0       # automatic mode starts with the last good one
         for k in range(n):
-            idx = (self._good + k) % n
-            name, fn = BACKENDS[idx]
+            idx = (start + k) % n
+            name, fn = chain[idx]
             try:
                 out = (fn(text, lang) or "").strip()
                 if not out:
                     raise TranslateError("empty answer")
-                self._good = idx
+                if self.service == "auto":
+                    self._good = idx
+                self.last_used = name
                 self.cache[(lang, text)] = out
                 return out
             except Exception as e:
