@@ -20,7 +20,8 @@ from i18n import LANGS, REFRESH_LABELS, SORT_ICONS, SORT_IDS, T, UI_LANGS, resol
 from ra_api import call_api, http_get
 import medians
 import imgcache
-from utils import date_of, fmt_date, fmt_int, is_any, is_counted, is_hc, is_missable, norm, sort_achievements
+from utils import (DEFAULT_REFRESH_KEY, date_of, fmt_date, fmt_int, is_any, is_counted, is_hc, is_missable, norm,
+                   shortcut_from_key, shortcut_label, sort_achievements)
 from widgets import Bar, Card, RoundBtn, SLabel, SYMF, TRANSPARENT_KEY, Tip, has_sym, is_sym, setup_ttk_styles
 import appinfo
 import updater
@@ -74,7 +75,7 @@ def _fit(im, size):
 # Sizes you can change (pixels). Every number below is used by the whole application.
 # ---------------------------------------------------------------------------
 MAIN_WINDOW = "580x760"        # main window when it opens: width x height
-SETTINGS_WINDOW = "430x710"    # settings window: width x height
+SETTINGS_WINDOW = "430x775"   # settings window: width x height
 TAB_BTN = (14, 6)              # Achievements / Duel / Group tabs: (horizontal padding, vertical padding)
 FILTER_BTN = (10, 4)           # All / Locked / Unlocked / Missable buttons
 ICON_BTN = (12, 5)             # buttons with an icon and a text (Refresh, Last played game)
@@ -134,7 +135,7 @@ class App(tk.Tk):
         setup_ttk_styles(self)
         self.build()
         self.apply_window()
-        self.bind("<F5>", lambda e: self.refresh())
+        self.apply_refresh_key()
         self.after(150, self.pump)
         self.after(1000, self.tick)
         if self.cfg["key"] and self.cfg["user"]:
@@ -416,7 +417,7 @@ class App(tk.Tk):
         self.auto_btn.pack(side="left")
         self.auto_btn.bind("<Button-1>", lambda e: self.toggle_auto())
         self.paint_auto()
-        sp = tk.Spinbox(af, from_=10, to=3600, increment=5, width=4, textvariable=self.int_var, command=self.on_interval,
+        sp = tk.Spinbox(af, from_=5, to=3600, increment=5, width=4, textvariable=self.int_var, command=self.on_interval,
             bg=skin.CARD, fg=skin.TEXT, insertbackground=skin.TEXT, buttonbackground=skin.CARD_ALT, relief="flat",
             font=(skin.FONT, 10), justify="center", highlightthickness=0)
         sp.pack(side="left", padx=(4, 2), ipady=3)
@@ -630,6 +631,24 @@ class App(tk.Tk):
         tk.Checkbutton(w, text=T("s_notify"), variable=nv, bg=skin.BACKGROUND, fg=skin.TEXT, selectcolor=skin.CARD,
             activebackground=skin.BACKGROUND, activeforeground=skin.TEXT, font=(skin.FONT, 10, "bold"), bd=0,
             highlightthickness=0, cursor="hand2").pack(anchor="w", padx=14, pady=(14, 0))
+        row(T("s_refresh_key"))
+        rk = {"seq": self.cfg.get("refresh_key") or DEFAULT_REFRESH_KEY}
+        rk_var = tk.StringVar(value=shortcut_label(rk["seq"]))
+        rk_entry = self.entry(w, rk_var, state="readonly", readonlybackground=skin.CARD, cursor="hand2")
+        rk_entry.pack(fill="x", padx=18, ipady=5)
+
+        def on_refresh_key(ev):
+            if ev.keysym in ("BackSpace", "Delete"):          # back to the default shortcut
+                rk["seq"] = DEFAULT_REFRESH_KEY
+            else:
+                seq = shortcut_from_key(ev.keysym, ev.state)
+                if not seq:
+                    return None                               # not allowed (or Tab...): let Tk handle it
+                rk["seq"] = seq
+            rk_var.set(shortcut_label(rk["seq"]))
+            return "break"
+        rk_entry.bind("<KeyPress>", on_refresh_key)
+        rk_entry.bind("<Button-1>", lambda e: rk_entry.focus_set())
         bt = RoundBtn(w, text=T("s_test_notif"), font=(skin.FONT, SETTINGS_BTN_FONT, "bold"), padx=SETTINGS_BTN[0],
             pady=SETTINGS_BTN[1], radius=skin.RADIUS_BUTTON)
         bt.pack(fill="x", padx=18, pady=(10, 0))
@@ -663,8 +682,9 @@ class App(tk.Tk):
             new_skin = skin_names.get(sk.get(), "default")
             skin_changed = new_skin != self.cfg.get("skin", "default")
             self.cfg.update(user=u.get().strip(), key=k.get().strip(), skin=new_skin, notify=bool(nv.get()),
-                lang=LANGS.get(lg.get(), "auto"), ui_lang=UI_LANGS.get(ui.get(), "auto"))
+                lang=LANGS.get(lg.get(), "auto"), ui_lang=UI_LANGS.get(ui.get(), "auto"), refresh_key=rk["seq"])
             save_cfg(self.cfg)
+            self.apply_refresh_key()
             i18n.set_language(resolve_ui(self.cfg["ui_lang"]))
             if skin_changed:
                 w.destroy()
@@ -802,6 +822,20 @@ class App(tk.Tk):
     # ----------------------------------------------------------------------
     # Networking: background thread -> UI queue
     # ----------------------------------------------------------------------
+    def apply_refresh_key(self):
+        """(Re)bind the keyboard shortcut of the Refresh button: setting `refresh_key`, F1 by default."""
+        old = getattr(self, "_refresh_seq", None)
+        if old:
+            self.unbind(old)
+        seq = "<%s>" % (self.cfg.get("refresh_key") or DEFAULT_REFRESH_KEY)
+        try:
+            self.bind(seq, lambda e: self.refresh())
+        except tk.TclError:                       # unusable value in the config file -> default shortcut
+            self.cfg["refresh_key"] = DEFAULT_REFRESH_KEY
+            seq = "<%s>" % DEFAULT_REFRESH_KEY
+            self.bind(seq, lambda e: self.refresh())
+        self._refresh_seq = seq
+
     def refresh(self):
         """Start a background update (ignored if one is already running or no account is configured)."""
         if self.busy or not (self.cfg["key"] and self.cfg["user"]):
@@ -905,12 +939,12 @@ class App(tk.Tk):
         self.countdown = int(self.cfg["interval"])
 
     def on_interval(self, _=None):
-        """Validate and store the refresh interval typed in the footer (10 to 3600 seconds)."""
+        """Validate and store the refresh interval typed in the footer (5 to 3600 seconds)."""
         try:
             n = int(float(self.int_var.get()))
         except Exception:
             n = int(self.cfg["interval"])
-        n = max(10, min(3600, n))
+        n = max(5, min(3600, n))
         self.int_var.set(str(n))
         self.cfg["interval"] = n
         save_cfg(self.cfg)

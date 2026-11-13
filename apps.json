@@ -25,10 +25,17 @@
       },
       "versions": [
         {
+          "version": "1.6",
+          "date": "2026-11-13",
+          "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v1.6/ra-companion-1.6.ipa",
+          "size": 21782291,
+          "localizedDescription": "Refresh interval down to 5 s, configurable refresh shortcut on Windows (F1 by default), automatic retries on temporary API errors, readable error messages on Windows.\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v1.5...v1.6"
+        },
+        {
           "version": "1.5",
           "date": "2026-10-26",
           "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v1.5/ra-companion-1.5.ipa",
-          "size": 20752369,
+          "size": 21782291,
           "localizedDescription": "In-app unlock banner on iOS and Android: badge, description, points, stacking, auto height.\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v1.3...v1.5"
         }
       ]

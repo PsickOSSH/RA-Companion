@@ -448,7 +448,7 @@ class ProfileScreen(Screen):
     # ---- automatic refresh -----------------------------------------------
     def _interval(self):
         try:
-            return max(10, min(3600, int(_cfg().get("interval", 30) or 30)))
+            return max(5, min(3600, int(_cfg().get("interval", 30) or 30)))
         except (TypeError, ValueError):
             return 30
 
@@ -477,7 +477,7 @@ class ProfileScreen(Screen):
     def set_interval(self, text):
         """Seconds between two automatic refreshes (field of the footer)."""
         try:
-            n = max(10, min(3600, int(text)))
+            n = max(5, min(3600, int(text)))
         except (TypeError, ValueError):
             n = self._interval()
         cfg = _cfg()

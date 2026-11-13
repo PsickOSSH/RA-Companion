@@ -470,6 +470,18 @@ for _lang, _texts in _NET_ERRORS.items():
     i18n.I18N.setdefault(_lang, {}).update(_texts)
 
 
+_REFRESH_KEY_TEXT = {
+    "en": "Refresh shortcut (click, then press a key)",
+    "fr": "Raccourci Actualiser (clic, puis une touche)",
+    "es": "Atajo de Actualizar (clic y pulsa una tecla)",
+    "de": "Tastenkürzel Aktualisieren (klicken, Taste drücken)",
+    "it": "Scorciatoia Aggiorna (clic, poi premi un tasto)",
+    "pt": "Atalho Atualizar (clique e prima uma tecla)",
+}
+for _lang, _text in _REFRESH_KEY_TEXT.items():
+    i18n.I18N.setdefault(_lang, {})["s_refresh_key"] = _text
+
+
 def friendly_error(e):
     """Short, readable message (in the current language) for a network / API error."""
     if isinstance(e, urllib.error.HTTPError):
