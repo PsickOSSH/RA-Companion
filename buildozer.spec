@@ -5,7 +5,7 @@ package.domain = io.github.psickossh.racompanion
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,ttf
 source.exclude_dirs = tests, bin, build, dist, docs, gradle, .buildozer, .gradle, .idea, __pycache__
-source.exclude_patterns = app.py, widgets.py, ra_companion.py, build-exe.bat
+source.exclude_patterns = app.py, widgets.py, ra_companion.py, hotkey.py, build-exe.bat
 version.regex = __version__ = ['"](.*)['"]
 version.filename = %(source.dir)s/appinfo.py
 requirements = python3,kivy,requests,certifi

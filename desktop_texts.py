@@ -470,6 +470,29 @@ for _lang, _texts in _NET_ERRORS.items():
     i18n.I18N.setdefault(_lang, {}).update(_texts)
 
 
+_REFRESH_KEY_TEXT = {
+    "en": "Refresh shortcut (click, then press a key)",
+    "fr": "Raccourci Actualiser (clic, puis une touche)",
+    "es": "Atajo de Actualizar (clic y pulsa una tecla)",
+    "de": "Tastenkürzel Aktualisieren (klicken, Taste drücken)",
+    "it": "Scorciatoia Aggiorna (clic, poi premi un tasto)",
+    "pt": "Atalho Atualizar (clique e prima uma tecla)",
+}
+for _lang, _text in _REFRESH_KEY_TEXT.items():
+    i18n.I18N.setdefault(_lang, {})["s_refresh_key"] = _text
+
+_HOTKEY_BUSY = {
+    "en": "Shortcut {k} is already used by another program",
+    "fr": "Le raccourci {k} est déjà utilisé par un autre programme",
+    "es": "El atajo {k} ya lo usa otro programa",
+    "de": "Das Kürzel {k} wird bereits von einem anderen Programm verwendet",
+    "it": "La scorciatoia {k} è già usata da un altro programma",
+    "pt": "O atalho {k} já é usado por outro programa",
+}
+for _lang, _text in _HOTKEY_BUSY.items():
+    i18n.I18N.setdefault(_lang, {})["hotkey_busy"] = _text
+
+
 def friendly_error(e):
     """Short, readable message (in the current language) for a network / API error."""
     if isinstance(e, urllib.error.HTTPError):

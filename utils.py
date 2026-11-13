@@ -136,3 +136,34 @@ def fmt_duration(seconds):
     if hours >= 100:
         return f"{hours} h"
     return f"{hours} h {minutes:02d} min" if minutes else f"{hours} h"
+
+
+# --- Keyboard shortcut of the Refresh button (Windows) -----------------------------------------------------------
+DEFAULT_REFRESH_KEY = "Control-Alt-r"      # not F1: emulators such as Dolphin use the F-keys
+_MODIFIER_KEYSYMS = {"Shift_L", "Shift_R", "Control_L", "Control_R", "Alt_L", "Alt_R", "Meta_L", "Meta_R", "Super_L",
+                     "Super_R", "Caps_Lock", "Num_Lock", "ISO_Level3_Shift"}
+
+
+def shortcut_from_key(keysym, state):
+    """Tk sequence (without the < >) for a key press, or None when it is not allowed as a shortcut.
+
+    Allowed: F1 to F12 (alone or with Ctrl / Alt / Shift), or a letter / digit together with Ctrl or Alt. A plain letter
+    is refused because it would also fire while typing in the text fields. `state` is the Tk event state (Windows)."""
+    if keysym in _MODIFIER_KEYSYMS:
+        return None
+    shift, ctrl, alt = bool(state & 0x1), bool(state & 0x4), bool(state & 0x20000)
+    is_fkey = len(keysym) > 1 and keysym[0] == "F" and keysym[1:].isdigit() and 1 <= int(keysym[1:]) <= 12
+    if is_fkey:
+        key = keysym
+    elif len(keysym) == 1 and keysym.isalnum() and keysym.isascii() and (ctrl or alt) and not shift:
+        key = keysym.lower()
+    else:
+        return None
+    mods = (["Control"] if ctrl else []) + (["Alt"] if alt else []) + (["Shift"] if shift else [])
+    return "-".join(mods + [key])
+
+
+def shortcut_label(seq):
+    """Readable form of a shortcut sequence: 'Control-r' -> 'Ctrl+R'."""
+    parts = str(seq or DEFAULT_REFRESH_KEY).split("-")
+    return "+".join("Ctrl" if p == "Control" else p.upper() if len(p) == 1 else p for p in parts)

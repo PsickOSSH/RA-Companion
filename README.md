@@ -42,7 +42,11 @@ progress live. It comes in three versions that look and behave the same way:
 - **Duel**: compare your progress with a friend on the same game, see who is ahead and who unlocked what
 - **Group dashboard**: follow several players at once, ranked by progress on the current game
 - **Game search** by name (all consoles or a single one) to track any game
-- **Automatic refresh** with a configurable interval (`Auto` button + seconds) or manual refresh
+- **Automatic refresh** with a configurable interval (`Auto` button + seconds, from 5 s to 1 hour) or manual refresh.
+  On Windows, a **global keyboard shortcut** also refreshes, even while an emulator has the focus (`Ctrl+Alt+R` by
+  default; change it in the settings: click the field, then press `F1`-`F12` or `Ctrl`/`Alt` + a letter or digit;
+  `Backspace` restores the default). Windows keeps the shortcut for RA Companion, so choose one your emulator does not
+  use (for example Dolphin uses `F1`-`F8`); if it is already taken by another program, a message is shown
 - **6 interface languages** (English, Français, Español, Deutsch, Italiano, Português), a separate **translation
   language**, and **skins** (default, dark and light are included; a skin file works on all versions)
 - **Update check** in the settings: looks for a newer `.exe` (Windows), `.apk` (Android) or `.ipa` (iOS) in the GitHub releases
