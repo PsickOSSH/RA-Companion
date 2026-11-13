@@ -430,7 +430,13 @@ Every variable is documented in `skins/default.py`. When you add a skin variable
   settings: DeepL and LibreTranslate if you configured them, then Google Translate, then MyMemory).
 - **Translation keys:** the DeepL key (a free key ends with `:fx`, see <https://www.deepl.com/pro-api>) and the
   LibreTranslate address / key are stored as plain text in the settings, like the RetroAchievements API key. A service
-  without key (DeepL) or address (LibreTranslate) is simply skipped.
+  without key (DeepL) or address (LibreTranslate) is simply skipped. The **Test** button (next to the keys, on every
+  version) tries each service on its own with the values typed there and shows `OK` or the error of each one: it is the
+  way to know which service really answers, because a failing service is otherwise replaced silently by the next one.
+- **LibreTranslate and certificates:** HTTPS certificates are checked. If your own server uses a self-signed certificate,
+  or is reached through a name that its certificate does not cover, tick **Accept an invalid certificate (my own
+  server)**. It is off by default, applies to the LibreTranslate server only (never to DeepL, Google or MyMemory), and
+  should only be used for a server you control, for example on your own network or VPN.
   Existing cached images are reused according to the policy above instead of downloaded at every launch.
 - The game list of each console is downloaded once and kept for 30 days.
 - Calls to the RetroAchievements API are retried twice (after 1 s, then 3 s, or the pause requested by the server, at
@@ -466,6 +472,11 @@ Every variable is documented in `skins/default.py`. When you add a skin variable
   limits the requests, retry a minute later by pressing the translation button again). The message lists every
   service that was tried (for example `deepl: HTTP 403` means a wrong DeepL key, `HTTP 456` that its monthly quota is
   used up); the other services take over automatically.
+- **LibreTranslate is never used:** press **Test** next to the keys. `invalid certificate` or `Hostname mismatch`: the
+  certificate does not match the address, use the name of the certificate or tick *Accept an invalid certificate*;
+  `HTTP 308` or `301`: the server redirects to `https://`, use that address; `HTTP 404`: the address is not the
+  LibreTranslate server (check the port or the path); `HTTP 400` with a language: install that language on the server
+  (`en` is required, see `LT_LOAD_ONLY`); `HTTP 403`: wrong key.
 - **The update does not install:** the `.apk` must be signed with the same key as the installed one.
 - **The Android build fails while creating its virtual environment** (`BuildDependencyInstallError`, `pip`,
   Python 3.14): set `p4a.branch = develop` in `buildozer.spec` and delete the project `.buildozer/` folder.

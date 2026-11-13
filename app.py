@@ -76,7 +76,7 @@ def _fit(im, size):
 # Sizes you can change (pixels). Every number below is used by the whole application.
 # ---------------------------------------------------------------------------
 MAIN_WINDOW = "580x760"        # main window when it opens: width x height
-TRANSLATION_KEYS_WINDOW = "430x400"   # window of the translation keys (opened from the settings): width x height
+TRANSLATION_KEYS_WINDOW = "430x530"   # window of the translation keys (opened from the settings): width x height
 SETTINGS_WINDOW = "430x845"  # settings window: width x height
 TAB_BTN = (14, 6)              # Achievements / Duel / Group tabs: (horizontal padding, vertical padding)
 FILTER_BTN = (10, 4)           # All / Locked / Unlocked / Missable buttons
@@ -639,6 +639,7 @@ class App(tk.Tk):
             pady=SETTINGS_BTN[1], radius=skin.RADIUS_BUTTON)
         keys_btn.pack(side="left", padx=(6, 0))
         tr_conf = {k: str(self.cfg.get(k, "")) for k in ("deepl_key", "libre_url", "libre_key")}
+        tr_conf["libre_insecure"] = bool(self.cfg.get("libre_insecure", False))
         keys_btn.bind("<Button-1>", lambda e: self.translation_keys(w, tr_conf))
         row(T("s_skin"))
         skin_names = skins.available()
@@ -750,8 +751,8 @@ class App(tk.Tk):
         win.after(50, lambda: win.winfo_exists() and win.geometry(geo))
 
     def translation_keys(self, parent, conf):
-        """Small window of the settings: DeepL key and LibreTranslate server / key. `conf` is updated when OK is pressed
-        (the settings window saves it with the rest)."""
+        """Small window of the settings: DeepL key, LibreTranslate server / key / invalid certificate option, and a Test
+        button. `conf` is updated when Save is pressed (the settings window saves it with the rest)."""
         d = tk.Toplevel(parent)
         d.title(T("s_trkeys_title"))
         d.configure(bg=skin.BACKGROUND)
@@ -764,11 +765,51 @@ class App(tk.Tk):
             self.lbl(d, label, 10, bold=True, anchor="w").pack(fill="x", padx=18, pady=(10, 0))
             vars_[key] = tk.StringVar(value=conf.get(key, ""))
             self.entry(d, vars_[key], **({"show": "•"} if secret else {})).pack(fill="x", padx=18, ipady=5)
+        insecure = tk.BooleanVar(value=bool(conf.get("libre_insecure", False)))
+        tk.Checkbutton(d, text=T("s_libre_insecure"), variable=insecure, bg=skin.BACKGROUND, fg=skin.TEXT, selectcolor=skin.CARD,
+            activebackground=skin.BACKGROUND, activeforeground=skin.TEXT, font=(skin.FONT, 9), bd=0, highlightthickness=0,
+            cursor="hand2", anchor="w", wraplength=380, justify="left").pack(fill="x", padx=14, pady=(8, 0))
+        test_btn = RoundBtn(d, text=T("s_tr_test"), font=(skin.FONT, SETTINGS_BTN_FONT, "bold"), padx=SETTINGS_BTN[0],
+            pady=SETTINGS_BTN[1], radius=skin.RADIUS_BUTTON)
+        test_btn.pack(fill="x", padx=18, pady=(10, 0))
+        results = tk.Frame(d, bg=skin.BACKGROUND)
+        results.pack(fill="x", padx=18, pady=(4, 0))
+        busy = {"on": False}
+        names = {"deepl": "DeepL", "libretranslate": "LibreTranslate", "google": "Google", "google-chrome": "Google (Chrome)",
+                 "mymemory": "MyMemory"}
+
+        def show(lines):
+            if not results.winfo_exists():
+                return
+            for c in results.winfo_children():
+                c.destroy()
+            for text, color in lines:
+                self.lbl(results, text, 9, color, anchor="w", wraplength=380, justify="left").pack(fill="x")
+
+        def run_test(_=None):
+            if busy["on"]:
+                return
+            busy["on"] = True
+            show([(T("s_tr_testing"), skin.TEXT_MUTED)])
+            probe = translator.Translator()                 # tests the values typed here, not the saved ones
+            probe.configure("auto", vars_["deepl_key"].get(), vars_["libre_url"].get(), vars_["libre_key"].get(), insecure.get())
+
+            def job():
+                try:
+                    lines = [((f"{names.get(n, n)}: OK ({out})") if ok_ else f"{names.get(n, n)}: {out}",
+                              skin.SUCCESS if ok_ else skin.DANGER) for n, ok_, out in probe.test()]
+                except Exception as e:
+                    lines = [(str(e)[:120], skin.DANGER)]
+                busy["on"] = False
+                self.q.put(("call", lambda: show(lines)))
+            threading.Thread(target=job, daemon=True).start()
+        test_btn.bind("<Button-1>", run_test)
         self.lbl(d, T("s_trkeys_hint"), 8, skin.TEXT_MUTED, anchor="w", wraplength=380, justify="left").pack(fill="x", padx=18,
             pady=(10, 0))
 
         def ok():
             conf.update({k: v.get().strip() for k, v in vars_.items()})
+            conf["libre_insecure"] = bool(insecure.get())
             d.destroy()
         b = RoundBtn(d, text=T("save"), bg=skin.ACCENT, fg=skin.TEXT_ON_ACCENT, font=(skin.FONT, SAVE_BTN[0], "bold"),
             pady=SAVE_BTN[1], radius=skin.RADIUS_BUTTON_LARGE)

@@ -70,7 +70,7 @@ if kivy.utils.platform != "ios":
 CFG_DEFAULTS = {"friend": "", "group": [], "game_id": "", "auto": True, "hc_only": False, "interval": 30,
                 "auto_refresh": True, "sort": "disp_asc", "miss_only": False, "notify": True, "translate": False,
                 "ui_lang": "auto", "lang": "auto", "skin": "default", "filter": "all", "tab": "success",
-                "tr_service": "auto", "deepl_key": "", "libre_url": "", "libre_key": ""}
+                "tr_service": "auto", "deepl_key": "", "libre_url": "", "libre_key": "", "libre_insecure": False}
 
 
 def _cfg():
@@ -976,6 +976,8 @@ class SettingsScreen(Screen):
     deepl_key = StringProperty("")
     libre_url = StringProperty("")
     libre_key = StringProperty("")
+    libre_insecure = BooleanProperty(False)
+    tr_test_msg = StringProperty("")
     ui_lang_text = StringProperty("")
     tr_lang_text = StringProperty("")
     skin_text = StringProperty("")
@@ -1001,6 +1003,8 @@ class SettingsScreen(Screen):
         self.deepl_key = str(cfg.get("deepl_key", ""))
         self.libre_url = str(cfg.get("libre_url", ""))
         self.libre_key = str(cfg.get("libre_key", ""))
+        self.libre_insecure = bool(cfg.get("libre_insecure", False))
+        self.tr_test_msg = ""
         ui = cfg.get("ui_lang", "auto")
         lg = cfg.get("lang", "auto")
         self.ui_lang_text = auto if ui == "auto" else (uitext.lang_label(uitext.UI_LANGS, ui) or auto)
@@ -1082,8 +1086,32 @@ class SettingsScreen(Screen):
         self.notes_msg = tr("n_import_ok", a=added, m=merged, u=unchanged)
         self.manager.get_screen("profile").render_all()
 
+    def test_translation(self, deepl_key, libre_url, libre_key, libre_insecure):
+        """Try every translation service with the values typed here (not saved yet) and show the result of each one."""
+        if getattr(self, "_tr_test_busy", False):
+            return
+        self._tr_test_busy = True
+        self.tr_test_msg = tr("s_tr_testing")
+        probe = translator.Translator()
+        probe.configure("auto", deepl_key, libre_url, libre_key, libre_insecure)
+        names = {"deepl": "DeepL", "libretranslate": "LibreTranslate", "google": "Google", "google-chrome": "Google (Chrome)",
+                 "mymemory": "MyMemory"}
+
+        def job():
+            try:
+                msg = "\n".join((f"{names.get(n, n)}: OK ({out})") if ok else f"{names.get(n, n)}: {out}"
+                                for n, ok, out in probe.test())
+            except Exception as e:
+                msg = str(e)[:120]
+
+            def done(dt):
+                self._tr_test_busy = False
+                self.tr_test_msg = msg
+            Clock.schedule_once(done)
+        threading.Thread(target=job, daemon=True).start()
+
     def save_settings(self, username, api_key, notify_on, ui_label, tr_label, skin_label, service_label="",
-                      deepl_key="", libre_url="", libre_key=""):
+                      deepl_key="", libre_url="", libre_key="", libre_insecure=False):
         app = App.get_running_app()
         cfg = app.cfg
         old_account = (cfg.get("user"), cfg.get("key"))
@@ -1095,6 +1123,7 @@ class SettingsScreen(Screen):
         cfg["deepl_key"] = deepl_key.strip()
         cfg["libre_url"] = libre_url.strip()
         cfg["libre_key"] = libre_key.strip()
+        cfg["libre_insecure"] = bool(libre_insecure)
         TRANSLATOR.configure_from(cfg)
         TRANSLATOR.reset_failures()                  # texts that failed with the old service are tried again
         cfg["ui_lang"] = "auto" if ui_label == tr("s_auto") else uitext.lang_code(uitext.UI_LANGS, ui_label)

@@ -1153,6 +1153,30 @@
                     id: libre_key_input
                     text: root.libre_key
                     password: True
+                BoxLayout:
+                    size_hint_y: None
+                    height: dp(56)
+                    spacing: dp(10)
+                    Label:
+                        text: tr('s_libre_insecure')
+                        color: app.c_text
+                        font_size: sp(12)
+                        halign: 'left'
+                        valign: 'middle'
+                        text_size: self.size
+                    Switch:
+                        id: libre_insecure_switch
+                        active: root.libre_insecure
+                        size_hint_x: None
+                        width: dp(90)
+                FlatButton:
+                    text: tr('s_tr_test')
+                    height: dp(44)
+                    on_release: root.test_translation(deepl_input.text, libre_url_input.text, libre_key_input.text, libre_insecure_switch.active)
+                TextLabel:
+                    text: root.tr_test_msg
+                    font_size: sp(11)
+                    color: app.c_text
                 TextLabel:
                     text: tr('s_tr_hint')
                     font_size: sp(10)
@@ -1249,7 +1273,7 @@
                 text: tr('save')
                 height: dp(48)
                 active: True
-                on_release: root.save_settings(username_input.text, apikey_input.text, notify_switch.active, ui_lang_spinner.text, tr_lang_spinner.text, skin_spinner.text, tr_service_spinner.text, deepl_input.text, libre_url_input.text, libre_key_input.text)
+                on_release: root.save_settings(username_input.text, apikey_input.text, notify_switch.active, ui_lang_spinner.text, tr_lang_spinner.text, skin_spinner.text, tr_service_spinner.text, deepl_input.text, libre_url_input.text, libre_key_input.text, libre_insecure_switch.active)
 
 # ---------------------------------------------------------------- game search
 <SearchScreen>:

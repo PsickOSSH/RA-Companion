@@ -21,6 +21,7 @@ GOOGLE_OK = [[["Bonjour", "Hello", None]], None, "en"]
 class ServiceTests(unittest.TestCase):
     def setUp(self):
         self.posts = []
+        self.insecure_flags = []
         self.gets = []
         self.post_answer = {"translations": [{"text": "Salut"}]}
         self.get_answer = GOOGLE_OK
@@ -31,8 +32,9 @@ class ServiceTests(unittest.TestCase):
             p.start()
             self.addCleanup(p.stop)
 
-    def fake_post(self, url, payload, headers=None, timeout=15):
+    def fake_post(self, url, payload, headers=None, timeout=15, insecure=False):
         self.posts.append((url, payload, headers or {}))
+        self.insecure_flags.append(insecure)
         if isinstance(self.post_answer, Exception):
             raise self.post_answer
         return self.post_answer
@@ -137,6 +139,67 @@ class ServiceTests(unittest.TestCase):
             t.translate("Hello", "fr")
         self.assertIn("deepl: HTTP 403", str(ctx.exception))
         self.assertIn("mymemory", str(ctx.exception))
+
+    def test_invalid_certificate_option_is_passed_to_libretranslate_only(self):
+        self.post_answer = {"translatedText": "Bonjour monde"}
+        t = translator.Translator()
+        t.configure(libre_url="https://trad.local", libre_insecure=True, deepl_key="abc:fx")
+        t.test()
+        self.assertEqual(self.insecure_flags, [False, True])         # DeepL (strict) then LibreTranslate (insecure)
+        t.configure(libre_url="https://trad.local")
+        self.insecure_flags.clear()
+        t.translate("Hello again", "fr")
+        self.assertEqual(self.insecure_flags, [False])
+
+    def test_configure_from_reads_the_certificate_option(self):
+        t = translator.Translator()
+        t.configure_from({"libre_url": "x", "libre_insecure": True})
+        self.assertTrue(t.libre_insecure)
+        t.configure_from({})
+        self.assertFalse(t.libre_insecure)
+
+    def test_test_reports_every_service_without_the_cache(self):
+        self.post_answer = {"translatedText": "Bonjour monde"}
+        self.get_answer = http_error(429)
+        t = translator.Translator()
+        t.configure(libre_url="https://trad.local")
+        t.cache[("fr", "Hello world")] = "from cache"
+        results = t.test()
+        self.assertEqual([r[0] for r in results], ["libretranslate", "google", "google-chrome", "mymemory"])
+        self.assertEqual(results[0], ("libretranslate", True, "Bonjour monde"))
+        self.assertEqual(results[1], ("google", False, "HTTP 429"))
+
+    def test_error_descriptions_help_to_fix_the_address(self):
+        self.assertIn("https://", translator._describe(http_error(308)))
+        import ssl
+        err = ssl.SSLCertVerificationError(1, "certificate verify failed")
+        err.verify_message = "Hostname mismatch, certificate is not valid for 'trad.local'."
+        text = translator._describe(urllib.error.URLError(err))
+        self.assertIn("invalid certificate", text)
+        self.assertIn("trad.local", text)
+
+
+class InsecureContextTest(unittest.TestCase):
+    def test_post_json_builds_an_unverified_context_only_when_asked(self):
+        import ssl
+
+        class Answer:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def read(self):
+                return b"{}"
+        with mock.patch.object(translator.urllib.request, "urlopen", return_value=Answer()) as urlopen:
+            translator.post_json("https://x/translate", {}, insecure=True)
+            ctx = urlopen.call_args.kwargs["context"]
+            self.assertEqual(ctx.verify_mode, ssl.CERT_NONE)
+            self.assertFalse(ctx.check_hostname)
+            translator.post_json("https://x/translate", {})
+            strict = urlopen.call_args.kwargs.get("context")
+            self.assertTrue(strict is None or strict.verify_mode != ssl.CERT_NONE)
 
 
 if __name__ == "__main__":
