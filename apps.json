@@ -25,24 +25,31 @@
       },
       "versions": [
         {
+          "version": "1.9",
+          "date": "2026-11-14",
+          "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v1.9/ra-companion-1.9.ipa",
+          "size": 21969845,
+          "localizedDescription": "Resizable personal notes area (corner handle), hint under the update button, Buy Me a Coffee link in the settings.\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v1.8...v1.9"
+        },
+        {
           "version": "1.8",
           "date": "2026-11-13",
           "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v1.8/ra-companion-1.8.ipa",
-          "size": 21782291,
+          "size": 21955495,
           "localizedDescription": "LibreTranslate: option to accept an invalid certificate for your own server, and a Test button (Windows, Android, iOS) that checks each translation service and shows which one really answers.\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v1.7...v1.8"
         },
         {
           "version": "1.7",
           "date": "2026-11-13",
           "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v1.7/ra-companion-1.7.ipa",
-          "size": 21782291,
+          "size": 21946107,
           "localizedDescription": "Translation services: DeepL and LibreTranslate (key / server in the settings) with a preferred service, the others take over if one fails. Windows: global refresh shortcut that works while an emulator has the focus (Ctrl+Alt+R by default), windows open on the screen of the app.\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v1.6...v1.7"
         },
         {
           "version": "1.6",
           "date": "2026-11-13",
           "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v1.6/ra-companion-1.6.ipa",
-          "size": 21782291,
+          "size": 21936506,
           "localizedDescription": "Refresh interval down to 5 s, configurable refresh shortcut on Windows (F1 by default), automatic retries on temporary API errors, readable error messages on Windows.\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v1.5...v1.6"
         },
         {
