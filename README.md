@@ -38,7 +38,9 @@ progress live. It comes in three versions that look and behave the same way:
   with one-click **translation** (`🌐`) through several services: if one stops working, the next one takes over
   (free Google and MyMemory by default; **DeepL** and **LibreTranslate** once you enter a key / server address in the
   settings, with a *Translation service* choice to put your preferred one first)
-- **Personal notes**: saved locally, exported to / imported from a JSON file (the same file works on all versions)
+- **Personal notes**: saved locally, exported to / imported from a JSON file (the same file works on all versions).
+  On Windows, the note area of an achievement can be enlarged by dragging the handle in its bottom-right corner (its
+  height is remembered); a longer text scrolls
 - **Notifications** when you (or your friend) unlock an achievement (can be switched off in the settings; a
   **Send a test notification** button checks that they work, on all versions)
 - **Duel**: compare your progress with a friend on the same game, see who is ahead and who unlocked what

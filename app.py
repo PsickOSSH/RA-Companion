@@ -84,6 +84,9 @@ ICON_BTN = (12, 5)             # buttons with an icon and a text (Refresh, Last 
 SETTINGS_BTN = (12, 6)         # small buttons of the settings (export, import, update, test notification)
 SETTINGS_BTN_FONT = 10         # font size of those buttons
 SAVE_BTN = (11, 9)             # Save button of the settings: (font size, vertical padding)
+NOTE_HEIGHT = 95               # personal note of an achievement: height when first opened (pixels, then remembered)
+NOTE_MIN = 60                  # smallest height of the note area when it is resized with its corner handle
+NOTE_ROOM = 200               # height that is always kept for the comments below the note when it is enlarged
 
 
 class App(tk.Tk):
@@ -1773,9 +1776,44 @@ class App(tk.Tk):
         self.lbl(nbar, T("note_title"), 11, bold=True, anchor="w").pack(side="left")
         nstat = self.lbl(nbar, "", 9, skin.SUCCESS)
         nstat.pack(side="right")
-        nt = tk.Text(w, bg=skin.CARD, fg=skin.TEXT, insertbackground=skin.TEXT, wrap="word", relief="flat",
-            font=(skin.FONT, 10), padx=8, pady=6, height=4)
-        nt.pack(fill="x", padx=10, pady=(4, 8))
+        # The note area has a fixed height that the user changes by dragging the handle in its bottom-right corner;
+        # a text longer than the area scrolls with the scrollbar (or the mouse wheel).
+        try:
+            note_h = max(NOTE_MIN, int(self.cfg.get("note_height", NOTE_HEIGHT)))
+        except (TypeError, ValueError):
+            note_h = NOTE_HEIGHT
+        nbox = tk.Frame(w, bg=skin.BACKGROUND, height=note_h)
+        nbox.pack(fill="x", padx=10, pady=(4, 8))
+        nbox.grid_propagate(False)
+        nbox.grid_rowconfigure(0, weight=1)
+        nbox.grid_columnconfigure(0, weight=1)
+        nt = tk.Text(nbox, bg=skin.CARD, fg=skin.TEXT, insertbackground=skin.TEXT, wrap="word", relief="flat",
+            font=(skin.FONT, 10), padx=8, pady=6, height=1)
+        nt.grid(row=0, column=0, sticky="nsew")
+        nsb = ttk.Scrollbar(nbox, command=nt.yview, style="App.Vertical.TScrollbar")
+        nt.configure(yscrollcommand=nsb.set)
+        nsb.grid(row=0, column=1, sticky="ns", padx=(6, 0))
+        grip = tk.Canvas(nbox, width=14, height=14, bg=skin.CARD, highlightthickness=0, cursor="size_nw_se")
+        # inside the frame, in the very bottom-right corner (Tk places inside the border and the padding of a Text, hence the offsets)
+        border = int(nt.cget("bd")) + int(nt.cget("highlightthickness"))
+        grip.place(in_=nt, relx=1.0, rely=1.0, x=border + int(nt.cget("padx")), y=border + int(nt.cget("pady")), anchor="se")
+        for k in (4, 8, 12):
+            grip.create_line(13, k, k, 13, fill=skin.TEXT_MUTED)
+        drag = {}
+
+        def grip_press(e):
+            drag["y"], drag["h"] = e.y_root, nbox.winfo_height()
+
+        def grip_move(e):
+            limit = max(NOTE_MIN, w.winfo_height() - nbox.winfo_y() - NOTE_ROOM)
+            nbox.config(height=max(NOTE_MIN, min(limit, drag["h"] + e.y_root - drag["y"])))
+
+        def grip_release(e):
+            self.cfg["note_height"] = nbox.winfo_height()
+            save_cfg(self.cfg)
+        grip.bind("<ButtonPress-1>", grip_press)
+        grip.bind("<B1-Motion>", grip_move)
+        grip.bind("<ButtonRelease-1>", grip_release)
         nt.insert("1.0", self.notes.get(nid, ""))
         nst = {"job": None}
 
