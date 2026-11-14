@@ -1238,6 +1238,10 @@
                     height: dp(44)
                     on_release: root.check_update()
                 TextLabel:
+                    text: tr('s_update_hint')
+                    font_size: sp(10)
+                    color: app.c_muted
+                TextLabel:
                     text: root.update_msg
                     font_size: sp(11)
                     color: app.c_success

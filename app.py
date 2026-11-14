@@ -77,7 +77,7 @@ def _fit(im, size):
 # ---------------------------------------------------------------------------
 MAIN_WINDOW = "580x760"        # main window when it opens: width x height
 TRANSLATION_KEYS_WINDOW = "430x530"   # window of the translation keys (opened from the settings): width x height
-SETTINGS_WINDOW = "430x845"  # settings window: width x height
+SETTINGS_WINDOW = "430x865"  # settings window: width x height
 TAB_BTN = (14, 6)              # Achievements / Duel / Group tabs: (horizontal padding, vertical padding)
 FILTER_BTN = (10, 4)           # All / Locked / Unlocked / Missable buttons
 ICON_BTN = (12, 5)             # buttons with an icon and a text (Refresh, Last played game)
@@ -695,6 +695,7 @@ class App(tk.Tk):
         bu = RoundBtn(ub, text=T("s_update_check"), font=(skin.FONT, SETTINGS_BTN_FONT, "bold"), padx=SETTINGS_BTN[0], pady=SETTINGS_BTN[1], radius=skin.RADIUS_BUTTON)
         bu.pack(fill="x")
         bu.bind("<Button-1>", lambda e: self.check_update(upd_msg, upd_get))
+        self.lbl(w, T("s_update_hint"), 8, skin.TEXT_MUTED, anchor="w").pack(fill="x", padx=18, pady=(3, 0))
         upd_msg.pack(fill="x", padx=18, pady=(4, 0))
         upd_get.pack(fill="x", padx=18)
 
