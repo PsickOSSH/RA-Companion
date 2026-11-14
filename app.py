@@ -1,5 +1,6 @@
 """Main window of RA Companion."""
 
+import base64
 import os
 import queue
 import subprocess
@@ -15,7 +16,7 @@ from tkinter import filedialog, ttk
 from skins import active as skin
 import i18n
 import skins
-from config import API_KEY_URL, GAMES_FILE, GAMES_TTL, HOME, LOGO_URLS, MEDIA, NOTES_FILE, REPO_URL, SITE_URL, load_cfg, read_json, save_cfg, write_json
+from config import API_KEY_URL, BMC_ICON_SMALL_B64, GAMES_FILE, GAMES_TTL, HOME, LOGO_URLS, MEDIA, NOTES_FILE, REPO_URL, SITE_URL, BMC_URL, load_cfg, read_json, save_cfg, write_json
 from i18n import LANGS, REFRESH_LABELS, SORT_ICONS, SORT_IDS, T, UI_LANGS, resolve_ui, sort_label, tr_lang
 from ra_api import call_api, http_get
 from hotkey import GlobalHotkey
@@ -206,6 +207,7 @@ class App(tk.Tk):
         cache = os.path.join(HOME, ".ra_companion_cache")
         os.makedirs(cache, exist_ok=True)
         f = os.path.join(cache, f"logo_{key}.png")
+        embedded = {"bmc": BMC_ICON_SMALL_B64}.get(key)
 
         def show(data):
             try:
@@ -234,7 +236,10 @@ class App(tk.Tk):
             except Exception:
                 return
             self.q.put(("call", lambda: show(data)))
-        threading.Thread(target=job, daemon=True).start()
+        if embedded:                                 # icon embedded in config.py: no download
+            show(base64.b64decode(embedded))
+        else:
+            threading.Thread(target=job, daemon=True).start()
         return lab
 
     def icon_btn(self, parent, icon, text, cmd):
@@ -732,6 +737,7 @@ class App(tk.Tk):
         links.pack(pady=(0, 12))
         self.logo_link(links, "github", REPO_URL, "GitHub").pack(side="left", padx=10)
         self.logo_link(links, "ra", SITE_URL, "retroachievements.org").pack(side="left", padx=10)
+        self.logo_link(links, "bmc", BMC_URL, "Buy Me a Coffee").pack(side="left", padx=10)
 
     def place_window(self, win, size, over=None):
         """Give `win` its size ("WIDTHxHEIGHT") and open it centered on `over` (the main window by default), kept inside

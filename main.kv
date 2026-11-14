@@ -17,6 +17,7 @@
 #:import API_KEY_URL uitext.API_KEY_URL
 #:import REPO_URL uitext.REPO_URL
 #:import SITE_URL uitext.SITE_URL
+#:import BMC_URL uitext.BMC_URL
 #:import LOGO_GITHUB uitext.LOGO_GITHUB
 #:import LOGO_RA uitext.LOGO_RA
 #:import APP_VERSION appinfo.__version__
@@ -1261,6 +1262,10 @@
                     url: SITE_URL
                     logo_url: LOGO_RA
                     caption: 'retroachievements.org'
+                LinkLogo:
+                    url: BMC_URL
+                    logo_url: app.bmc_logo
+                    caption: 'Buy Me a Coffee'
                 TextLabel:
                     text: root.data_info
                     font_size: sp(9)

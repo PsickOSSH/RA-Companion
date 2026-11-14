@@ -1426,6 +1426,7 @@ class RACompanionApp(App):
     c_warning = ListProperty([1, 0.624, 0.263, 1])
     c_danger = ListProperty([1, 0.420, 0.420, 1])
     info_hex = StringProperty("6ab0ff")
+    bmc_logo = StringProperty("")                   # path of the Buy Me a Coffee icon (written from the embedded copy)
     github_color = ListProperty([1, 1, 1, 1])      # the GitHub logo is white: it is turned black on a light skin
 
     def build(self):
@@ -1438,6 +1439,7 @@ class RACompanionApp(App):
         self.tracker = features.UnlockTracker()
         self.games_index = features.GameIndex(os.path.join(self.user_data_dir, "games_index.json"))
         self.notes = features.NotesStore(os.path.join(self.user_data_dir, "notes.json"))
+        self.bmc_logo = self._write_embedded_icon("bmc_logo.png", uitext.BMC_ICON_B64)
         TRANSLATOR.set_cache_file(os.path.join(self.user_data_dir, "translations.json"))
         TRANSLATOR.configure_from(self.cfg)
         self._bg_stop = None
@@ -1462,6 +1464,24 @@ class RACompanionApp(App):
         Clock.schedule_once(apply_safe_area, 0)
         Window.bind(size=apply_safe_area)
         return sm
+
+    def _write_embedded_icon(self, name, b64):
+        """Write an icon embedded in config.py to the private folder of the app and return its path ('' on failure)."""
+        path = os.path.join(self.user_data_dir, name)
+        try:
+            import base64
+            data = base64.b64decode(b64)
+            current = None
+            if os.path.exists(path):
+                with open(path, "rb") as f:
+                    current = f.read()
+            if current != data:
+                with open(path, "wb") as f:
+                    f.write(data)
+        except Exception:
+            Logger.exception("RA: cannot write %s", name)
+            return ""
+        return path
 
     def _load_settings(self):
         """Settings from the private folder. On the very first start, the old settings file of config.py is imported once."""

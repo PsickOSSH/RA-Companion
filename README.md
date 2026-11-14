@@ -7,6 +7,10 @@
 
 # RA Companion
 
+<p align="center">
+  <a href="https://buymeacoffee.com/psickossh"><img src="docs/bmc-button.png" alt="Buy me a coffee" width="220"></a>
+</p>
+
 ![Main window](docs/main.png)
 
 | Achievement detail | Duel |
@@ -128,7 +132,7 @@ Kivy interface; only a few files are specific to one of them.
 The iOS app is built outside the repository with kivy-ios and Xcode (see *Building → iOS*), from a copy of the
 Kivy files listed above.
 
-Other folders: `docs/` (logo and screenshots of this README), `tests/` (unit tests of the logic).
+Other folders: `docs/` (logo, screenshots and Buy Me a Coffee images of this README, plus `embed_icon.py`), `tests/` (unit tests of the logic).
 
 `skins/__init__.py` must stay inside the `skins` folder, next to the skin files.
 
@@ -495,6 +499,15 @@ Every variable is documented in `skins/default.py`. When you add a skin variable
 - **"Invalid username or API key":** check both in the settings. The Web API key is on
   <https://retroachievements.org/settings?tab=applications>, and it is not your password.
 - Nothing is displayed: check your username and Web API key in the settings.
+
+## Support the project
+
+RA Companion is free and open source. If you like it and want to support its development, you can
+[buy me a coffee](https://buymeacoffee.com/psickossh). It is entirely optional. The link is also in the settings of the
+app, next to the GitHub and RetroAchievements links.
+
+The Buy Me a Coffee logo of the app is embedded in `config.py` (no download needed). To change it, replace
+`docs/bmc-logo-yellow.png`, then run `python docs/embed_icon.py` (needs `pip install pillow`) and rebuild the app.
 
 ## Third-party components
 

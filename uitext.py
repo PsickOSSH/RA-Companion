@@ -104,6 +104,7 @@ except Exception:
     _config = None
 SITE_URL = getattr(_config, "SITE_URL", "https://retroachievements.org")
 REPO_URL = getattr(_config, "REPO_URL", "https://github.com/PsickOSSH/RA-Companion")
+BMC_URL = getattr(_config, "BMC_URL", "https://buymeacoffee.com/psickossh")
 LOGO_URLS = getattr(_config, "LOGO_URLS", {
     "github": "https://github.githubassets.com/favicons/favicon-dark.png",
     "ra": "https://commons.wikimedia.org/wiki/Special:FilePath/RetroAchievements_logo_square_color.png?width=64",
@@ -111,6 +112,7 @@ LOGO_URLS = getattr(_config, "LOGO_URLS", {
 API_KEY_URL = "https://retroachievements.org/settings?tab=applications"
 LOGO_GITHUB = LOGO_URLS.get("github", "")
 LOGO_RA = LOGO_URLS.get("ra", "")
+BMC_ICON_B64 = getattr(_config, "BMC_ICON_B64", "")      # embedded icon of the Buy Me a Coffee link (see config.py)
 
 UI_LANGS = [("fr", "Français"), ("en", "English"), ("es", "Español"), ("de", "Deutsch"), ("it", "Italiano"), ("pt", "Português")]
 # Languages offered for the translation of descriptions and comments (Latin and Cyrillic scripts only: the app font has no CJK glyphs)
