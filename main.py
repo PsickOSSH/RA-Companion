@@ -152,21 +152,30 @@ def cached_translation(text):
     return TRANSLATOR.cached(target_lang(), text)
 
 
-def translate_async(texts, done):
+def translate_async(texts, done, attempt=0):
     """Translate the texts that are still pending in a background thread, then call `done()` on the UI thread.
-    Returns False when there was nothing to do. Problems are kept in TRANSLATOR.last_error (the screens show it)."""
+    Returns False when there was nothing to do. Problems are kept in TRANSLATOR.last_error (the screens show it).
+    Texts that failed are tried again by themselves (3 times at most), the user does not have to switch the translation off
+    and on."""
     lang = target_lang()
     todo = [t for t in dict.fromkeys(texts) if TRANSLATOR.pending(lang, t)]
     if not todo:
         return False
 
     def job():
+        failed = 0
         try:
-            TRANSLATOR.translate_many(todo, lang)
+            failed = TRANSLATOR.translate_many(todo, lang)[1]
         except Exception as e:                      # the callback must always be called
+            failed = 1
             TRANSLATOR.last_error = f"{e.__class__.__name__}: {e}"[:120]
             Logger.exception("RA: translation failed")
         Clock.schedule_once(lambda dt: done())
+        if failed and attempt < 3:
+            def again(dt):
+                if _cfg().get("translate"):
+                    translate_async(todo, done, attempt + 1)
+            Clock.schedule_once(again, translator.RETRY_AFTER + 2)
     threading.Thread(target=job, daemon=True).start()
     return True
 
@@ -259,13 +268,127 @@ class ChipRow(BoxLayout):
                 chip.size_hint_x = weight
 
 
+class EditBar(BoxLayout):
+    """Bar "Cut / Copy / Paste" shown above a text field after a long press on it; the next touch outside closes it."""
+
+    def __init__(self, field, **kw):
+        super().__init__(orientation="horizontal", size_hint=(None, None), spacing=dp(1), **kw)
+        self.field = field
+        self.height = dp(40)
+        self.width = 0
+        for key, action in (("m_cut", self.cut), ("m_copy", self.copy), ("m_paste", self.paste)):
+            label = tr(key)
+            w = max(dp(72), CoreLabel(text=label, font_size=sp(14)).get_extents(label)[0] + dp(28))
+            b = Button(text=label, font_size=sp(14), size_hint=(None, 1), width=w, background_normal="",
+                       background_color=(0.13, 0.14, 0.17, 0.98), color=(1, 1, 1, 1))
+            b.bind(on_release=lambda _b, f=action: f())
+            self.add_widget(b)
+            self.width += w + dp(1)
+        self._ev = Clock.schedule_interval(self.place, 0.15)         # follows the field (keyboard, scrolling)
+
+    def place(self, *_):
+        f = self.field
+        if not f.get_root_window():
+            self.dismiss()
+            return
+        _x, y_top = f.to_window(f.x, f.top)
+        _x, y_bottom = f.to_window(f.x, f.y)
+        cx = f.to_window(f.center_x, 0)[0]
+        px = min(max(dp(8), cx - self.width / 2), max(dp(8), Window.width - self.width - dp(8)))
+        py = y_top + dp(6)
+        if py + self.height > Window.height - dp(30):                # no room above: below the field
+            py = y_bottom - self.height - dp(6)
+        self.pos = (px, max(dp(4), py))
+        self.opacity = 1 if -self.height < y_top < Window.height + self.height else 0
+
+    def on_touch_down(self, touch):
+        if not self.collide_point(*touch.pos):
+            self.dismiss()
+            return False                                             # the touch goes on to the field / widgets below
+        return super().on_touch_down(touch)
+
+    def dismiss(self, *_):
+        self._ev.cancel()
+        if self.parent is not None:
+            self.parent.remove_widget(self)
+        if getattr(self.field, "_bar", None) is self:
+            self.field._bar = None
+
+    def cut(self):
+        text = self.field.selection_text or self.field.text          # nothing selected: the whole field
+        if text:
+            iosutil.clipboard_copy(text)
+            if self.field.selection_text:
+                self.field.delete_selection()
+            else:
+                self.field.text = ""
+
+    def copy(self):
+        text = self.field.selection_text or self.field.text          # nothing selected: the whole field
+        if text:
+            iosutil.clipboard_copy(text)
+
+    def paste(self):
+        text = iosutil.clipboard_paste()
+        if not text:
+            return
+        if self.field.selection_text:
+            self.field.delete_selection()
+        self.field.insert_text(text if self.field.multiline else text.replace(chr(10), " "))
+
+
 class DarkInput(TextInput):
-    """Single-line text field with its own long-press menu (Copy / Paste / Select all)."""
+    """Text field. A long press on it shows the bar Cut / Copy / Paste (instead of the long-press menu of Kivy,
+    which is not reliable on every phone)."""
+    LONG_PRESS = 0.5          # seconds
+    _bar = None
+    _press_ev = None
+    _press_pos = None
 
     def __init__(self, **kw):
-        kw["use_bubble"] = True
+        kw["use_bubble"] = False
         kw["use_handles"] = True
         super().__init__(**kw)
+        self.bind(focus=lambda _w, on: None if on else self.close_bar())
+
+    def close_bar(self):
+        if self._bar is not None:
+            self._bar.dismiss()
+
+    def show_bar(self, *_):
+        self.close_bar()
+        if self.get_root_window():
+            self._bar = EditBar(self)
+            Window.add_widget(self._bar)
+            self._bar.place()
+
+    def _cancel_press(self):
+        if self._press_ev is not None:
+            self._press_ev.cancel()
+            self._press_ev = None
+
+    def on_touch_down(self, touch):
+        if self.collide_point(*touch.pos):
+            self._cancel_press()
+            self._press_pos = touch.pos
+            self._press_ev = Clock.schedule_once(self._long_press, self.LONG_PRESS)
+        return super().on_touch_down(touch)
+
+    def on_touch_move(self, touch):
+        if self._press_ev is not None and self._press_pos and (
+                abs(touch.x - self._press_pos[0]) > dp(12) or abs(touch.y - self._press_pos[1]) > dp(12)):
+            self._cancel_press()                                     # the finger moves: scrolling or selecting
+        return super().on_touch_move(touch)
+
+    def on_touch_up(self, touch):
+        self._cancel_press()
+        return super().on_touch_up(touch)
+
+    def _long_press(self, _dt):
+        self._press_ev = None
+        if not self.focus:
+            self.focus = True
+        self.show_bar()
 
 
 class SmallInput(DarkInput):
@@ -871,6 +994,7 @@ class DetailScreen(Screen):
         self._load_comments(gen, a.get("ID"))
         self._apply_translation(gen)
         if self.translate_on:
+            TRANSLATOR.reset_failures()                  # opening a page is a new try for the texts that failed before
             translate_async([self._desc], lambda: self._apply_translation(gen))
 
     # ---- personal note: saved 0.9 s after the last key press, when the field loses focus and when leaving the page

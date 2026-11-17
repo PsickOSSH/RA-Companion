@@ -23,7 +23,10 @@ except Exception:
 
 USER_AGENT = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36"
 SERVICES = ["auto", "deepl", "libretranslate", "google", "mymemory"]     # values of the setting `tr_service`
-RETRY_AFTER = 60          # seconds before a failed text is tried again
+RETRY_AFTER = 20          # seconds before a failed text is tried again
+DOWN_FOR = 90            # seconds during which a service that just failed is tried last (not at every text)
+ROUNDS = 2                # the whole chain is tried this many times before giving up
+ROUND_PAUSE = 1.5         # seconds between two rounds
 MAX_CACHED = 6000         # entries kept on disk
 
 
@@ -31,7 +34,7 @@ class TranslateError(Exception):
     """Every endpoint failed; the message says why."""
 
 
-def get_json(url, timeout=15):
+def get_json(url, timeout=10):
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json,text/plain,*/*"})
     kw = {"timeout": timeout}
     if _CTX is not None:
@@ -150,6 +153,7 @@ class Translator:
         self.libre_key = str(libre_key or "").strip()
         self.libre_insecure = bool(libre_insecure)
         self._good = 0
+        self.down = {}
 
     def configure_from(self, cfg):
         """Same as configure(), reading the settings dictionary of the app."""
@@ -235,26 +239,34 @@ class Translator:
         chain = self.chain()
         n = len(chain)
         start = self._good % n if self.service == "auto" else 0       # automatic mode starts with the last good one
-        for k in range(n):
-            idx = (start + k) % n
-            name, fn = chain[idx]
-            try:
-                out = (fn(text, lang) or "").strip()
-                if not out:
-                    raise TranslateError("empty answer")
-                if self.service == "auto":
-                    self._good = idx
-                self.last_used = name
-                self.cache[(lang, text)] = out
-                return out
-            except Exception as e:
-                errors.append(f"{name}: {_describe(e)}")
-                if isinstance(e, urllib.error.HTTPError) and e.code in (429, 503):
-                    time.sleep(0.5)
+        for turn in range(ROUNDS):
+            if turn:
+                time.sleep(ROUND_PAUSE)                               # a short outage often ends within seconds
+                errors = []
+            now = time.time()
+            order = [(start + k) % n for k in range(n)]
+            order.sort(key=lambda i: now - self.down.get(chain[i][0], 0) < DOWN_FOR)   # a service that just failed goes last
+            for idx in order:
+                name, fn = chain[idx]
+                try:
+                    out = (fn(text, lang) or "").strip()
+                    if not out:
+                        raise TranslateError("empty answer")
+                    if self.service == "auto":
+                        self._good = idx
+                    self.last_used = name
+                    self.down.pop(name, None)
+                    self.cache[(lang, text)] = out
+                    return out
+                except Exception as e:
+                    self.down[name] = time.time()
+                    errors.append(f"{name}: {_describe(e)}")
+                    if isinstance(e, urllib.error.HTTPError) and e.code in (429, 503):
+                        time.sleep(0.5)
         self.failed[(lang, text)] = time.time()
         raise TranslateError("; ".join(errors))
 
-    def translate_many(self, texts, lang, workers=3):
+    def translate_many(self, texts, lang, workers=6):
         """Translate every pending text. Returns (done, failed); `last_error` holds the first error message."""
         todo = [t for t in dict.fromkeys(texts) if self.pending(lang, t)]
         results = {"done": 0, "failed": 0, "error": ""}

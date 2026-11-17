@@ -169,6 +169,40 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(results[0], ("libretranslate", True, "Bonjour monde"))
         self.assertEqual(results[1], ("google", False, "HTTP 429"))
 
+    def test_a_short_outage_is_survived_by_a_second_round(self):
+        answers = [urllib.error.URLError("down")] * 3 + [GOOGLE_OK]      # the three free endpoints fail, then the first works
+
+        def flaky(url, timeout=15):
+            a = answers.pop(0) if answers else GOOGLE_OK
+            if isinstance(a, Exception):
+                raise a
+            return a
+        t = translator.Translator()
+        with mock.patch.object(translator, "get_json", side_effect=flaky):
+            self.assertEqual(t.translate("Hello", "fr"), "Bonjour")
+        self.assertNotIn(("fr", "Hello"), t.failed)
+
+    def test_a_text_that_keeps_failing_is_marked_and_retried_after_a_short_pause(self):
+        self.get_answer = urllib.error.URLError("down")
+        t = translator.Translator()
+        with self.assertRaises(translator.TranslateError):
+            t.translate("Hello", "fr")
+        self.assertFalse(t.pending("fr", "Hello"))
+        t.failed[("fr", "Hello")] -= translator.RETRY_AFTER + 1
+        self.assertTrue(t.pending("fr", "Hello"))
+
+    def test_a_service_that_just_failed_is_not_tried_first_again(self):
+        self.post_answer = urllib.error.URLError("down")                  # DeepL does not answer
+        t = translator.Translator()
+        t.configure("deepl", deepl_key="abc:fx")
+        self.assertEqual(t.translate("Hello", "fr"), "Bonjour")           # DeepL fails once, Google answers
+        self.assertEqual(len(self.posts), 1)
+        self.assertEqual(t.translate("World", "fr"), "Bonjour")
+        self.assertEqual(len(self.posts), 1)                              # the second text goes straight to Google
+        t.down["deepl"] -= translator.DOWN_FOR + 1                        # after the pause DeepL is tried again
+        t.translate("Again", "fr")
+        self.assertEqual(len(self.posts), 2)
+
     def test_error_descriptions_help_to_fix_the_address(self):
         self.assertIn("https://", translator._describe(http_error(308)))
         import ssl

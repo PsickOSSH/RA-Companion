@@ -577,10 +577,12 @@ class App(tk.Tk):
                 if lab.winfo_exists():
                     lab.config(text=orig)
 
-    def translate_labels(self):
+    def translate_labels(self, attempt=0):
         """Translate every visible description in background threads and update the labels when done."""
         items = list(self.desc_items) + list(self.duel_items)
         lang = tr_lang(self.cfg)
+
+        failed = []
 
         def one(it):
             lab, orig = it
@@ -594,6 +596,7 @@ class App(tk.Tk):
                 else:
                     return
             except Exception as e:
+                failed.append(orig)
                 text = T("tr_error", e=e)
                 self.q.put(("call", lambda: self.l_status.config(text=text, fg=skin.DANGER)))
                 return
@@ -603,6 +606,11 @@ class App(tk.Tk):
             with ThreadPoolExecutor(3) as ex:
                 list(ex.map(one, items))
             TRANSLATOR.save()
+            if failed and attempt < 3:           # temporary problem: try again later without the user having to do anything
+                def again():
+                    if self.cfg["translate"]:
+                        self.translate_labels(attempt + 1)
+                self.after(int((translator.RETRY_AFTER + 2) * 1000), lambda: self.q.put(("call", again)))
         threading.Thread(target=job, daemon=True).start()
     # ----------------------------------------------------------------------
     # Settings window, duel and group configuration
@@ -1767,7 +1775,8 @@ class App(tk.Tk):
         if is_missable(a):
             self.lbl(c, "⚠ " + T("f_miss"), 9, skin.WARNING, bold=True, bg=skin.CARD, anchor="w").pack(fill="x")
         orig = a.get("Description", "")
-        desc = self.lbl(c, orig, 10, skin.TEXT_MUTED, bg=skin.CARD, anchor="w", wraplength=340, justify="left")
+        desc = self.lbl(c, TRANSLATOR.cached(tr_lang(self.cfg), orig) if self.cfg["translate"] else orig, 10, skin.TEXT_MUTED,
+            bg=skin.CARD, anchor="w", wraplength=340, justify="left")
         desc.pack(fill="x")
         self.lbl(c, T("pts_line", p=a.get("Points", 0), r=a.get("TrueRatio", "?")), 9, skin.ACCENT, bg=skin.CARD,
             anchor="w").pack(fill="x")
@@ -1897,10 +1906,10 @@ class App(tk.Tk):
 
             def job():
                 texts = [orig] + [r.get("CommentText", "") for r in st["comments"] or []]
-                with ThreadPoolExecutor(3) as ex:
+                with ThreadPoolExecutor(6) as ex:
                     list(ex.map(one, texts))
                 TRANSLATOR.save()
-                self.q.put(("call", lambda: (w.winfo_exists() and info.config(text=T("tr_error", e=st["tr_err"]) if st.get("tr_err") else st["info"]), render())))
+                self.q.put(("call", lambda: (w.winfo_exists() and info.config(text=T("tr_error", e=st["tr_err"]) if st.get("tr_err") else (st["info"] or T("loading"))), render())))
             threading.Thread(target=job, daemon=True).start()
 
         def set_btn():
@@ -1944,6 +1953,8 @@ class App(tk.Tk):
                 msg = friendly_error(ex)
                 self.q.put(("call", lambda: w.winfo_exists() and info.config(text=T("error", e=msg), fg=skin.DANGER)))
         threading.Thread(target=load, daemon=True).start()
+        if st["tr"]:
+            run_tr()                        # the description does not wait for the comments
 
     # ----------------------------------------------------------------------
     # Unlock notifications
