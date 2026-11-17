@@ -25,6 +25,13 @@
       },
       "versions": [
         {
+          "version": "2.0",
+          "date": "2026-11-17",
+          "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v2.0/ra-companion-2.0.ipa",
+          "size": 21881454,
+          "localizedDescription": "Translation is faster and more reliable (services that fail are skipped for a while, automatic retries, cache). Web links in comments are highlighted and clickable. Cut / Copy / Paste bar on a long press on Android and iOS, right-click edit menu on Windows.\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v1.9...v2.0"
+        },
+        {
           "version": "1.9",
           "date": "2026-11-14",
           "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v1.9/ra-companion-1.9.ipa",

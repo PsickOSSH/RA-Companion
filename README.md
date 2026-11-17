@@ -41,10 +41,14 @@ progress live. It comes in three versions that look and behave the same way:
 - **Achievement page**: description, points, unlock date, **personal note** (`✎`) and the community **comments**,
   with one-click **translation** (`🌐`) through several services: if one stops working, the next one takes over
   (free Google and MyMemory by default; **DeepL** and **LibreTranslate** once you enter a key / server address in the
-  settings, with a *Translation service* choice to put your preferred one first)
+  settings, with a *Translation service* choice to put your preferred one first). Translations are cached on disk, a
+  service that just failed is skipped for a while, and a text that failed is retried automatically. **Web links** in
+  the comments are highlighted (colour + underline) and open in the browser when clicked / tapped
 - **Personal notes**: saved locally, exported to / imported from a JSON file (the same file works on all versions).
   On Windows, the note area of an achievement can be enlarged by dragging the handle in its bottom-right corner (its
   height is remembered); a longer text scrolls
+- **Copy / paste in the text fields**: on Windows, a right click in a field (settings, notes, comments) opens a
+  *Cut / Copy / Paste / Select all* menu; on Android and iOS, a long press on a field shows a *Cut / Copy / Paste* bar
 - **Notifications** when you (or your friend) unlock an achievement (can be switched off in the settings; a
   **Send a test notification** button checks that they work, on all versions)
 - **Duel**: compare your progress with a friend on the same game, see who is ahead and who unlocked what
@@ -58,7 +62,7 @@ progress live. It comes in three versions that look and behave the same way:
 - **6 interface languages** (English, Français, Español, Deutsch, Italiano, Português), a separate **translation
   language**, and **skins** (default, dark and light are included; a skin file works on all versions)
 - **Update check** in the settings: looks for a newer `.exe` (Windows), `.apk` (Android) or `.ipa` (iOS) in the GitHub releases
-- **iOS support** (experimental): safe-area margins for the notch and home indicator, native clipboard copy/paste/select all and automatic detection of the device language
+- **iOS support** (experimental): safe-area margins for the notch and home indicator, native clipboard (the *Cut / Copy / Paste* bar) and automatic detection of the device language
 - **In-app unlock banner** (Android and iOS): when the app is open, a new achievement shows a banner with its badge, title, description, points and a gold outline for your unlocks or a blue one for a friend's; up to 4 banners are stacked, a tap dismisses them, and the height adapts to the text
 - **System notifications** (Android and iOS): when the app has just been sent to the background, unlocks are shown as system notifications instead
 
@@ -383,7 +387,6 @@ and the app has to be refreshed from AltStore.
 
 - While the app is open, unlocks are shown as an in-app banner; system notifications appear only when the app has just been sent to the background. Reliable background notifications would require push notifications through APNs and a paid Apple developer account.
 - The image cache works, but reinstalling the app from Xcode can reset its data folder.
-- The long-press copy/paste menu relies on Kivy's built-in bubble, which can be unreliable on iOS.
 
 ### Publishing a release
 
@@ -475,7 +478,7 @@ Every variable is documented in `skins/default.py`. When you add a skin variable
 - **iOS: the app stops opening after a week:** the signature of a free Apple ID lasts 7 days; refresh the app from
   AltStore.
 - **Translation unavailable:** the message in the status bar names the cause (for example `HTTP 429`: the service
-  limits the requests, retry a minute later by pressing the translation button again). The message lists every
+  limits the requests; the app retries by itself a few times, or press the translation button again). The message lists every
   service that was tried (for example `deepl: HTTP 403` means a wrong DeepL key, `HTTP 456` that its monthly quota is
   used up); the other services take over automatically.
 - **LibreTranslate is never used:** press **Test** next to the keys. `invalid certificate` or `Hostname mismatch`: the
