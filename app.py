@@ -77,8 +77,8 @@ def _fit(im, size):
 # Sizes you can change (pixels). Every number below is used by the whole application.
 # ---------------------------------------------------------------------------
 MAIN_WINDOW = "580x760"        # main window when it opens: width x height
-TRANSLATION_KEYS_WINDOW = "430x530"   # window of the translation keys (opened from the settings): width x height
-SETTINGS_WINDOW = "430x865"  # settings window: width x height
+TRANSLATION_KEYS_WINDOW = "430x780"   # window of the translation keys (opened from the settings): width x starting height
+SETTINGS_WINDOW = "430x865"  # settings window: width x starting height (then reduced to what its content needs)
 TAB_BTN = (14, 6)              # Achievements / Duel / Group tabs: (horizontal padding, vertical padding)
 FILTER_BTN = (10, 4)           # All / Locked / Unlocked / Missable buttons
 ICON_BTN = (12, 5)             # buttons with an icon and a text (Refresh, Last played game)
@@ -663,6 +663,7 @@ class App(tk.Tk):
         w.transient(self)
         w.grab_set()
         self.place_window(w, SETTINGS_WINDOW)
+        self.grow_to_fit(w)
 
         def row(text, hint=""):
             self.lbl(w, text, 10, bold=True, anchor="w").pack(fill="x", padx=18, pady=(10, 0))
@@ -684,17 +685,15 @@ class App(tk.Tk):
         lg = tk.StringVar(value=next((n for n, c in LANGS.items() if c == self.cfg["lang"]), sys_label))
         ttk.Combobox(w, textvariable=lg, values=[sys_label] + list(LANGS), state="readonly").pack(fill="x", padx=18)
         row(T("s_trservice"))
-        svc_names = {"auto": T("s_tr_auto"), "deepl": "DeepL", "libretranslate": "LibreTranslate", "google": "Google",
-                     "mymemory": "MyMemory"}
-        sv = tk.StringVar(value=svc_names.get(self.cfg.get("tr_service", "auto"), svc_names["auto"]))
         sv_row = tk.Frame(w, bg=skin.BACKGROUND)
         sv_row.pack(fill="x", padx=18)
-        ttk.Combobox(sv_row, textvariable=sv, values=list(svc_names.values()), state="readonly").pack(side="left", fill="x",
-            expand=True)
         keys_btn = RoundBtn(sv_row, text=T("s_trkeys"), font=(skin.FONT, SETTINGS_BTN_FONT, "bold"), padx=SETTINGS_BTN[0],
             pady=SETTINGS_BTN[1], radius=skin.RADIUS_BUTTON)
-        keys_btn.pack(side="left", padx=(6, 0))
+        keys_btn.pack(fill="x")
         tr_conf = {k: str(self.cfg.get(k, "")) for k in ("deepl_key", "libre_url", "libre_key")}
+        tr_conf.update(ai_url="", ai_model="", ai_key="")             # the older single AI service: replaced by the list
+        tr_conf["ai_services"] = translator.ai_entries(self.cfg)
+        tr_conf["tr_order"] = translator.effective_order(self.cfg)
         tr_conf["libre_insecure"] = bool(self.cfg.get("libre_insecure", False))
         keys_btn.bind("<Button-1>", lambda e: self.translation_keys(w, tr_conf))
         row(T("s_skin"))
@@ -758,7 +757,7 @@ class App(tk.Tk):
             skin_changed = new_skin != self.cfg.get("skin", "default")
             self.cfg.update(user=u.get().strip(), key=k.get().strip(), skin=new_skin, notify=bool(nv.get()),
                 lang=LANGS.get(lg.get(), "auto"), ui_lang=UI_LANGS.get(ui.get(), "auto"), refresh_key=rk["seq"],
-                tr_service=next((i for i, n in svc_names.items() if n == sv.get()), "auto"), **tr_conf)
+                tr_service="auto", **tr_conf)
             TRANSLATOR.configure_from(self.cfg)
             TRANSLATOR.reset_failures()               # texts that failed with the old service are tried again
             save_cfg(self.cfg)
@@ -786,6 +785,18 @@ class App(tk.Tk):
         self.logo_link(links, "github", REPO_URL, "GitHub").pack(side="left", padx=10)
         self.logo_link(links, "ra", SITE_URL, "retroachievements.org").pack(side="left", padx=10)
         self.logo_link(links, "bmc", BMC_URL, "Buy Me a Coffee").pack(side="left", padx=10)
+        self.fit_window(w)
+
+    def fit_window(self, win, over=None):
+        """Give `win` the smallest height that shows all its content (called once the content is built; the size of the
+        constants above is only the starting size). It is placed again, centered, inside the screen."""
+        win.update_idletasks()
+        over = over or self
+        need = win.winfo_reqheight()
+        area = screen_bounds(over.winfo_rootx() + over.winfo_width() // 2, over.winfo_rooty() + over.winfo_height() // 2)
+        if area:
+            need = min(need, area[3] - area[1] - 10)
+        self.place_window(win, f"{win.winfo_width()}x{need}", over)
 
     def place_window(self, win, size, over=None):
         """Give `win` its size ("WIDTHxHEIGHT") and open it centered on `over` (the main window by default), kept inside
@@ -808,16 +819,100 @@ class App(tk.Tk):
         win.geometry(geo)
         win.after(50, lambda: win.winfo_exists() and win.geometry(geo))
 
+    def grow_to_fit(self, win, every=250):
+        """Keep `win` tall enough for its content: it grows when a message appears (test result, update message...), never
+        shrinks by itself, and stays inside the screen where it is."""
+        def check():
+            if not win.winfo_exists():
+                return
+            try:
+                win.update_idletasks()
+                need, have = win.winfo_reqheight(), win.winfo_height()
+                if need > have + 2:
+                    x, y, w = win.winfo_x(), win.winfo_y(), win.winfo_width()
+                    new = need
+                    area = screen_bounds(x + w // 2, y + have // 2)
+                    if area:
+                        left, top, right, bottom = area
+                        new = min(need, bottom - top - 10)
+                        y = max(top, min(y, bottom - new))
+                    win.geometry(f"{w}x{new}+{x}+{y}")
+            except tk.TclError:
+                return
+            win.after(every, check)
+        win.after(every, check)
+
     def translation_keys(self, parent, conf):
         """Small window of the settings: DeepL key, LibreTranslate server / key / invalid certificate option, and a Test
         button. `conf` is updated when Save is pressed (the settings window saves it with the rest)."""
-        d = tk.Toplevel(parent)
-        d.title(T("s_trkeys_title"))
-        d.configure(bg=skin.BACKGROUND)
-        d.transient(parent)
-        d.grab_set()
-        self.place_window(d, TRANSLATION_KEYS_WINDOW, parent)
+        win = tk.Toplevel(parent)
+        win.title(T("s_trkeys_title"))
+        win.configure(bg=skin.BACKGROUND)
+        win.transient(parent)
+        win.grab_set()
+        self.place_window(win, TRANSLATION_KEYS_WINDOW, parent)
+        self.grow_to_fit(win)
+        foot = tk.Frame(win, bg=skin.BACKGROUND)                    # packed first: the Save button stays visible whatever the
+        foot.pack(side="bottom", fill="x")                          # amount of text of the test results
+        # The content scrolls when it is taller than the screen (several AI services); `d` is the frame that holds it.
+        canvas = tk.Canvas(win, bg=skin.BACKGROUND, highlightthickness=0)
+        sbar = ttk.Scrollbar(win, orient="vertical", command=canvas.yview, style="App.Vertical.TScrollbar")
+        canvas.configure(yscrollcommand=sbar.set)
+        canvas.pack(side="left", fill="both", expand=True)
+        d = tk.Frame(canvas, bg=skin.BACKGROUND)
+        inner_id = canvas.create_window((0, 0), window=d, anchor="nw")
+        canvas.bind("<Configure>", lambda e: canvas.itemconfigure(inner_id, width=e.width))
+        win.bind("<MouseWheel>", lambda e: canvas.yview_scroll(-1 if e.delta > 0 else 1, "units"))
+
+        def sync():
+            """Height of the scrolling area = its content, within what the screen allows."""
+            if not win.winfo_exists():
+                return
+            d.update_idletasks()
+            h = d.winfo_reqheight()
+            area = screen_bounds(win.winfo_rootx() + 50, win.winfo_rooty() + 50)
+            cap = (area[3] - area[1] - 10 if area else 900) - foot.winfo_reqheight() - 4
+            canvas.configure(height=min(h, cap), scrollregion=(0, 0, d.winfo_reqwidth(), h))
+            if h > cap and not sbar.winfo_ismapped():
+                sbar.pack(side="right", fill="y", before=canvas)
+            elif h <= cap and sbar.winfo_ismapped():
+                sbar.pack_forget()
+            win.after(250, sync)
+        order = list(conf.get("tr_order") or translator.SERVICE_IDS)
+        self.lbl(d, T("s_tr_order"), 10, bold=True, anchor="w").pack(fill="x", padx=18, pady=(10, 0))
+        order_box = tk.Frame(d, bg=skin.BACKGROUND)
+        order_box.pack(fill="x", padx=18, pady=(2, 0))
         vars_ = {}
+        ai = []                                                       # AI services: [{"url", "model", "key"}] of StringVar
+        for e in conf.get("ai_services") or [{}]:
+            ai.append({k: tk.StringVar(value=e.get(k, "")) for k in ("url", "model", "key")})
+        labels = {"ai": T("s_tr_ai"), "deepl": "DeepL", "libretranslate": "LibreTranslate", "google": "Google",
+                  "mymemory": "MyMemory"}
+
+        def is_set(sid):
+            v = {k: x.get().strip() for k, x in vars_.items()}
+            return {"ai": any(e["url"].get().strip() and e["model"].get().strip() for e in ai), "deepl": bool(v.get("deepl_key")),
+                    "libretranslate": bool(v.get("libre_url"))}.get(sid, True)
+
+        def move(i, step):
+            j = i + step
+            if 0 <= j < len(order):
+                order[i], order[j] = order[j], order[i]
+                draw_order()
+
+        def draw_order():
+            for c in order_box.winfo_children():
+                c.destroy()
+            for i, sid in enumerate(order):
+                r = tk.Frame(order_box, bg=skin.BACKGROUND)
+                r.pack(fill="x", pady=1)
+                on = is_set(sid)
+                self.lbl(r, f"{i + 1}. {labels[sid]}" + ("" if on else f"  ({T('s_tr_unset')})"), 10,
+                         skin.TEXT if on else skin.TEXT_MUTED, anchor="w").pack(side="left")
+                for sym, step in (("▼", 1), ("▲", -1)):
+                    bt = tk.Label(r, text=sym, bg=skin.CARD_ALT, fg=skin.TEXT, width=3, cursor="hand2", font=(skin.FONT, 9))
+                    bt.pack(side="right", padx=(4, 0))
+                    bt.bind("<Button-1>", lambda e, i=i, s=step: move(i, s))
         for key, label, secret in (("deepl_key", T("s_deepl_key"), True), ("libre_url", T("s_libre_url"), False),
                                    ("libre_key", T("s_libre_key"), True)):
             self.lbl(d, label, 10, bold=True, anchor="w").pack(fill="x", padx=18, pady=(10, 0))
@@ -827,14 +922,46 @@ class App(tk.Tk):
         tk.Checkbutton(d, text=T("s_libre_insecure"), variable=insecure, bg=skin.BACKGROUND, fg=skin.TEXT, selectcolor=skin.CARD,
             activebackground=skin.BACKGROUND, activeforeground=skin.TEXT, font=(skin.FONT, 9), bd=0, highlightthickness=0,
             cursor="hand2", anchor="w", wraplength=380, justify="left").pack(fill="x", padx=14, pady=(8, 0))
+        ai_box = tk.Frame(d, bg=skin.BACKGROUND)
+        ai_box.pack(fill="x", padx=18)
+
+        def remove_ai(i):
+            ai.pop(i)
+            draw_ai()
+            draw_order()
+
+        def add_ai():
+            ai.append({k: tk.StringVar() for k in ("url", "model", "key")})
+            for x in ai[-1].values():
+                x.trace_add("write", lambda *a: draw_order())
+            draw_ai()
+
+        def draw_ai():
+            """One block (address, model, key) for each AI service, and a link to add another one."""
+            for c in ai_box.winfo_children():
+                c.destroy()
+            for i, e in enumerate(ai):
+                head = tk.Frame(ai_box, bg=skin.BACKGROUND)
+                head.pack(fill="x", pady=(12, 0))
+                self.lbl(head, T("s_ai_title", n=i + 1), 10, skin.ACCENT, bold=True, anchor="w").pack(side="left")
+                x = tk.Label(head, text="✕", bg=skin.CARD_ALT, fg=skin.TEXT, width=3, cursor="hand2", font=(skin.FONT, 9))
+                x.pack(side="right")
+                x.bind("<Button-1>", lambda ev, i=i: remove_ai(i))
+                for key, label, secret in (("url", T("s_ai_url"), False), ("model", T("s_ai_model"), False),
+                                           ("key", T("s_ai_key"), True)):
+                    self.lbl(ai_box, label, 9, skin.TEXT_MUTED, anchor="w").pack(fill="x", pady=(4, 0))
+                    self.entry(ai_box, e[key], **({"show": "•"} if secret else {})).pack(fill="x", ipady=5)
+            add = tk.Label(ai_box, text="＋ " + T("s_ai_add"), bg=skin.BACKGROUND, fg=skin.INFO, cursor="hand2", anchor="w",
+                           font=(skin.FONT, 10, "bold"))
+            add.pack(fill="x", pady=(10, 0))
+            add.bind("<Button-1>", lambda ev: add_ai())
         test_btn = RoundBtn(d, text=T("s_tr_test"), font=(skin.FONT, SETTINGS_BTN_FONT, "bold"), padx=SETTINGS_BTN[0],
             pady=SETTINGS_BTN[1], radius=skin.RADIUS_BUTTON)
         test_btn.pack(fill="x", padx=18, pady=(10, 0))
         results = tk.Frame(d, bg=skin.BACKGROUND)
         results.pack(fill="x", padx=18, pady=(4, 0))
         busy = {"on": False}
-        names = {"deepl": "DeepL", "libretranslate": "LibreTranslate", "google": "Google", "google-chrome": "Google (Chrome)",
-                 "mymemory": "MyMemory"}
+        names = translator.service_title
 
         def show(lines):
             if not results.winfo_exists():
@@ -850,11 +977,12 @@ class App(tk.Tk):
             busy["on"] = True
             show([(T("s_tr_testing"), skin.TEXT_MUTED)])
             probe = translator.Translator()                 # tests the values typed here, not the saved ones
-            probe.configure("auto", vars_["deepl_key"].get(), vars_["libre_url"].get(), vars_["libre_key"].get(), insecure.get())
+            probe.configure("auto", vars_["deepl_key"].get(), vars_["libre_url"].get(), vars_["libre_key"].get(), insecure.get(),
+                            ai_list=current_ai())
 
             def job():
                 try:
-                    lines = [((f"{names.get(n, n)}: OK ({out})") if ok_ else f"{names.get(n, n)}: {out}",
+                    lines = [((f"{names(n)}: OK ({out})") if ok_ else f"{names(n)}: {out}",
                               skin.SUCCESS if ok_ else skin.DANGER) for n, ok_, out in probe.test()]
                 except Exception as e:
                     lines = [(str(e)[:120], skin.DANGER)]
@@ -862,17 +990,39 @@ class App(tk.Tk):
                 self.q.put(("call", lambda: show(lines)))
             threading.Thread(target=job, daemon=True).start()
         test_btn.bind("<Button-1>", run_test)
+        clear_btn = RoundBtn(d, text=T("s_cache_clear"), font=(skin.FONT, SETTINGS_BTN_FONT, "bold"), padx=SETTINGS_BTN[0],
+            pady=SETTINGS_BTN[1], radius=skin.RADIUS_BUTTON)
+        clear_btn.pack(fill="x", padx=18, pady=(6, 0))
+
+        def clear_cache(_=None):
+            n = TRANSLATOR.clear_cache()
+            show([(T("s_cache_cleared", n=n), skin.SUCCESS)])
+            if self.cfg["translate"]:
+                self.translate_labels()                     # the visible descriptions are translated again
+        clear_btn.bind("<Button-1>", clear_cache)
         self.lbl(d, T("s_trkeys_hint"), 8, skin.TEXT_MUTED, anchor="w", wraplength=380, justify="left").pack(fill="x", padx=18,
             pady=(10, 0))
+
+        def current_ai():
+            return [{k: x.get().strip() for k, x in e.items()} for e in ai]
+
+        draw_ai()
+        draw_order()
+        for v in list(vars_.values()) + [x for e in ai for x in e.values()]:
+            v.trace_add("write", lambda *a: draw_order())             # "not configured" follows what is typed
 
         def ok():
             conf.update({k: v.get().strip() for k, v in vars_.items()})
             conf["libre_insecure"] = bool(insecure.get())
-            d.destroy()
-        b = RoundBtn(d, text=T("save"), bg=skin.ACCENT, fg=skin.TEXT_ON_ACCENT, font=(skin.FONT, SAVE_BTN[0], "bold"),
+            conf["tr_order"] = list(order)
+            conf["ai_services"] = [e for e in current_ai() if e["url"] or e["model"] or e["key"]]
+            win.destroy()
+        b = RoundBtn(foot, text=T("save"), bg=skin.ACCENT, fg=skin.TEXT_ON_ACCENT, font=(skin.FONT, SAVE_BTN[0], "bold"),
             pady=SAVE_BTN[1], radius=skin.RADIUS_BUTTON_LARGE)
         b.pack(fill="x", padx=18, pady=(14, 12))
         b.bind("<Button-1>", lambda e: ok())
+        sync()
+        self.fit_window(win, parent)
 
     def export_notes(self, win, msg):
         """Save the personal notes in a JSON file chosen by the user (same format as the Android app)."""

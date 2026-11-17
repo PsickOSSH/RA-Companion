@@ -70,7 +70,8 @@ if kivy.utils.platform != "ios":
 CFG_DEFAULTS = {"friend": "", "group": [], "game_id": "", "auto": True, "hc_only": False, "interval": 30,
                 "auto_refresh": True, "sort": "disp_asc", "miss_only": False, "notify": True, "translate": False,
                 "ui_lang": "auto", "lang": "auto", "skin": "default", "filter": "all", "tab": "success",
-                "tr_service": "auto", "deepl_key": "", "libre_url": "", "libre_key": "", "libre_insecure": False}
+                "tr_service": "auto", "deepl_key": "", "libre_url": "", "libre_key": "", "libre_insecure": False,
+                "ai_url": "", "ai_key": "", "ai_model": "", "tr_order": [], "ai_services": []}
 
 
 def _cfg():
@@ -138,10 +139,10 @@ class _Retry:
 _TRIED = _Retry()
 
 
-def service_names():
-    """{setting value: label} of the translation services, in the order of the list of the settings."""
-    return {"auto": tr("s_tr_auto"), "deepl": "DeepL", "libretranslate": "LibreTranslate", "google": "Google",
-            "mymemory": "MyMemory"}
+def service_label(sid):
+    """Name of a translation service (an id of translator.SERVICE_IDS)."""
+    return {"ai": tr("s_tr_ai"), "deepl": "DeepL", "libretranslate": "LibreTranslate", "google": "Google",
+            "mymemory": "MyMemory"}.get(sid, sid)
 
 
 def target_lang():
@@ -1101,8 +1102,7 @@ class SettingsScreen(Screen):
     ui_lang_values = ListProperty([])
     tr_lang_values = ListProperty([])
     skin_values = ListProperty([])
-    tr_service_values = ListProperty([])
-    tr_service_text = StringProperty("")
+    tr_order = ListProperty([])             # the translation services, in the order chosen by the user
     deepl_key = StringProperty("")
     libre_url = StringProperty("")
     libre_key = StringProperty("")
@@ -1127,13 +1127,14 @@ class SettingsScreen(Screen):
         self.ui_lang_values = [auto] + [n for _c, n in uitext.UI_LANGS]
         self.tr_lang_values = [auto] + [n for _c, n in uitext.TR_LANGS]
         self.skin_values = [s["name"] for s in app.skins]
-        names = service_names()
-        self.tr_service_values = list(names.values())
-        self.tr_service_text = names.get(cfg.get("tr_service", "auto"), names["auto"])
+        self.tr_order = translator.effective_order(cfg)
+        self.draw_order()
         self.deepl_key = str(cfg.get("deepl_key", ""))
         self.libre_url = str(cfg.get("libre_url", ""))
         self.libre_key = str(cfg.get("libre_key", ""))
         self.libre_insecure = bool(cfg.get("libre_insecure", False))
+        self.ai_entries = [dict(e) for e in translator.ai_entries(cfg)] or [{"url": "", "model": "", "key": ""}]
+        self.draw_ai()
         self.tr_test_msg = ""
         ui = cfg.get("ui_lang", "auto")
         lg = cfg.get("lang", "auto")
@@ -1216,6 +1217,60 @@ class SettingsScreen(Screen):
         self.notes_msg = tr("n_import_ok", a=added, m=merged, u=unchanged)
         self.manager.get_screen("profile").render_all()
 
+    def draw_order(self):
+        """Rows "1. DeepL  [up] [down]" of the services: the buttons change the order of use."""
+        box = self.ids.tr_order_box
+        box.clear_widgets()
+        app = App.get_running_app()
+        for i, sid in enumerate(self.tr_order):
+            row = BoxLayout(size_hint_y=None, height=dp(44), spacing=dp(6))
+            label = Label(text=f"{i + 1}. {service_label(sid)}", color=tuple(app.c_text), font_size=sp(14), halign="left",
+                          valign="middle")
+            label.bind(size=lambda w, s: setattr(w, "text_size", s))
+            row.add_widget(label)
+            for sym, step in (("↑", -1), ("↓", 1)):
+                b = FlatButton(text=sym, size_hint=(None, 1), width=dp(52))
+                b.bind(on_release=lambda _b, i=i, s=step: self.move_service(i, s))
+                row.add_widget(b)
+            box.add_widget(row)
+
+    def move_service(self, i, step):
+        j = i + step
+        if 0 <= j < len(self.tr_order):
+            order = list(self.tr_order)
+            order[i], order[j] = order[j], order[i]
+            self.tr_order = order
+            self.draw_order()
+
+    def draw_ai(self):
+        """One block (address, model, key) for each AI service: if one stops answering, the next one takes over."""
+        box = self.ids.ai_box
+        box.clear_widgets()
+        for i, e in enumerate(self.ai_entries):
+            head = BoxLayout(size_hint_y=None, height=dp(40), spacing=dp(6))
+            title = Label(text=tr("s_ai_title", n=i + 1), color=tuple(App.get_running_app().c_accent), bold=True,
+                          font_size=sp(13), halign="left", valign="middle")
+            title.bind(size=lambda w, s: setattr(w, "text_size", s))
+            head.add_widget(title)
+            rm = FlatButton(text="✕", size_hint=(None, 1), width=dp(52))
+            rm.bind(on_release=lambda _b, i=i: self.remove_ai(i))
+            head.add_widget(rm)
+            box.add_widget(head)
+            for key, label, secret in (("url", "s_ai_url", False), ("model", "s_ai_model", False), ("key", "s_ai_key", True)):
+                box.add_widget(TextLabel(text=tr(label), font_size=sp(12), color=tuple(App.get_running_app().c_muted)))
+                field = DarkInput(text=e[key], password=secret)
+                field.bind(text=lambda w, v, e=e, key=key: e.__setitem__(key, v))
+                box.add_widget(field)
+
+    def add_ai(self):
+        self.ai_entries.append({"url": "", "model": "", "key": ""})
+        self.draw_ai()
+
+    def remove_ai(self, i):
+        if 0 <= i < len(self.ai_entries):
+            del self.ai_entries[i]
+            self.draw_ai()
+
     def test_translation(self, deepl_key, libre_url, libre_key, libre_insecure):
         """Try every translation service with the values typed here (not saved yet) and show the result of each one."""
         if getattr(self, "_tr_test_busy", False):
@@ -1223,13 +1278,11 @@ class SettingsScreen(Screen):
         self._tr_test_busy = True
         self.tr_test_msg = tr("s_tr_testing")
         probe = translator.Translator()
-        probe.configure("auto", deepl_key, libre_url, libre_key, libre_insecure)
-        names = {"deepl": "DeepL", "libretranslate": "LibreTranslate", "google": "Google", "google-chrome": "Google (Chrome)",
-                 "mymemory": "MyMemory"}
+        probe.configure("auto", deepl_key, libre_url, libre_key, libre_insecure, ai_list=[dict(e) for e in self.ai_entries])
 
         def job():
             try:
-                msg = "\n".join((f"{names.get(n, n)}: OK ({out})") if ok else f"{names.get(n, n)}: {out}"
+                msg = "\n".join((f"{translator.service_title(n)}: OK ({out})") if ok else f"{translator.service_title(n)}: {out}"
                                 for n, ok, out in probe.test())
             except Exception as e:
                 msg = str(e)[:120]
@@ -1240,7 +1293,16 @@ class SettingsScreen(Screen):
             Clock.schedule_once(done)
         threading.Thread(target=job, daemon=True).start()
 
-    def save_settings(self, username, api_key, notify_on, ui_label, tr_label, skin_label, service_label="",
+    def clear_translation_cache(self):
+        """Forget every translation (memory and file) so that the texts are translated again with the current service."""
+        n = TRANSLATOR.clear_cache()
+        self.tr_test_msg = tr("s_cache_cleared", n=n)
+        try:
+            self.manager.get_screen("profile").render_all()      # the visible descriptions are translated again
+        except Exception:
+            Logger.exception("RA: cannot refresh the screen after clearing the translation cache")
+
+    def save_settings(self, username, api_key, notify_on, ui_label, tr_label, skin_label,
                       deepl_key="", libre_url="", libre_key="", libre_insecure=False):
         app = App.get_running_app()
         cfg = app.cfg
@@ -1249,11 +1311,15 @@ class SettingsScreen(Screen):
         cfg["user"] = username.strip()
         cfg["key"] = api_key.strip()
         cfg["notify"] = bool(notify_on)
-        cfg["tr_service"] = next((i for i, n in service_names().items() if n == service_label), "auto")
+        cfg["tr_service"] = "auto"
+        cfg["tr_order"] = list(self.tr_order)
         cfg["deepl_key"] = deepl_key.strip()
         cfg["libre_url"] = libre_url.strip()
         cfg["libre_key"] = libre_key.strip()
         cfg["libre_insecure"] = bool(libre_insecure)
+        cfg["ai_services"] = [{k: v.strip() for k, v in e.items()} for e in self.ai_entries if e["url"].strip() or e["model"].strip()
+                              or e["key"].strip()]
+        cfg["ai_url"] = cfg["ai_key"] = cfg["ai_model"] = ""        # the older single AI service: replaced by the list
         TRANSLATOR.configure_from(cfg)
         TRANSLATOR.reset_failures()                  # texts that failed with the old service are tried again
         cfg["ui_lang"] = "auto" if ui_label == tr("s_auto") else uitext.lang_code(uitext.UI_LANGS, ui_label)

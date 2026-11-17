@@ -500,32 +500,32 @@ for _lang, _text in _HOTKEY_BUSY.items():
 
 # Translation services (settings): preferred service, DeepL and LibreTranslate keys (same wording as the Android app)
 _TR_SERVICES = {
-    "en": {"s_libre_insecure": "Accept an invalid certificate (my own server)", "s_tr_test": "Test", "s_tr_testing": "Testing…",
+    "en": {"s_libre_insecure": "Accept an invalid certificate", "s_tr_test": "Test", "s_tr_testing": "Testing…",
            "s_trservice": "Translation service", "s_tr_auto": "Automatic", "s_trkeys": "Keys…",
            "s_trkeys_title": "Translation services", "s_deepl_key": "DeepL API key (empty = disabled)",
            "s_libre_url": "LibreTranslate server address (empty = disabled)", "s_libre_key": "LibreTranslate key (optional)",
            "s_trkeys_hint": "If the preferred service fails, the others take over. The texts to translate are sent to the services you use."},
-    "fr": {"s_libre_insecure": "Accepter un certificat non valide (mon propre serveur)", "s_tr_test": "Tester", "s_tr_testing": "Test en cours…",
+    "fr": {"s_libre_insecure": "Accepter un certificat non valide", "s_tr_test": "Tester", "s_tr_testing": "Test en cours…",
            "s_trservice": "Service de traduction", "s_tr_auto": "Automatique", "s_trkeys": "Clés…",
            "s_trkeys_title": "Services de traduction", "s_deepl_key": "Clé API DeepL (vide = désactivé)",
            "s_libre_url": "Adresse du serveur LibreTranslate (vide = désactivé)", "s_libre_key": "Clé LibreTranslate (facultative)",
            "s_trkeys_hint": "Si le service préféré échoue, les autres prennent le relais. Les textes à traduire sont envoyés aux services utilisés."},
-    "es": {"s_libre_insecure": "Aceptar un certificado no válido (mi propio servidor)", "s_tr_test": "Probar", "s_tr_testing": "Probando…",
+    "es": {"s_libre_insecure": "Aceptar un certificado no válido", "s_tr_test": "Probar", "s_tr_testing": "Probando…",
            "s_trservice": "Servicio de traducción", "s_tr_auto": "Automático", "s_trkeys": "Claves…",
            "s_trkeys_title": "Servicios de traducción", "s_deepl_key": "Clave API de DeepL (vacío = desactivado)",
            "s_libre_url": "Dirección del servidor LibreTranslate (vacío = desactivado)", "s_libre_key": "Clave de LibreTranslate (opcional)",
            "s_trkeys_hint": "Si el servicio preferido falla, los demás toman el relevo. Los textos a traducir se envían a los servicios que uses."},
-    "de": {"s_libre_insecure": "Ungültiges Zertifikat akzeptieren (mein eigener Server)", "s_tr_test": "Testen", "s_tr_testing": "Test läuft…",
+    "de": {"s_libre_insecure": "Ungültiges Zertifikat akzeptieren", "s_tr_test": "Testen", "s_tr_testing": "Test läuft…",
            "s_trservice": "Übersetzungsdienst", "s_tr_auto": "Automatisch", "s_trkeys": "Schlüssel…",
            "s_trkeys_title": "Übersetzungsdienste", "s_deepl_key": "DeepL-API-Schlüssel (leer = deaktiviert)",
            "s_libre_url": "LibreTranslate-Serveradresse (leer = deaktiviert)", "s_libre_key": "LibreTranslate-Schlüssel (optional)",
            "s_trkeys_hint": "Fällt der bevorzugte Dienst aus, übernehmen die anderen. Die zu übersetzenden Texte werden an die verwendeten Dienste gesendet."},
-    "it": {"s_libre_insecure": "Accetta un certificato non valido (il mio server)", "s_tr_test": "Prova", "s_tr_testing": "Prova in corso…",
+    "it": {"s_libre_insecure": "Accetta un certificato non valido", "s_tr_test": "Prova", "s_tr_testing": "Prova in corso…",
            "s_trservice": "Servizio di traduzione", "s_tr_auto": "Automatico", "s_trkeys": "Chiavi…",
            "s_trkeys_title": "Servizi di traduzione", "s_deepl_key": "Chiave API DeepL (vuoto = disattivato)",
            "s_libre_url": "Indirizzo del server LibreTranslate (vuoto = disattivato)", "s_libre_key": "Chiave LibreTranslate (facoltativa)",
            "s_trkeys_hint": "Se il servizio preferito non funziona, subentrano gli altri. I testi da tradurre vengono inviati ai servizi usati."},
-    "pt": {"s_libre_insecure": "Aceitar um certificado inválido (o meu próprio servidor)", "s_tr_test": "Testar", "s_tr_testing": "A testar…",
+    "pt": {"s_libre_insecure": "Aceitar um certificado inválido", "s_tr_test": "Testar", "s_tr_testing": "A testar…",
            "s_trservice": "Serviço de tradução", "s_tr_auto": "Automático", "s_trkeys": "Chaves…",
            "s_trkeys_title": "Serviços de tradução", "s_deepl_key": "Chave API do DeepL (vazio = desativado)",
            "s_libre_url": "Endereço do servidor LibreTranslate (vazio = desativado)", "s_libre_key": "Chave do LibreTranslate (opcional)",
@@ -545,6 +545,64 @@ _EDIT_MENU = {
     "pt": {"m_cut": "Cortar", "m_copy": "Copiar", "m_paste": "Colar", "m_select_all": "Selecionar tudo"},
 }
 for _lang, _texts in _EDIT_MENU.items():
+    i18n.I18N.setdefault(_lang, {}).update(_texts)
+
+
+# Translation by an AI model (OpenAI-compatible server)
+_AI_TEXTS = {
+    "en": {"s_tr_ai": "AI (LLM)", "s_ai_url": "AI service address (empty = disabled)", "s_ai_key": "AI service key", "s_ai_model": "AI model name"},
+    "fr": {"s_tr_ai": "IA (LLM)", "s_ai_url": "Adresse du service IA (vide = désactivé)", "s_ai_key": "Clé du service IA", "s_ai_model": "Nom du modèle IA"},
+    "es": {"s_tr_ai": "IA (LLM)", "s_ai_url": "Dirección del servicio de IA (vacío = desactivado)", "s_ai_key": "Clave del servicio de IA", "s_ai_model": "Nombre del modelo de IA"},
+    "de": {"s_tr_ai": "KI (LLM)", "s_ai_url": "Adresse des KI-Dienstes (leer = deaktiviert)", "s_ai_key": "Schlüssel des KI-Dienstes", "s_ai_model": "Name des KI-Modells"},
+    "it": {"s_tr_ai": "IA (LLM)", "s_ai_url": "Indirizzo del servizio IA (vuoto = disattivato)", "s_ai_key": "Chiave del servizio IA", "s_ai_model": "Nome del modello IA"},
+    "pt": {"s_tr_ai": "IA (LLM)", "s_ai_url": "Endereço do serviço de IA (vazio = desativado)", "s_ai_key": "Chave do serviço de IA", "s_ai_model": "Nome do modelo de IA"},
+}
+for _lang, _texts in _AI_TEXTS.items():
+    i18n.I18N.setdefault(_lang, {}).update(_texts)
+
+
+# Button that empties the translation cache
+_CACHE_TEXTS = {
+    "en": {"s_cache_clear": "Clear translation cache", "s_cache_cleared": "Cache cleared ({n} texts)"},
+    "fr": {"s_cache_clear": "Vider le cache de traduction", "s_cache_cleared": "Cache vidé ({n} textes)"},
+    "es": {"s_cache_clear": "Vaciar la caché de traducción", "s_cache_cleared": "Caché vaciada ({n} textos)"},
+    "de": {"s_cache_clear": "Übersetzungs-Cache leeren", "s_cache_cleared": "Cache geleert ({n} Texte)"},
+    "it": {"s_cache_clear": "Svuota la cache delle traduzioni", "s_cache_cleared": "Cache svuotata ({n} testi)"},
+    "pt": {"s_cache_clear": "Limpar a cache de traduções", "s_cache_cleared": "Cache limpa ({n} textos)"},
+}
+for _lang, _texts in _CACHE_TEXTS.items():
+    i18n.I18N.setdefault(_lang, {}).update(_texts)
+
+
+# Order of the translation services (replaces the choice of a single preferred service)
+_ORDER_TEXTS = {
+    "en": {"s_tr_order": "Order of the services (the first one has priority)", "s_tr_unset": "not configured", "s_trkeys": "Services and order…",
+           "s_trkeys_hint": "Services are tried in this order. If one fails, the next one takes over. The texts to translate are sent to the services you use."},
+    "fr": {"s_tr_order": "Ordre des services (le premier est prioritaire)", "s_tr_unset": "non configuré", "s_trkeys": "Services et ordre…",
+           "s_trkeys_hint": "Les services sont essayés dans cet ordre. Si un service échoue, le suivant prend le relais. Les textes à traduire sont envoyés aux services utilisés."},
+    "es": {"s_tr_order": "Orden de los servicios (el primero tiene prioridad)", "s_tr_unset": "no configurado", "s_trkeys": "Servicios y orden…",
+           "s_trkeys_hint": "Los servicios se prueban en este orden. Si uno falla, el siguiente toma el relevo. Los textos a traducir se envían a los servicios que uses."},
+    "de": {"s_tr_order": "Reihenfolge der Dienste (der erste hat Vorrang)", "s_tr_unset": "nicht eingerichtet", "s_trkeys": "Dienste und Reihenfolge…",
+           "s_trkeys_hint": "Die Dienste werden in dieser Reihenfolge versucht. Fällt einer aus, übernimmt der nächste. Die zu übersetzenden Texte werden an die verwendeten Dienste gesendet."},
+    "it": {"s_tr_order": "Ordine dei servizi (il primo ha la priorità)", "s_tr_unset": "non configurato", "s_trkeys": "Servizi e ordine…",
+           "s_trkeys_hint": "I servizi vengono provati in questo ordine. Se uno non funziona, subentra il successivo. I testi da tradurre vengono inviati ai servizi usati."},
+    "pt": {"s_tr_order": "Ordem dos serviços (o primeiro tem prioridade)", "s_tr_unset": "não configurado", "s_trkeys": "Serviços e ordem…",
+           "s_trkeys_hint": "Os serviços são tentados por esta ordem. Se um falhar, o seguinte assume. Os textos a traduzir são enviados aos serviços utilizados."},
+}
+for _lang, _texts in _ORDER_TEXTS.items():
+    i18n.I18N.setdefault(_lang, {}).update(_texts)
+
+
+# Several AI services (the next one takes over when one fails)
+_AI_LIST_TEXTS = {
+    "en": {"s_ai_title": "AI service {n}", "s_ai_add": "Add another AI service"},
+    "fr": {"s_ai_title": "Service IA {n}", "s_ai_add": "Ajouter un autre service IA"},
+    "es": {"s_ai_title": "Servicio de IA {n}", "s_ai_add": "Añadir otro servicio de IA"},
+    "de": {"s_ai_title": "KI-Dienst {n}", "s_ai_add": "Weiteren KI-Dienst hinzufügen"},
+    "it": {"s_ai_title": "Servizio IA {n}", "s_ai_add": "Aggiungi un altro servizio IA"},
+    "pt": {"s_ai_title": "Serviço de IA {n}", "s_ai_add": "Adicionar outro serviço de IA"},
+}
+for _lang, _texts in _AI_LIST_TEXTS.items():
     i18n.I18N.setdefault(_lang, {}).update(_texts)
 
 

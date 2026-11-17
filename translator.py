@@ -7,6 +7,7 @@ translation button again). Errors are kept in `last_error` so that the interface
 
 import json
 import os
+import re
 import ssl
 import threading
 import time
@@ -22,9 +23,11 @@ except Exception:
     _CTX = None
 
 USER_AGENT = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36"
-SERVICES = ["auto", "deepl", "libretranslate", "google", "mymemory"]     # values of the setting `tr_service`
+SERVICES = ["auto", "ai", "deepl", "libretranslate", "google", "mymemory"]     # values of the (older) setting `tr_service`
+SERVICE_IDS = ["ai", "deepl", "libretranslate", "google", "mymemory"]          # the services, in the default order     # values of the setting `tr_service`
 RETRY_AFTER = 20          # seconds before a failed text is tried again
 DOWN_FOR = 90            # seconds during which a service that just failed is tried last (not at every text)
+AI_TIMEOUT = 40           # seconds: an AI model can take a few seconds to answer
 ROUNDS = 2                # the whole chain is tried this many times before giving up
 ROUND_PAUSE = 1.5         # seconds between two rounds
 MAX_CACHED = 6000         # entries kept on disk
@@ -100,6 +103,44 @@ def _deepl(text, lang, key):
     return "".join(t.get("text", "") for t in data.get("translations", []))
 
 
+LANG_NAMES = {"en": "English", "fr": "French", "es": "Spanish", "de": "German", "it": "Italian", "pt": "Portuguese",
+              "nl": "Dutch", "pl": "Polish", "ru": "Russian", "zh-CN": "Simplified Chinese"}
+AI_PROMPT = ("You translate texts from RetroAchievements: descriptions of achievements in retro video games and comments "
+             "written by players (gaming slang, names of games, characters, items and levels). Translate into {lang}. "
+             "Keep the exact meaning and the tone, write natural and fluent {lang}, and keep unchanged the proper names of "
+             "games, characters, items and places, the numbers, the button names, the web addresses and the emojis. "
+             "Answer with the translation only: no explanation, no quotes, no notes.")
+
+
+def _ai(text, lang, url, key, model):
+    """AI model through an OpenAI-compatible server (Gemini, Groq, Mistral, OpenRouter, Ollama...): /chat/completions."""
+    url = url.strip().rstrip("/")
+    if "://" not in url:
+        url = "https://" + url
+    if not url.endswith("/chat/completions"):
+        url += "/chat/completions"
+    payload = {"model": model, "temperature": 0.2, "messages": [
+        {"role": "system", "content": AI_PROMPT.format(lang=LANG_NAMES.get(lang, lang))},
+        {"role": "user", "content": text[:4500]}]}
+    try:
+        data = post_json(url, payload, {"Authorization": "Bearer " + key} if key else {}, timeout=AI_TIMEOUT)
+    except urllib.error.HTTPError as e:                          # the message of the server says what is wrong (key, model, quota)
+        detail = ""
+        try:
+            body = json.loads(e.read().decode("utf-8", "replace"))
+            body = body[0] if isinstance(body, list) and body else body
+            err = body.get("error", body) if isinstance(body, dict) else body
+            detail = str(err.get("message", err) if isinstance(err, dict) else err)
+        except Exception:
+            pass
+        raise TranslateError(f"HTTP {e.code}" + (": " + detail[:90] if detail else ""))
+    try:
+        out = data["choices"][0]["message"]["content"] or ""
+    except Exception:
+        raise TranslateError("no answer from the model")
+    return re.sub(r"<think>.*?</think>", "", out, flags=re.S).strip()
+
+
 def _libretranslate(text, lang, url, key, insecure=False):
     """LibreTranslate server (own server, or a hosted one with an API key)."""
     url = url.strip().rstrip("/")
@@ -116,6 +157,39 @@ def _libretranslate(text, lang, url, key, insecure=False):
 
 # Free endpoints, always available (the order is the order of the tries)
 BACKENDS = [("google", _google_gtx), ("google-chrome", _google_chrome), ("mymemory", _mymemory)]
+
+
+def ai_entries(cfg):
+    """The AI services of the settings: [{"url", "model", "key"}]. Several can be given (`ai_services`): they are tried one
+    after the other. The single address / model / key of the older versions is read when there is no list."""
+    items = cfg.get("ai_services")
+    if not (isinstance(items, list) and items):
+        items = [{"url": cfg.get("ai_url", ""), "model": cfg.get("ai_model", ""), "key": cfg.get("ai_key", "")}]
+    out = []
+    for e in items:
+        e = e if isinstance(e, dict) else {}
+        e = {k: str(e.get(k, "") or "").strip() for k in ("url", "model", "key")}
+        if e["url"] or e["model"] or e["key"]:
+            out.append(e)
+    return out
+
+
+def service_title(name):
+    """Readable name of a service of the chain ("ai", "ai-2", "google-chrome"...)."""
+    base, _, rest = name.partition("-")
+    if base == "ai":
+        return "AI" + (" " + rest if rest else "")
+    return {"deepl": "DeepL", "libretranslate": "LibreTranslate", "google": "Google", "google-chrome": "Google (Chrome)",
+            "mymemory": "MyMemory"}.get(name, name)
+
+
+def effective_order(cfg):
+    """The 5 services in the order chosen by the user (setting `tr_order`); without it, the older setting `tr_service`
+    puts one service first and the others follow in the default order."""
+    saved = [s for s in (cfg.get("tr_order") or []) if s in SERVICE_IDS]
+    if not saved and cfg.get("tr_service") in SERVICE_IDS:
+        saved = [cfg["tr_service"]]
+    return list(dict.fromkeys(saved + SERVICE_IDS))
 
 
 def _describe(e):
@@ -144,7 +218,8 @@ class Translator:
             self.set_cache_file(path)
 
     # ---- settings --------------------------------------------------------
-    def configure(self, service="auto", deepl_key="", libre_url="", libre_key="", libre_insecure=False):
+    def configure(self, service="auto", deepl_key="", libre_url="", libre_key="", libre_insecure=False, ai_url="", ai_key="",
+                  ai_model="", order=None, ai_list=None):
         """Choose the preferred service and give the keys. A service without key / address is simply skipped.
         `libre_insecure` accepts an invalid certificate for the LibreTranslate server."""
         self.service = service if service in SERVICES else "auto"
@@ -152,24 +227,38 @@ class Translator:
         self.libre_url = str(libre_url or "").strip()
         self.libre_key = str(libre_key or "").strip()
         self.libre_insecure = bool(libre_insecure)
+        # the AI services: the list `ai_list`, or the single address / key / model
+        self.ai_services = ai_entries({"ai_services": ai_list} if ai_list is not None else
+                                      {"ai_url": ai_url, "ai_key": ai_key, "ai_model": ai_model})
+        self.order = [s for s in dict.fromkeys(order or []) if s in SERVICE_IDS]      # the user's own order (empty = default)
         self._good = 0
         self.down = {}
 
     def configure_from(self, cfg):
         """Same as configure(), reading the settings dictionary of the app."""
         self.configure(cfg.get("tr_service", "auto"), cfg.get("deepl_key", ""), cfg.get("libre_url", ""),
-                       cfg.get("libre_key", ""), cfg.get("libre_insecure", False))
+                       cfg.get("libre_key", ""), cfg.get("libre_insecure", False), cfg.get("ai_url", ""), cfg.get("ai_key", ""),
+                       cfg.get("ai_model", ""), cfg.get("tr_order"), ai_entries(cfg))
 
     def chain(self):
         """The services to try, in order: [(name, function(text, lang))]."""
         items = []
+        n = 0
+        for e in self.ai_services:                                   # the AI understands the context: first in the automatic mode
+            if e["url"] and e["model"]:
+                n += 1
+                items.append(("ai" if n == 1 else f"ai-{n}",
+                              lambda t, l, u=e["url"], k=e["key"], m=e["model"]: _ai(t, l, u, k, m)))
         if self.deepl_key:
             items.append(("deepl", lambda t, l, k=self.deepl_key: _deepl(t, l, k)))
         if self.libre_url:
             items.append(("libretranslate", lambda t, l, u=self.libre_url, k=self.libre_key, i=self.libre_insecure:
                           _libretranslate(t, l, u, k, i)))
         items += BACKENDS
-        if self.service != "auto":                                   # the preferred service goes first
+        if self.order:                                               # the order chosen by the user
+            rank = {s: i for i, s in enumerate(self.order + [s for s in SERVICE_IDS if s not in self.order])}
+            items.sort(key=lambda it: rank[it[0].split("-")[0]])
+        elif self.service != "auto":                                 # the preferred service goes first
             first = [it for it in items if it[0].split("-")[0] == self.service]
             items = first + [it for it in items if it not in first]
         return items
@@ -221,6 +310,21 @@ class Translator:
         """The translation when it is known, the original text otherwise."""
         return self.cache.get((lang, text), text)
 
+    def clear_cache(self):
+        """Forget every translation (memory and file): the texts are translated again, with the current settings.
+        Returns the number of texts that were in the cache."""
+        with self._lock:
+            n = len(self.cache)
+            self.cache.clear()
+        self.reset_failures()
+        self.down.clear()
+        if self.path:
+            try:
+                os.remove(self.path)
+            except OSError:
+                pass
+        return n
+
     def reset_failures(self):
         self.failed.clear()
         self.last_error = ""
@@ -238,7 +342,8 @@ class Translator:
         errors = []
         chain = self.chain()
         n = len(chain)
-        start = self._good % n if self.service == "auto" else 0       # automatic mode starts with the last good one
+        auto = self.service == "auto" and not self.order
+        start = self._good % n if auto else 0                         # automatic mode starts with the last good one
         for turn in range(ROUNDS):
             if turn:
                 time.sleep(ROUND_PAUSE)                               # a short outage often ends within seconds
@@ -252,7 +357,7 @@ class Translator:
                     out = (fn(text, lang) or "").strip()
                     if not out:
                         raise TranslateError("empty answer")
-                    if self.service == "auto":
+                    if auto:
                         self._good = idx
                     self.last_used = name
                     self.down.pop(name, None)

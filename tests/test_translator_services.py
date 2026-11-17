@@ -203,6 +203,121 @@ class ServiceTests(unittest.TestCase):
         t.translate("Again", "fr")
         self.assertEqual(len(self.posts), 2)
 
+    def test_ai_service_calls_an_openai_compatible_server_and_is_first(self):
+        self.post_answer = {"choices": [{"message": {"content": "<think>hmm</think>  Salut le monde  "}}]}
+        t = translator.Translator()
+        t.configure("auto", ai_url="https://api.groq.com/openai/v1", ai_key="k123", ai_model="llama-x", deepl_key="abc:fx")
+        self.assertEqual(self.names(t)[:2], ["ai", "deepl"])
+        self.assertEqual(t.translate("Hello world", "fr"), "Salut le monde")
+        url, payload, headers = self.posts[0]
+        self.assertEqual(url, "https://api.groq.com/openai/v1/chat/completions")
+        self.assertEqual(headers["Authorization"], "Bearer k123")
+        self.assertEqual(payload["model"], "llama-x")
+        self.assertIn("French", payload["messages"][0]["content"])
+        self.assertEqual(payload["messages"][1]["content"], "Hello world")
+        self.assertIs(self.insecure_flags[0], False)
+
+    def test_ai_needs_an_address_and_a_model(self):
+        t = translator.Translator()
+        t.configure("auto", ai_url="https://x.io/v1")
+        self.assertNotIn("ai", self.names(t))
+        t.configure("auto", ai_model="m")
+        self.assertNotIn("ai", self.names(t))
+        t.configure("ai", ai_url="x.io/v1/chat/completions", ai_model="m")          # already complete address, no https
+        self.assertEqual(self.names(t)[0], "ai")
+
+    def test_ai_falls_back_to_the_other_services_and_says_why(self):
+        self.post_answer = {"error": {"message": "quota exceeded"}}                 # no "choices"
+        t = translator.Translator()
+        t.configure("auto", ai_url="https://x.io/v1", ai_model="m")
+        self.assertEqual(t.translate("Hello", "fr"), "Bonjour")                       # Google answers
+        self.assertEqual(t.last_used, "google")
+        res = dict((n, (ok, out)) for n, ok, out in t.test())
+        self.assertFalse(res["ai"][0])
+
+    def test_clear_cache_forgets_everything_and_removes_the_file(self):
+        import tempfile
+        path = os.path.join(tempfile.mkdtemp(), "tr.json")
+        t = translator.Translator(path)
+        t.translate("Hello", "fr")
+        t.save()
+        self.assertTrue(os.path.exists(path))
+        t.failed[("fr", "x")] = 1
+        self.assertEqual(t.clear_cache(), 1)
+        self.assertEqual(t.cache, {})
+        self.assertEqual(t.failed, {})
+        self.assertFalse(os.path.exists(path))
+        self.assertEqual(t.cached("fr", "Hello"), "Hello")                # nothing is known any more
+        self.assertEqual(t.clear_cache(), 0)                              # without file or entries: no error
+
+    def test_the_order_chosen_by_the_user_is_followed(self):
+        t = translator.Translator()
+        t.configure("auto", deepl_key="abc:fx", libre_url="https://l.io", ai_url="https://x.io/v1", ai_model="m",
+                    order=["mymemory", "libretranslate", "google", "deepl", "ai"])
+        self.assertEqual(self.names(t), ["mymemory", "libretranslate", "google", "google-chrome", "deepl", "ai"])
+        t.configure("auto", deepl_key="abc:fx", order=["google", "deepl"])           # a partial order: the others follow
+        self.assertEqual(self.names(t), ["google", "google-chrome", "deepl", "mymemory"])
+
+    def test_an_unknown_name_in_the_order_is_ignored_and_no_order_keeps_the_default(self):
+        t = translator.Translator()
+        t.configure("auto", order=["bogus", "mymemory"])
+        self.assertEqual(self.names(t), ["mymemory", "google", "google-chrome"])
+        t.configure("auto", order=[])
+        self.assertEqual(self.names(t), ["google", "google-chrome", "mymemory"])
+
+    def test_with_an_order_the_first_service_is_always_tried_first(self):
+        self.get_answer = GOOGLE_OK
+        t = translator.Translator()
+        t.configure("auto", order=["google", "mymemory"])
+        t._good = 2                                                         # "memory of the last good one" is not used
+        t.translate("Hello", "fr")
+        self.assertEqual(t.last_used, "google")
+
+    def test_effective_order_reads_the_new_and_the_older_setting(self):
+        self.assertEqual(translator.effective_order({}), translator.SERVICE_IDS)
+        self.assertEqual(translator.effective_order({"tr_service": "deepl"}), ["deepl", "ai", "libretranslate", "google", "mymemory"])
+        self.assertEqual(translator.effective_order({"tr_order": ["mymemory", "ai"], "tr_service": "deepl"}),
+                         ["mymemory", "ai", "deepl", "libretranslate", "google"])
+        t = translator.Translator()
+        t.configure_from({"tr_order": ["mymemory"], "deepl_key": "k"})
+        self.assertEqual(self.names(t)[0], "mymemory")
+
+    def test_several_ai_services_are_tried_one_after_the_other(self):
+        answers = {"https://a.io/chat/completions": urllib.error.URLError("down"),
+                   "https://b.io/chat/completions": {"choices": [{"message": {"content": "Salut B"}}]}}
+
+        def fake(url, payload, headers=None, timeout=15, insecure=False):
+            self.posts.append((url, payload, headers or {}))
+            a = answers[url]
+            if isinstance(a, Exception):
+                raise a
+            return a
+        t = translator.Translator()
+        t.configure("auto", ai_list=[{"url": "https://a.io", "model": "m1", "key": "k1"},
+                                     {"url": "https://b.io", "model": "m2", "key": ""}], deepl_key="abc:fx")
+        self.assertEqual(self.names(t)[:3], ["ai", "ai-2", "deepl"])
+        with mock.patch.object(translator, "post_json", side_effect=fake):
+            self.assertEqual(t.translate("Hello", "fr"), "Salut B")                # the first AI is down: the second answers
+            self.assertEqual(t.last_used, "ai-2")
+            self.assertEqual([p[1]["model"] for p in self.posts], ["m1", "m2"])
+            self.assertEqual(t.translate("World", "fr"), "Salut B")                # the first one is skipped for a while
+            self.assertEqual([p[1]["model"] for p in self.posts], ["m1", "m2", "m2"])
+
+    def test_ai_entries_reads_the_list_the_older_single_service_and_skips_empty_ones(self):
+        self.assertEqual(translator.ai_entries({}), [])
+        self.assertEqual(translator.ai_entries({"ai_url": " u ", "ai_model": "m"}), [{"url": "u", "model": "m", "key": ""}])
+        cfg = {"ai_services": [{"url": "a", "model": "m", "key": "k"}, {}, {"url": "", "model": "", "key": ""}],
+               "ai_url": "old", "ai_model": "old"}
+        self.assertEqual(translator.ai_entries(cfg), [{"url": "a", "model": "m", "key": "k"}])   # the list wins
+        t = translator.Translator()
+        t.configure_from({"ai_services": [{"url": "a.io", "model": "m"}, {"url": "b.io", "model": ""}]})
+        self.assertEqual(self.names(t)[0], "ai")
+        self.assertNotIn("ai-2", self.names(t))                                     # no model: not usable
+
+    def test_service_titles(self):
+        self.assertEqual([translator.service_title(n) for n in ("ai", "ai-2", "deepl", "google-chrome", "x")],
+                         ["AI", "AI 2", "DeepL", "Google (Chrome)", "x"])
+
     def test_error_descriptions_help_to_fix_the_address(self):
         self.assertIn("https://", translator._describe(http_error(308)))
         import ssl

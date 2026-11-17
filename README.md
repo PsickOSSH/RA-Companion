@@ -40,8 +40,9 @@ progress live. It comes in three versions that look and behave the same way:
   time zone, and the share of players who earned each locked achievement
 - **Achievement page**: description, points, unlock date, **personal note** (`✎`) and the community **comments**,
   with one-click **translation** (`🌐`) through several services: if one stops working, the next one takes over
-  (free Google and MyMemory by default; **DeepL** and **LibreTranslate** once you enter a key / server address in the
-  settings, with a *Translation service* choice to put your preferred one first). Translations are cached on disk, a
+  (free Google and MyMemory by default; **DeepL**, **LibreTranslate** and an **AI model** (Gemini, Groq, Mistral,
+  OpenRouter, Ollama...) once you enter a key / server address in the settings, and you choose the **order** in which the
+  services are tried (arrows in the settings). Translations are cached on disk, a
   service that just failed is skipped for a while, and a text that failed is retried automatically. **Web links** in
   the comments are highlighted (colour + underline) and open in the browser when clicked / tapped
 - **Personal notes**: saved locally, exported to / imported from a JSON file (the same file works on all versions).
@@ -435,17 +436,52 @@ Every variable is documented in `skins/default.py`. When you add a skin variable
 - The image cache does **not** make the whole app available offline: profile and achievement data still need the API.
 - Network access: the RetroAchievements API and media server (profile, games, badges, comments), the GitHub API
   (update check, only when you press the button), and the translation services (only when translation is enabled:
-  the translated texts are sent to the first service that answers, in this order unless you choose another one in the
-  settings: DeepL and LibreTranslate if you configured them, then Google Translate, then MyMemory).
+  the translated texts are sent to the first service that answers, in the order you choose in the settings (by default: the AI model, DeepL and LibreTranslate if you
+  configured them, then Google Translate, then MyMemory).
 - **Translation keys:** the DeepL key (a free key ends with `:fx`, see <https://www.deepl.com/pro-api>) and the
   LibreTranslate address / key are stored as plain text in the settings, like the RetroAchievements API key. A service
   without key (DeepL) or address (LibreTranslate) is simply skipped. The **Test** button (next to the keys, on every
   version) tries each service on its own with the values typed there and shows `OK` or the error of each one: it is the
   way to know which service really answers, because a failing service is otherwise replaced silently by the next one.
+- **Better translations with an AI model:** the free services (Google, MyMemory) translate word by word and are sometimes
+  hard to understand. An AI model understands the context (gaming slang, names of games and items) and translates much
+  better. In the translation settings (**Services and order…** on Windows, below the order of the services on Android /
+  iOS) fill in three fields for an AI service: the **address** of its server, the **model name** and your **key**, then
+  press **Test**. Any provider that offers an OpenAI-style API works. Several have a free tier with an API key and no
+  card (limits and models change, check their site); OpenAI itself is paid:
+
+  | Provider | Address | Example of model |
+  |---|---|---|
+  | Google Gemini ([AI Studio](https://aistudio.google.com/apikey)) | `https://generativelanguage.googleapis.com/v1beta/openai` | `gemini-3.5-flash-lite` |
+  | Groq ([console](https://console.groq.com/keys)) | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` |
+  | Mistral ([console](https://console.mistral.ai)) | `https://api.mistral.ai/v1` | `mistral-small-latest` |
+  | OpenRouter ([keys](https://openrouter.ai/keys)) | `https://openrouter.ai/api/v1` | a model whose name ends with `:free` |
+  | Ollama (on your own PC, no key) | `http://localhost:11434/v1` | the model you pulled |
+  | OpenAI, **paid** ([API keys](https://platform.openai.com/api-keys), credit needed) | `https://api.openai.com/v1` | `gpt-4o-mini` |
+
+  Example with **OpenAI** (the fields to fill in for one AI service):
+
+  | Field | Value |
+  |---|---|
+  | AI service address | `https://api.openai.com/v1` |
+  | AI model name | `gpt-4o-mini` |
+  | AI service key | your key, which starts with `sk-` |
+
+  The model name must be one your account can use: if **Test** answers `HTTP 404: model not found`, copy a name from
+  the model list of your provider.
+
+  You can add **several AI services** (button *Add another AI service*, for example Gemini, then Groq, then Mistral):
+  they are tried one after the other in the order of the list, and the AI block as a whole takes its place in the order
+  of the services. If one fails (quota, network, wrong key), the next one takes over, then the other services, so a
+  translation is still displayed. The **Test** button shows the error message of the server (`HTTP 401` wrong
+  key, `HTTP 404: model not found`, `HTTP 429` quota used up). Some free tiers may use the texts sent to improve their
+  models: read the terms of the provider you choose. The translated texts (descriptions and comments of the
+  achievements, never your RetroAchievements key) are the only data sent.
+  The **Clear translation cache** button (next to **Test**) forgets every stored translation, so that the texts are
+  translated again with the service you now use (for example after switching to an AI model).
 - **LibreTranslate and certificates:** HTTPS certificates are checked. If your own server uses a self-signed certificate,
-  or is reached through a name that its certificate does not cover, tick **Accept an invalid certificate (my own
-  server)**. It is off by default, applies to the LibreTranslate server only (never to DeepL, Google or MyMemory), and
-  should only be used for a server you control, for example on your own network or VPN.
+  or is reached through a name that its certificate does not cover, tick **Accept an invalid certificate**. It is off by default, applies to the LibreTranslate server only (never to
+  DeepL, Google or MyMemory), and should only be used for a server you control, for example on your own network or VPN.
   Existing cached images are reused according to the policy above instead of downloaded at every launch.
 - The game list of each console is downloaded once and kept for 30 days.
 - Calls to the RetroAchievements API are retried twice (after 1 s, then 3 s, or the pause requested by the server, at
