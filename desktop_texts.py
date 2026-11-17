@@ -535,6 +535,19 @@ for _lang, _texts in _TR_SERVICES.items():
     i18n.I18N.setdefault(_lang, {}).update(_texts)
 
 
+# Right-click menu of the text fields
+_EDIT_MENU = {
+    "en": {"m_cut": "Cut", "m_copy": "Copy", "m_paste": "Paste", "m_select_all": "Select all"},
+    "fr": {"m_cut": "Couper", "m_copy": "Copier", "m_paste": "Coller", "m_select_all": "Tout sélectionner"},
+    "es": {"m_cut": "Cortar", "m_copy": "Copiar", "m_paste": "Pegar", "m_select_all": "Seleccionar todo"},
+    "de": {"m_cut": "Ausschneiden", "m_copy": "Kopieren", "m_paste": "Einfügen", "m_select_all": "Alles auswählen"},
+    "it": {"m_cut": "Taglia", "m_copy": "Copia", "m_paste": "Incolla", "m_select_all": "Seleziona tutto"},
+    "pt": {"m_cut": "Cortar", "m_copy": "Copiar", "m_paste": "Colar", "m_select_all": "Selecionar tudo"},
+}
+for _lang, _texts in _EDIT_MENU.items():
+    i18n.I18N.setdefault(_lang, {}).update(_texts)
+
+
 def friendly_error(e):
     """Short, readable message (in the current language) for a network / API error."""
     if isinstance(e, urllib.error.HTTPError):

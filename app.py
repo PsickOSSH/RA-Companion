@@ -23,7 +23,7 @@ from hotkey import GlobalHotkey
 import medians
 import imgcache
 from utils import (DEFAULT_REFRESH_KEY, date_of, fmt_date, fmt_int, is_any, is_counted, is_hc, is_missable, norm,
-                   shortcut_from_key, shortcut_label, sort_achievements)
+                   shortcut_from_key, shortcut_label, sort_achievements, split_links)
 from widgets import Bar, Card, RoundBtn, SLabel, SYMF, TRANSPARENT_KEY, Tip, has_sym, is_sym, screen_bounds, setup_ttk_styles
 import appinfo
 import updater
@@ -115,6 +115,8 @@ class App(tk.Tk):
         self.configure(bg=skin.BACKGROUND)
         self.geometry(MAIN_WINDOW)
         self.minsize(500, 310)
+        for cls in ("Entry", "TEntry", "Text"):                    # right click in a text field: Cut / Copy / Paste / Select all
+            self.bind_class(cls, "<Button-3>", self.edit_menu)
         # Messages from worker threads to the UI thread (Tk widgets must only be touched from the main thread).
         self.q = queue.Queue()
         self.imgs = {}
@@ -563,6 +565,44 @@ class App(tk.Tk):
         self.sigs = {"duel": None, "group": None}
         if self.payload:
             self.on_data(self.payload)
+
+    def edit_menu(self, e):
+        """Right-click menu of the text fields (settings, notes, comments): Cut / Copy / Paste / Select all."""
+        w = e.widget
+        try:
+            editable = str(w.cget("state")) == "normal"
+        except tk.TclError:
+            editable = True
+        is_text = w.winfo_class() == "Text"
+        w.focus_set()
+        try:
+            selected = bool(w.tag_ranges("sel")) if is_text else w.selection_present()
+        except tk.TclError:
+            selected = False
+        try:
+            pasteable = bool(self.clipboard_get())
+        except tk.TclError:
+            pasteable = False
+
+        def select_all():
+            if is_text:
+                w.tag_add("sel", "1.0", "end-1c")
+            else:
+                w.select_range(0, "end")
+                w.icursor("end")
+        m = tk.Menu(self, tearoff=0, bg=skin.CARD, fg=skin.TEXT, activebackground=skin.ACCENT,
+                    activeforeground=skin.TEXT_ON_ACCENT, bd=0, relief="flat")
+        on = lambda ok: "normal" if ok else "disabled"
+        m.add_command(label=T("m_cut"), state=on(editable and selected), command=lambda: w.event_generate("<<Cut>>"))
+        m.add_command(label=T("m_copy"), state=on(selected), command=lambda: w.event_generate("<<Copy>>"))
+        m.add_command(label=T("m_paste"), state=on(editable and pasteable), command=lambda: w.event_generate("<<Paste>>"))
+        m.add_separator()
+        m.add_command(label=T("m_select_all"), command=select_all)
+        try:
+            m.tk_popup(e.x_root, e.y_root)
+        finally:
+            m.grab_release()
+        return "break"
 
     def toggle_translate(self):
         """Toggle the automatic translation of descriptions and comments."""
@@ -1873,11 +1913,15 @@ class App(tk.Tk):
         txt.pack(side="left", fill="both", expand=True)
         txt.tag_config("u", foreground=skin.ACCENT, font=(skin.FONT, 10, "bold"))
         txt.tag_config("d", foreground=skin.TEXT_MUTED, font=(skin.FONT, 8))
+        txt.tag_config("link", foreground=skin.INFO, underline=True)
+        txt.tag_bind("link", "<Enter>", lambda e: txt.config(cursor="hand2"))
+        txt.tag_bind("link", "<Leave>", lambda e: txt.config(cursor=""))
 
         def render():
             if not w.winfo_exists():
                 return
             cm = st["comments"]
+            urls = {}
             txt.config(state="normal")
             txt.delete("1.0", "end")
             if cm is not None and (not cm):
@@ -1888,7 +1932,18 @@ class App(tk.Tk):
                     body = TRANSLATOR.cached(lang, body)
                 txt.insert("end", r.get("User", "?"), "u")
                 txt.insert("end", "  " + fmt_date(r.get("Submitted", "")) + '\n', "d")
-                txt.insert("end", body.strip() + '\n\n')
+                for piece, url in split_links(body.strip()):         # web links: coloured, underlined, clickable
+                    if url:
+                        tag = f"url{len(urls)}"
+                        urls[tag] = url
+                        txt.tag_config(tag, foreground=skin.INFO, underline=True)
+                        txt.tag_bind(tag, "<Button-1>", lambda e, u=url: webbrowser.open(u))
+                        txt.tag_bind(tag, "<Enter>", lambda e: txt.config(cursor="hand2"))
+                        txt.tag_bind(tag, "<Leave>", lambda e: txt.config(cursor=""))
+                        txt.insert("end", piece, tag)
+                    else:
+                        txt.insert("end", piece)
+                txt.insert("end", '\n\n')
             txt.config(state="disabled")
             desc.config(text=TRANSLATOR.cached(lang, orig) if st["tr"] else orig)
 

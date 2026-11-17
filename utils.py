@@ -1,5 +1,6 @@
 """Small pure helpers: number/date formatting, achievement predicates and sorting."""
 
+import re
 import unicodedata
 from datetime import datetime, timezone
 
@@ -12,6 +13,41 @@ def fmt_int(n):
         return f"{int(n):,}".replace(",", " ")
     except Exception:
         return str(n)
+
+
+_LINK = re.compile(r"(?:https?://|www\.)[^\s<>\"\[\]]+", re.I)
+
+
+def split_links(text):
+    """Cut `text` into [(piece, url)]: url is None for normal text, the address to open for a web link (comments)."""
+    out, pos = [], 0
+    for m in _LINK.finditer(text or ""):
+        link = m.group(0)
+        while link and link[-1] in ".,;:!?'\"]}" or (link.endswith(")") and link.count(")") > link.count("(")):
+            link = link[:-1]                                   # punctuation that follows the link in the sentence
+        if len(link) < 5:
+            continue
+        if m.start() > pos:
+            out.append((text[pos:m.start()], None))
+        out.append((link, link if link.lower().startswith("http") else "https://" + link))
+        pos = m.start() + len(link)
+    if pos < len(text or ""):
+        out.append((text[pos:], None))
+    return out
+
+
+def markup_links(text, color):
+    """`text` as Kivy markup: the web links are coloured, underlined and clickable ([ref=url]); the rest is escaped."""
+    def esc(s):
+        return s.replace("&", "&amp;").replace("[", "&bl;").replace("]", "&br;")
+    parts = []
+    for piece, url in split_links(text):
+        if url:
+            ref = url.replace("[", "%5B").replace("]", "%5D")
+            parts.append(f"[ref={ref}][color={color}][u]{esc(piece)}[/u][/color][/ref]")
+        else:
+            parts.append(esc(piece))
+    return "".join(parts)
 
 
 def norm(s):

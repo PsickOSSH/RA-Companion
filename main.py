@@ -48,7 +48,7 @@ from config import MEDIA
 from ra_api import call_api
 import translator
 from uitext import friendly_error, tr
-from utils import date_of, fmt_date, fmt_int, is_any, is_hc, is_missable, norm
+from utils import date_of, fmt_date, fmt_int, is_any, is_hc, is_missable, markup_links, norm
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 
@@ -476,6 +476,12 @@ class GameRow(ButtonBehavior, BoxLayout):
 class CommentItem(BoxLayout):
     user_line = StringProperty("")
     body = StringProperty("")
+    body_markup = StringProperty("")        # `body` with the web links coloured, underlined and clickable
+
+    def on_body(self, _w, text):
+        c = App.get_running_app().c_info
+        color = "#%02x%02x%02x" % tuple(int(255 * v) for v in c[:3])
+        self.body_markup = markup_links(text, color)
 
 
 # ---------------------------------------------------------------------------
