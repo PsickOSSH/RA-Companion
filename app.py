@@ -3,6 +3,7 @@
 import base64
 import os
 import queue
+import re
 import subprocess
 import sys
 import threading
@@ -113,8 +114,9 @@ class App(tk.Tk):
         except Exception:
             pass
         self.configure(bg=skin.BACKGROUND)
-        self.geometry(MAIN_WINDOW)
+        self.geometry(self.saved_geometry() or MAIN_WINDOW)
         self.minsize(500, 310)
+        self.protocol("WM_DELETE_WINDOW", self.close)
         for cls in ("Entry", "TEntry", "Text"):                    # right click in a text field: Cut / Copy / Paste / Select all
             self.bind_class(cls, "<Button-3>", self.edit_menu)
         # Messages from worker threads to the UI thread (Tk widgets must only be touched from the main thread).
@@ -155,8 +157,40 @@ class App(tk.Tk):
     # ----------------------------------------------------------------------
     # Application lifecycle
     # ----------------------------------------------------------------------
+    def saved_geometry(self):
+        """Size and position of the main window when it was closed ("WxH+X+Y"), or None when there is none or when it would
+        not be visible any more (screen unplugged, resolution changed)."""
+        m = re.fullmatch(r"(\d+)x(\d+)\+(-?\d+)\+(-?\d+)", str(self.cfg.get("win_geo") or ""))
+        if not m:
+            return None
+        w, h, x, y = (int(n) for n in m.groups())
+        if w < 500 or h < 310:
+            return None
+        area = screen_bounds(x + w // 2, y + 20)                   # the title bar must be on a screen
+        if area:
+            left, top, right, bottom = area
+            if not (left - w + 100 <= x <= right - 100 and top <= y <= bottom - 40):
+                return None
+        return f"{w}x{h}+{x}+{y}"
+
+    def close(self):
+        """Remember where the window is, then quit."""
+        try:
+            if self.state() == "normal":
+                self.cfg["win_geo"] = self.geometry()
+                save_cfg(self.cfg)
+        except tk.TclError:
+            pass
+        self.destroy()
+
     def restart(self):
         """Relaunch the program (required to apply a new skin)."""
+        try:
+            if self.state() == "normal":
+                self.cfg["win_geo"] = self.geometry()
+                save_cfg(self.cfg)
+        except tk.TclError:
+            pass
         env = dict(os.environ)
         if getattr(sys, "frozen", False):
             # PyInstaller onefile: the child must unpack its own temp folder instead of reusing ours
