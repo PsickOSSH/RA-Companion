@@ -1,11 +1,22 @@
-> **AI-assisted project.** The code of this project was written with the help of an AI assistant,
-> directed and tested by the author. Expect rough edges and please report any bug you find.
-
 <p align="center">
   <img src="docs/logo.png" alt="RA Companion" width="420">
 </p>
 
 # RA Companion
+
+> **AI-assisted project.** The code of this project was written with the help of an AI assistant,
+> directed and tested by the author. Expect rough edges and please report any bug you find.
+
+![Release](https://img.shields.io/github/v/release/PsickOSSH/RA-Companion)
+![Downloads](https://img.shields.io/github/downloads/PsickOSSH/RA-Companion/total)
+![Version](https://img.shields.io/badge/version-2.1-blue)
+![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011%20%7C%20Android%20%7C%20iOS-green)
+![Architecture](https://img.shields.io/badge/architecture-x64-orange)
+![Python](https://img.shields.io/badge/python-3.12-3776AB)
+![UI](https://img.shields.io/badge/UI-Tkinter%20%7C%20Kivy-informational)
+![Languages](https://img.shields.io/badge/languages-EN%20%7C%20FR%20%7C%20ES%20%7C%20DE%20%7C%20IT%20%7C%20PT-purple)
+![Translation](https://img.shields.io/badge/translation-AI%20%7C%20DeepL%20%7C%20LibreTranslate%20%7C%20Google-teal)
+![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
 <p align="center">
   <a href="https://buymeacoffee.com/psickossh"><img src="docs/bmc-button.png" alt="Buy me a coffee" width="220"></a>
