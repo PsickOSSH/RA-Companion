@@ -130,7 +130,7 @@ Build it from source using a Mac with Xcode and `kivy-ios` (see [Building for iO
 python ra_companion.py
 ```
 
-Needs Python 3.9 or newer with Tkinter (included in the official Windows installer). No third-party package is required.
+Needs Python 3.9 or newer with Tkinter (included in the official Windows installer). No third-party package is required. `pip install pillow` is optional: with it the rounded buttons and cards get smooth corners (the `.exe` already includes it).
 
 To try the Android / iOS interface on a PC: `pip install kivy certifi`, then `python main.py` (Kivy 2.1 or newer).
 
