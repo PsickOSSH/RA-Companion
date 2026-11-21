@@ -19,6 +19,38 @@ def _font_path():
     return os.path.join(base, "fonts", FONT_FILE)
 
 
+CONF_TEMPLATE = """<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<fontconfig>
+  <include ignore_missing="yes">%s</include>
+  <selectfont>
+    <rejectfont><pattern><patelt name="color"><bool>true</bool></patelt></pattern></rejectfont>
+  </selectfont>
+</fontconfig>
+"""
+
+
+def reject_color_fonts():
+    """Tell fontconfig to ignore colour fonts. A system with *Noto Color Emoji* (Debian, Ubuntu desktop...) otherwise draws the
+    emoji as huge coloured pictures instead of the white pictograms of the bundled *Noto Emoji* font. FONTCONFIG_FILE must be
+    set before fontconfig is first used by this process."""
+    try:
+        import tempfile
+        base = os.environ.get("FONTCONFIG_FILE") or "/etc/fonts/fonts.conf"
+        conf = CONF_TEMPLATE % base
+        folder = os.path.join(os.path.expanduser("~"), ".cache", "ra-companion")
+        try:
+            os.makedirs(folder, exist_ok=True)
+        except OSError:
+            folder = tempfile.gettempdir()
+        path = os.path.join(folder, "fonts.conf")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(conf)
+        os.environ["FONTCONFIG_FILE"] = path
+    except Exception:
+        pass
+
+
 def register_font():
     """Make the bundled Noto Emoji font known to this process (fontconfig). Returns True when it worked."""
     if os.name == "nt" or os.environ.get("RA_NO_EMOJI_FONT"):       # (the variable is a switch to find out a crash)
@@ -26,6 +58,7 @@ def register_font():
     path = _font_path()
     if not os.path.exists(path):
         return False
+    reject_color_fonts()
     try:
         import ctypes
         fc = ctypes.CDLL("libfontconfig.so.1")
