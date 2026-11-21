@@ -60,7 +60,8 @@ if [ ! -x "$TOOL" ]; then
   curl -L -o "$TOOL" https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
   chmod +x "$TOOL"
 fi
-ARCH=x86_64 "$TOOL" --appimage-extract-and-run "$APPDIR" "$OUT/RA-Companion-$VERSION-x86_64.AppImage"
+# --no-appstream: no AppStream metadata (it is for software centres, not needed to run an AppImage)
+ARCH=x86_64 "$TOOL" --appimage-extract-and-run --no-appstream "$APPDIR" "$OUT/RA-Companion-$VERSION-x86_64.AppImage"
 
 echo
 echo "Done: $OUT/RA-Companion-$VERSION-x86_64.AppImage"
