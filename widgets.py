@@ -43,12 +43,24 @@ def screen_bounds(x, y):
     return None
 
 
+def pointer_on(widget):
+    """True if the pointer is really on `widget`: not on another window opened above it, and no other window of the program
+    holds a modal grab (while the settings are open, the buttons of the main window are not "hovered")."""
+    try:
+        grab = widget.grab_current()
+        if grab is not None and grab.winfo_toplevel() != widget.winfo_toplevel():
+            return False
+        px, py = widget.winfo_pointerxy()
+        return widget.winfo_containing(px, py) == widget
+    except (tk.TclError, KeyError):
+        return True
+
+
 class Tip:
     """Tooltip shown when the mouse rests on a widget; `fn` returns the (possibly dynamic) text."""
 
     def __init__(self, w, fn):
         self.w, self.fn, self.tw, self.job = (w, fn, None, None)
-        self.quiet_until = 0.0
         w.bind("<Enter>", self.enter, add="+")
         w.bind("<Leave>", self.leave, add="+")
         # Tk runs only the most specific binding of a widget: a "<Button-1>" handler (the click of the button) hides the
@@ -58,24 +70,18 @@ class Tip:
         w._tip = self
 
     def pressed(self, _=None):
-        """A click hides the tooltip, and it does not come back for a moment: a click often opens a window (settings...), and
-        on Linux the grab of that window sends a new "enter" to the button, which would show the tooltip again."""
-        self.quiet_until = time.time() + 1.5
+        """A click hides the tooltip."""
         self.leave()
 
     def over(self):
-        """True if the pointer is really on the widget (and not on a window opened above it)."""
-        try:
-            px, py = self.w.winfo_pointerxy()
-            return self.w.winfo_containing(px, py) == self.w
-        except (tk.TclError, KeyError):
-            return True
+        """The tooltip is only shown while the pointer is on the widget: not when a window opened by the click (settings...)
+        is above it, and on Linux the grab of that window sends a new "enter" to the button."""
+        return pointer_on(self.w)
 
     def enter(self, _):
         """Schedule the tooltip to appear shortly after the pointer enters the widget."""
         self.leave()
-        if time.time() >= self.quiet_until:
-            self.job = self.w.after(400, self.show)
+        self.job = self.w.after(400, self.show)
 
     def leave(self, _=None):
         """Cancel a pending tooltip and hide the visible one."""
@@ -95,7 +101,7 @@ class Tip:
     def show(self):
         """Create the tooltip window just below the widget (rounded, drawn with the skin colors)."""
         self.job = None
-        if time.time() < self.quiet_until or not self.over():
+        if not self.over():
             return
         try:
             self.tw = tw = tk.Toplevel(self.w)
@@ -457,6 +463,23 @@ class RoundBtn(tk.Canvas):
         self.bind("<Configure>", lambda e: self.draw())
         self.bind("<Enter>", lambda e: self._hover(True))
         self.bind("<Leave>", lambda e: self._hover(False))
+        # After a click the pointer may no longer be "on" the button (a window opened above it, a modal grab): Tk does not
+        # always send the "leave" then, and the button would keep its hover color. The click action is bound by the caller
+        # (which would hide a "<Button-1>" binding made here), hence a separate binding tag.
+        self.bindtags(self.bindtags() + ("RoundBtnClick",))
+        if not RoundBtn._click_tag:
+            RoundBtn._click_tag = True
+            self.bind_class("RoundBtnClick", "<Button-1>", lambda e: e.widget._after_click())
+
+    _click_tag = False
+
+    def _after_click(self):
+        for delay in (150, 600):
+            self.after(delay, self._recheck_hover)
+
+    def _recheck_hover(self):
+        if self.winfo_exists() and self.hov and not pointer_on(self):
+            self._hover(False)
 
     def _mkicon(self):
         """Create the icon font lazily (symbol font, slightly larger than the text)."""
