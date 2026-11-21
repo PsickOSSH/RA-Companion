@@ -9,7 +9,6 @@
 
 ![Release](https://img.shields.io/github/v/release/PsickOSSH/RA-Companion)
 ![Downloads](https://img.shields.io/github/downloads/PsickOSSH/RA-Companion/total)
-![Version](https://img.shields.io/badge/version-2.1-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011%20%7C%20Android%20%7C%20iOS-green)
 ![Architecture](https://img.shields.io/badge/architecture-x64-orange)
 ![Python](https://img.shields.io/badge/python-3.12-3776AB)
