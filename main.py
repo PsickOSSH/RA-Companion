@@ -232,6 +232,8 @@ class FlatButton(Button):
 class ChipButton(FlatButton):
     """Filter button: the font shrinks (never below 8 sp) so that the text always fits, whatever the language or the bold state."""
 
+    max_sp = 12                    # normal size: used when the text fits
+
     def __init__(self, **kw):
         super().__init__(**kw)
         self.bind(size=self.fit, text=self.fit)
@@ -247,11 +249,16 @@ class ChipButton(FlatButton):
 
     def need(self):
         """Width the text needs at the biggest size, with a little room on each side."""
-        return self.measure(self.text, 12) + dp(18)
+        return self.measure(self.text, self.max_sp) + dp(18)
 
     def fit(self, *args):
         if self.width > 1 and self.text:
-            self.font_size = sp(layoututil.fit_size(self.measure, self.text, self.width - dp(10), 12, 8))
+            self.font_size = sp(layoututil.fit_size(self.measure, self.text, self.width - dp(10), self.max_sp, 8))
+
+
+class TabButton(ChipButton):
+    """Tab of the main screen: normal size (13 sp), smaller only when the text (for example 'Achievements') does not fit."""
+    max_sp = 13
 
 
 class ChipRow(BoxLayout):

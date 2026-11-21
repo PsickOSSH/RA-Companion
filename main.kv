@@ -706,17 +706,17 @@
                     size_hint_y: None
                     height: dp(48)
                     spacing: dp(6)
-                    FlatButton:
+                    TabButton:
                         text: ICON_TROPHY + ' ' + tr('tab_ach')
                         height: dp(48)
                         active: root.current_tab == 'success'
                         on_release: root.switch_tab('success')
-                    FlatButton:
+                    TabButton:
                         text: ICON_SWORDS + ' ' + tr('tab_duel')
                         height: dp(48)
                         active: root.current_tab == 'duel'
                         on_release: root.switch_tab('duel')
-                    FlatButton:
+                    TabButton:
                         text: ICON_GROUP + ' ' + tr('tab_group')
                         height: dp(48)
                         active: root.current_tab == 'group'
