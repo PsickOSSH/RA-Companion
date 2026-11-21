@@ -4,6 +4,8 @@ To add a UI language, add a block to I18N (copy the "en" block) and an entry to 
 
 import os
 
+from symbols import sym
+
 
 LANGS = {"Français": "fr", "English": "en", "Español": "es", "Deutsch": "de", "Italiano": "it",
          "Português": "pt", "Nederlands": "nl", "Polski": "pl", "Русский": "ru", "日本語": "ja", "中文": "zh-CN"}
@@ -23,6 +25,7 @@ SORT_IDS = ["unlocked_first", "disp_asc", "disp_desc", "awd_desc", "awd_asc", "p
 SORT_ICONS = {"unlocked_first": "🔓", "disp_asc": "↓1", "disp_desc": "↑1", "awd_desc": "👥", "awd_asc": "👥", "pts_desc": "🏅",
               "pts_asc": "🏅", "title_asc": "A↓", "title_desc": "Z↓", "type_asc": "🏷", "type_desc": "🏷",
               "med_asc": "⏱", "med_desc": "⏱"}
+SORT_ICONS = {k: sym(v) for k, v in SORT_ICONS.items()}
 
 
 SORT_LABELS = {
@@ -255,7 +258,7 @@ def set_language(code):
 def T(key, **kw):
     """Translate a UI string key into the current language, formatting it with `kw` when given."""
     s = I18N.get(CUR, {}).get(key) or I18N["en"].get(key, key)
-    return s.format(**kw) if kw else s
+    return sym(s.format(**kw) if kw else s)             # (Linux: the emoji are replaced by plain symbols)
 
 
 def system_lang():

@@ -619,6 +619,19 @@ for _lang, _texts in _FOLD_TEXTS.items():
     i18n.I18N.setdefault(_lang, {}).update(_texts)
 
 
+# Always on top: message when the window manager (Linux) does not support it
+_TOP_TEXTS = {
+    "en": {"ontop_unsupported": "Always on top not supported"},
+    "fr": {"ontop_unsupported": "Premier plan non pris en charge"},
+    "es": {"ontop_unsupported": "Primer plano no compatible"},
+    "de": {"ontop_unsupported": "Vordergrund nicht unterstützt"},
+    "it": {"ontop_unsupported": "Primo piano non supportato"},
+    "pt": {"ontop_unsupported": "Primeiro plano não suportado"},
+}
+for _lang, _texts in _TOP_TEXTS.items():
+    i18n.I18N.setdefault(_lang, {}).update(_texts)
+
+
 def friendly_error(e):
     """Short, readable message (in the current language) for a network / API error."""
     if isinstance(e, urllib.error.HTTPError):

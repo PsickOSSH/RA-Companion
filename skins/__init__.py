@@ -53,6 +53,12 @@ def load(name):
             values.update(_values(_import(name)))
         except Exception:                      # unknown / broken skin -> fall back to the default one
             pass
+    if os.name != "nt":                        # the Windows fonts do not exist on Linux / macOS
+        from symbols import FONT_OK, SYMBOL_FAMILY
+        if str(values.get("FONT", "")).startswith("Segoe UI"):
+            values["FONT"] = "DejaVu Sans"
+        if str(values.get("SYMBOL_FONT", "")).startswith("Segoe UI"):
+            values["SYMBOL_FONT"] = SYMBOL_FAMILY if FONT_OK else "DejaVu Sans"   # monochrome emoji like the ones of Windows
     return SimpleNamespace(**values)
 
 

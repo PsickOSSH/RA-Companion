@@ -1,0 +1,41 @@
+name: Build Linux AppImage
+
+# The AppImage only runs on systems whose glibc is at least as recent as the one of the machine that built it:
+# it is built on Ubuntu 22.04 (glibc 2.35) so that it also runs on Debian 12 / 13, Ubuntu 22.04+, Fedora, Mint...
+on:
+  workflow_dispatch:          # manual run: Actions tab -> Build Linux AppImage -> Run workflow (file kept as an artifact)
+  release:
+    types: [published]        # when a release is published, the AppImage is added to its assets
+
+permissions:
+  contents: write
+
+jobs:
+  appimage:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: System packages
+        run: sudo apt-get update && sudo apt-get install -y python3-tk python3-venv python3-pip libfuse2
+
+      - name: Python environment
+        run: |
+          python3 -m venv ~/venv
+          ~/venv/bin/pip install pyinstaller pillow
+
+      - name: Build the AppImage
+        run: |
+          source ~/venv/bin/activate
+          bash build-linux.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RA-Companion-AppImage
+          path: dist-linux/*.AppImage
+
+      - name: Attach to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" dist-linux/*.AppImage --clobber

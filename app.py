@@ -2,8 +2,10 @@
 
 import base64
 import os
+import platform
 import queue
 import re
+import shutil
 import subprocess
 import sys
 import threading
@@ -28,6 +30,7 @@ from utils import (DEFAULT_REFRESH_KEY, date_of, fmt_date, fmt_int, is_any, is_c
 from widgets import Bar, Card, RoundBtn, SLabel, SYMF, TRANSPARENT_KEY, Tip, has_sym, is_sym, screen_bounds, setup_ttk_styles
 import appinfo
 import updater
+from symbols import sym
 import desktop_texts  # noqa: F401  (adds the texts of the new settings to i18n)
 from desktop_texts import friendly_error
 import notes_io
@@ -77,6 +80,40 @@ def _fit(im, size):
 # ---------------------------------------------------------------------------
 # Sizes you can change (pixels). Every number below is used by the whole application.
 # ---------------------------------------------------------------------------
+def clean_env():
+    """Environment for the programs started from the app. In a PyInstaller / AppImage build, LD_LIBRARY_PATH points to the
+    libraries of the app, which can break the system programs (browser, file manager): the original value is restored."""
+    env = dict(os.environ)
+    orig = env.get("LD_LIBRARY_PATH_ORIG")
+    if orig is not None:
+        env["LD_LIBRARY_PATH"] = orig
+    elif getattr(sys, "frozen", False):
+        env.pop("LD_LIBRARY_PATH", None)
+    return env
+
+
+def is_wsl():
+    return os.name != "nt" and ("WSL_DISTRO_NAME" in os.environ or "microsoft" in platform.release().lower())
+
+
+def open_url(url):
+    """Open a link in the browser. On Linux webbrowser / gio can fail ("Operation not supported", WSL without a Linux
+    browser): the tools of the system are tried first, and under WSL the browser of Windows is used."""
+    if os.name != "nt":
+        commands = ([["wslview", url], ["explorer.exe", url]] if is_wsl() else []) + [["xdg-open", url], ["gio", "open", url]]
+        for cmd in commands:
+            if shutil.which(cmd[0]):
+                try:
+                    subprocess.Popen(cmd, env=clean_env(), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                     stderr=subprocess.DEVNULL, start_new_session=True)
+                    return True
+                except OSError:
+                    continue
+    return webbrowser.open(url)
+
+
+PACKAGE_EXT = ".exe" if os.name == "nt" else ".AppImage"      # file looked for by the update check
+MIN_WINDOW = (500, 310)         # smallest size of the main window: width, height
 MAIN_WINDOW = "580x760"        # main window when it opens: width x height
 TRANSLATION_KEYS_WINDOW = "430x780"   # window of the translation keys (opened from the settings): width x starting height
 SETTINGS_WINDOW = "430x865"  # settings window: width x starting height (then reduced to what its content needs)
@@ -110,12 +147,17 @@ class App(tk.Tk):
         self.title("RA Companion")
         try:
             base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
-            self.iconbitmap(default=os.path.join(base, "logo.ico"))
+            if os.name == "nt":
+                self.iconbitmap(default=os.path.join(base, "logo.ico"))
+            else:
+                png = os.path.join(base, "icon.png")
+                self.icon_img = tk.PhotoImage(file=png if os.path.exists(png) else os.path.join(base, "docs", "icon.png"))
+                self.iconphoto(True, self.icon_img)
         except Exception:
             pass
         self.configure(bg=skin.BACKGROUND)
         self.geometry(self.saved_geometry() or MAIN_WINDOW)
-        self.minsize(500, 310)
+        self.minsize(*MIN_WINDOW)
         self.protocol("WM_DELETE_WINDOW", self.close)
         self.wide = None                                           # layout in use: True = horizontal (two columns)
         self.head_folded = False                                   # profile + game cards hidden (vertical layout only)
@@ -195,15 +237,22 @@ class App(tk.Tk):
                 save_cfg(self.cfg)
         except tk.TclError:
             pass
-        env = dict(os.environ)
-        if getattr(sys, "frozen", False):
+        env = clean_env()
+        if os.environ.get("APPIMAGE"):
+            # AppImage: the folder the program runs from is unmounted when this process ends, so the new process
+            # must be started through the .AppImage file itself (it mounts its own copy)
+            args = [os.environ["APPIMAGE"]]
+            for name in ("APPDIR", "APPIMAGE", "ARGV0", "OWD"):
+                env.pop(name, None)
+            env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+        elif getattr(sys, "frozen", False):
             # PyInstaller onefile: the child must unpack its own temp folder instead of reusing ours
             env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
             args = [sys.executable]
         else:
             args = [sys.executable, os.path.abspath(sys.argv[0])]
         self.hotkey.unregister()                  # free the global shortcut for the new process
-        subprocess.Popen(args + sys.argv[1:], env=env, close_fds=True)
+        subprocess.Popen(args + sys.argv[1:], env=env, close_fds=True, start_new_session=(os.name != "nt"))
         self.destroy()
 
     def rebuild_ui(self):
@@ -233,7 +282,7 @@ class App(tk.Tk):
     def link(self, parent, text, url, size=9, bg=None):
         """Clickable link opening `url` in the browser, underlined on hover."""
         l = self.lbl(parent, text, size, skin.INFO, bg=bg, cursor="hand2")
-        l.bind("<Button-1>", lambda e: webbrowser.open(url))
+        l.bind("<Button-1>", lambda e: open_url(url))
         l.bind("<Enter>", lambda e: l.config(font=(skin.FONT, size, "underline")))
         l.bind("<Leave>", lambda e: l.config(font=(skin.FONT, size)))
         return l
@@ -344,6 +393,29 @@ class App(tk.Tk):
         return tk.Entry(parent, textvariable=var, bg=skin.CARD, fg=skin.TEXT, insertbackground=skin.TEXT, relief="flat",
             font=(skin.FONT, 11), highlightthickness=1, highlightbackground=skin.CARD_ALT, highlightcolor=skin.ACCENT,
             **kw)
+
+    def combo(self, parent, var, values):
+        """Drop-down list of the settings. Windows: the ttk Combobox. Linux: the box of the Combobox is not always redrawn
+        after a choice (the old text stays visible), so a drop-down made of a label and a pop-up menu is used: the text is
+        updated by the program itself."""
+        if os.name == "nt":
+            return ttk.Combobox(parent, textvariable=var, values=values, state="readonly")
+        box = tk.Frame(parent, bg=skin.CARD, highlightthickness=1, highlightbackground=skin.CARD_ALT, cursor="hand2")
+        shown = tk.Label(box, textvariable=var, bg=skin.CARD, fg=skin.TEXT, font=(skin.FONT, 10), anchor="w", padx=8, pady=5,
+                         cursor="hand2")
+        shown.pack(side="left", fill="x", expand=True)
+        arrow = tk.Label(box, text="▾", bg=skin.CARD_ALT, fg=skin.TEXT, font=(skin.FONT, 10), width=3, cursor="hand2")
+        arrow.pack(side="right", fill="y")
+
+        def open_list(_e=None):
+            m = tk.Menu(box, tearoff=0, bg=skin.CARD, fg=skin.TEXT, activebackground=skin.ACCENT,
+                        activeforeground=skin.TEXT_ON_ACCENT, font=(skin.FONT, 10), bd=0)
+            for v in values:
+                m.add_command(label=v, command=lambda v=v: var.set(v))
+            self.popup_menu(m, box.winfo_rootx(), box.winfo_rooty() + box.winfo_height(), box)
+        for wdg in (box, shown, arrow):
+            wdg.bind("<Button-1>", open_list)
+        return box
 
     def make_scroll(self, parent, name):
         """Create a scrollable area. Layout updates are debounced and hidden while resizing, which keeps long lists smooth."""
@@ -485,7 +557,6 @@ class App(tk.Tk):
         self.footer = tk.Frame(self, bg=skin.BACKGROUND)
         self.footer.pack(side="bottom", fill="x", padx=10, pady=6)
         self.l_status = self.lbl(self.footer, "", 8, skin.TEXT_MUTED, anchor="w")
-        self.l_status.pack(side="left")
         rb = self.icon_btn(self.footer, "↻", REFRESH_LABELS.get(i18n.CUR, REFRESH_LABELS["en"]), self.refresh)
         rb.pack(side="right")
         self.auto_var = tk.BooleanVar(value=self.cfg.get("auto_refresh", True))
@@ -503,6 +574,8 @@ class App(tk.Tk):
         sp.bind("<Return>", self.on_interval)
         sp.bind("<FocusOut>", self.on_interval)
         tk.Label(af, text="s", bg=skin.BACKGROUND, fg=skin.TEXT_MUTED, font=(skin.FONT, 10)).pack(side="left")
+        # packed last: a long status message is cut instead of pushing the buttons out of the window
+        self.l_status.pack(side="left")
         self.content = tk.Frame(self.right, bg=skin.BACKGROUND)
         self.content.pack(fill="both", expand=True, padx=10, pady=(6, 0))
         self.views = {k: tk.Frame(self.content, bg=skin.BACKGROUND) for k in ("ach", "duel", "group")}
@@ -565,6 +638,10 @@ class App(tk.Tk):
         return width >= cls.WIDE_MIN_WIDTH and width >= cls.WIDE_RATIO * height
 
     def on_resize(self, e):
+        if e.widget is self and os.name != "nt" and (e.width < MIN_WINDOW[0] or e.height < MIN_WINDOW[1]):
+            # some Linux window managers (XWayland / WSLg) ignore the minimum size: it is enforced here
+            self.geometry(f"{max(e.width, MIN_WINDOW[0])}x{max(e.height, MIN_WINDOW[1])}")
+            return
         if e.widget is self and self.layout_job is None:
             self.layout_job = self.after(60, self.relayout)
 
@@ -674,6 +751,21 @@ class App(tk.Tk):
         self.cfg["ontop"] = not self.cfg["ontop"]
         save_cfg(self.cfg)
         self.apply_window()
+        if self.cfg["ontop"] and os.name != "nt":
+            self.after(400, self.check_topmost)
+
+    def check_topmost(self):
+        """Some Linux window managers (and WSLg, where Windows manages the windows) ignore "always on top": the button is
+        then released and a message explains it, instead of looking active without effect."""
+        try:
+            supported = bool(self.attributes("-topmost"))
+        except tk.TclError:
+            supported = False
+        if not supported and self.cfg["ontop"]:
+            self.cfg["ontop"] = False
+            save_cfg(self.cfg)
+            self.apply_window()
+            self.l_status.config(text=T("ontop_unsupported"), fg=skin.DANGER)
 
     def toggle_hc(self):
         """Toggle 'hardcore only' counting and re-render."""
@@ -704,11 +796,14 @@ class App(tk.Tk):
             pasteable = False
 
         def select_all():
-            if is_text:
-                w.tag_add("sel", "1.0", "end-1c")
-            else:
-                w.select_range(0, "end")
-                w.icursor("end")
+            try:
+                if is_text:
+                    w.tag_add("sel", "1.0", "end-1c")
+                else:
+                    w.select_range(0, "end")
+                    w.icursor("end")
+            except tk.TclError:                       # the field was closed while the menu was open
+                pass
         m = tk.Menu(self, tearoff=0, bg=skin.CARD, fg=skin.TEXT, activebackground=skin.ACCENT,
                     activeforeground=skin.TEXT_ON_ACCENT, bd=0, relief="flat")
         on = lambda ok: "normal" if ok else "disabled"
@@ -717,11 +812,34 @@ class App(tk.Tk):
         m.add_command(label=T("m_paste"), state=on(editable and pasteable), command=lambda: w.event_generate("<<Paste>>"))
         m.add_separator()
         m.add_command(label=T("m_select_all"), command=select_all)
+        self.popup_menu(m, e.x_root, e.y_root, w)
+        return "break"
+
+    def popup_menu(self, m, x, y, widget):
+        """Show the pop-up menu `m` at (x, y). The menu does not always close by itself on Linux: any click elsewhere, or
+        Escape, closes it."""
+        top = widget.winfo_toplevel()
+        bind_id = {}
+
+        def close(_ev=None):
+            try:
+                m.unpost()
+            except tk.TclError:
+                pass
+            for seq, fid in list(bind_id.items()):
+                try:
+                    top.unbind(seq, fid)
+                except tk.TclError:
+                    pass
+            bind_id.clear()
         try:
-            m.tk_popup(e.x_root, e.y_root)
+            m.tk_popup(x, y)
         finally:
             m.grab_release()
-        return "break"
+        if os.name != "nt":
+            for seq in ("<Button-1>", "<Button-3>", "<Escape>"):
+                bind_id[seq] = top.bind(seq, close, add="+")
+            m.bind("<Escape>", close)
 
     def toggle_translate(self):
         """Toggle the automatic translation of descriptions and comments."""
@@ -780,7 +898,7 @@ class App(tk.Tk):
         w.title(T("s_title"))
         w.configure(bg=skin.BACKGROUND)
         w.transient(self)
-        w.grab_set()
+        self.safe_grab(w)
         self.place_window(w, SETTINGS_WINDOW)
         self.grow_to_fit(w)
 
@@ -799,10 +917,10 @@ class App(tk.Tk):
         self.entry(w, k, show="•").pack(fill="x", padx=18, ipady=5)
         row(T("s_uilang"))
         ui = tk.StringVar(value=next((n for n, c in UI_LANGS.items() if c == self.cfg["ui_lang"]), sys_label))
-        ttk.Combobox(w, textvariable=ui, values=[sys_label] + list(UI_LANGS), state="readonly").pack(fill="x", padx=18)
+        self.combo(w, ui, [sys_label] + list(UI_LANGS)).pack(fill="x", padx=18)
         row(T("s_trlang"))
         lg = tk.StringVar(value=next((n for n, c in LANGS.items() if c == self.cfg["lang"]), sys_label))
-        ttk.Combobox(w, textvariable=lg, values=[sys_label] + list(LANGS), state="readonly").pack(fill="x", padx=18)
+        self.combo(w, lg, [sys_label] + list(LANGS)).pack(fill="x", padx=18)
         row(T("s_trservice"))
         sv_row = tk.Frame(w, bg=skin.BACKGROUND)
         sv_row.pack(fill="x", padx=18)
@@ -818,7 +936,7 @@ class App(tk.Tk):
         row(T("s_skin"))
         skin_names = skins.available()
         sk = tk.StringVar(value=next((n for n, m in skin_names.items() if m == self.cfg.get("skin", "default")), skin.NAME))
-        ttk.Combobox(w, textvariable=sk, values=list(skin_names), state="readonly").pack(fill="x", padx=18)
+        self.combo(w, sk, list(skin_names)).pack(fill="x", padx=18)
         nv = tk.BooleanVar(value=bool(self.cfg.get("notify", True)))
         tk.Checkbutton(w, text=T("s_notify"), variable=nv, bg=skin.BACKGROUND, fg=skin.TEXT, selectcolor=skin.CARD,
             activebackground=skin.BACKGROUND, activeforeground=skin.TEXT, font=(skin.FONT, 10, "bold"), bd=0,
@@ -917,6 +1035,15 @@ class App(tk.Tk):
             need = min(need, area[3] - area[1] - 10)
         self.place_window(win, f"{win.winfo_width()}x{need}", over)
 
+    def safe_grab(self, win, tries=30):
+        """Make `win` modal. On Linux the grab fails while the window is not visible yet ("window not viewable"): it is
+        tried again every 50 ms until the window is shown (and given up if the window is closed meanwhile)."""
+        try:
+            win.grab_set()
+        except tk.TclError:
+            if tries > 0:
+                self.after(50, lambda: win.winfo_exists() and self.safe_grab(win, tries - 1))
+
     def place_window(self, win, size, over=None):
         """Give `win` its size ("WIDTHxHEIGHT") and open it centered on `over` (the main window by default), kept inside
         the screen where that window is: without it, Windows opens every new window on the first screen."""
@@ -968,7 +1095,7 @@ class App(tk.Tk):
         win.title(T("s_trkeys_title"))
         win.configure(bg=skin.BACKGROUND)
         win.transient(parent)
-        win.grab_set()
+        self.safe_grab(win)
         self.place_window(win, TRANSLATION_KEYS_WINDOW, parent)
         self.grow_to_fit(win)
         foot = tk.Frame(win, bg=skin.BACKGROUND)                    # packed first: the Save button stays visible whatever the
@@ -1070,7 +1197,7 @@ class App(tk.Tk):
                                            ("key", T("s_ai_key"), True)):
                     self.lbl(ai_box, label, 9, skin.TEXT_MUTED, anchor="w").pack(fill="x", pady=(4, 0))
                     self.entry(ai_box, e[key], **({"show": "•"} if secret else {})).pack(fill="x", ipady=5)
-            add = tk.Label(ai_box, text="＋ " + T("s_ai_add"), bg=skin.BACKGROUND, fg=skin.INFO, cursor="hand2", anchor="w",
+            add = tk.Label(ai_box, text=sym("＋ ") + T("s_ai_add"), bg=skin.BACKGROUND, fg=skin.INFO, cursor="hand2", anchor="w",
                            font=(skin.FONT, 10, "bold"))
             add.pack(fill="x", pady=(10, 0))
             add.bind("<Button-1>", lambda ev: add_ai())
@@ -1195,18 +1322,18 @@ class App(tk.Tk):
                 b = RoundBtn(holder, text=T("s_update_get", v=version), bg=skin.ACCENT, fg=skin.TEXT_ON_ACCENT,
                     font=(skin.FONT, SETTINGS_BTN_FONT, "bold"), padx=SETTINGS_BTN[0], pady=SETTINGS_BTN[1], radius=skin.RADIUS_BUTTON)
                 b.pack(fill="x", pady=(6, 0))
-                b.bind("<Button-1>", lambda e: webbrowser.open(url))
+                b.bind("<Button-1>", lambda e: open_url(url))
 
         def job():
             url = version = ""
             try:
-                res = updater.check(appinfo.UPDATE_REPO, appinfo.__version__, ext=".exe")
+                res = updater.check(appinfo.UPDATE_REPO, appinfo.__version__, ext=PACKAGE_EXT)
                 if res["status"] == "newer":
                     text, color, url, version = T("upd_available", v=res["version"]), skin.SUCCESS, res["url"], res["version"]
                 elif res["status"] == "uptodate":
                     text, color = T("upd_uptodate", v=appinfo.__version__), skin.SUCCESS
                 else:
-                    text, color = T("upd_noexe"), skin.TEXT_MUTED
+                    text, color = T("upd_noexe").replace(".exe", PACKAGE_EXT), skin.TEXT_MUTED
             except Exception as e:
                 text, color = T("upd_error", e=updater.describe(e)), skin.DANGER
             self.q.put(("call", lambda: show(text, color, url, version)))
@@ -1274,7 +1401,7 @@ class App(tk.Tk):
         self._refresh_seq = "<%s>" % key
         if not hasattr(self, "hotkey"):
             self.hotkey = GlobalHotkey(lambda: self.q.put(("call", self.refresh)))
-        if not self.hotkey.register(key):
+        if not self.hotkey.register(key) and os.name == "nt":
             self.l_status.config(text=T("hotkey_busy", k=shortcut_label(key)), fg=skin.DANGER)
 
     def refresh(self):
@@ -1551,10 +1678,7 @@ class App(tk.Tk):
             m.add_checkbutton(label=f"{SORT_ICONS[sid]}   {sort_label(sid)}", variable=v, onvalue=True, offvalue=False,
                 command=lambda s=sid: self.set_sort(s))
         b = self.b_sort
-        try:
-            m.tk_popup(b.winfo_rootx(), b.winfo_rooty() + b.winfo_height())
-        finally:
-            m.grab_release()
+        self.popup_menu(m, b.winfo_rootx(), b.winfo_rooty() + b.winfo_height(), b)
 
     def set_sort(self, sid):
         """Store the chosen sort mode and re-render the list."""
@@ -2118,7 +2242,8 @@ class App(tk.Tk):
         nsb = ttk.Scrollbar(nbox, command=nt.yview, style="App.Vertical.TScrollbar")
         nt.configure(yscrollcommand=nsb.set)
         nsb.grid(row=0, column=1, sticky="ns", padx=(6, 0))
-        grip = tk.Canvas(nbox, width=14, height=14, bg=skin.CARD, highlightthickness=0, cursor="size_nw_se")
+        grip = tk.Canvas(nbox, width=14, height=14, bg=skin.CARD, highlightthickness=0,
+                         cursor="size_nw_se" if os.name == "nt" else "bottom_right_corner")
         # inside the frame, in the very bottom-right corner (Tk places inside the border and the padding of a Text, hence the offsets)
         border = int(nt.cget("bd")) + int(nt.cget("highlightthickness"))
         grip.place(in_=nt, relx=1.0, rely=1.0, x=border + int(nt.cget("padx")), y=border + int(nt.cget("pady")), anchor="se")
@@ -2206,7 +2331,7 @@ class App(tk.Tk):
                         tag = f"url{len(urls)}"
                         urls[tag] = url
                         txt.tag_config(tag, foreground=skin.INFO, underline=True)
-                        txt.tag_bind(tag, "<Button-1>", lambda e, u=url: webbrowser.open(u))
+                        txt.tag_bind(tag, "<Button-1>", lambda e, u=url: open_url(u))
                         txt.tag_bind(tag, "<Enter>", lambda e: txt.config(cursor="hand2"))
                         txt.tag_bind(tag, "<Leave>", lambda e: txt.config(cursor=""))
                         txt.insert("end", piece, tag)

@@ -2,11 +2,13 @@
 
 Every color, font and radius comes from the active skin (see the `skins` package)."""
 
+import os
 import tkinter as tk
 import tkinter.font as tkfont
 from tkinter import ttk
 
 from skins import active as skin
+from symbols import sym as plain_symbols
 
 try:                                            # Pillow draws smooth (anti-aliased) corners; without it the corners are plain ovals
     from PIL import Image, ImageDraw, ImageTk
@@ -95,7 +97,7 @@ class Tip:
 
 
 # Color made transparent on Windows, so that rounded notification windows have real round corners.
-TRANSPARENT_KEY = "#010203"
+TRANSPARENT_KEY = "#010203" if os.name == "nt" else skin.BACKGROUND   # "-transparentcolor" is Windows only
 
 
 def rrect(cv, x1, y1, x2, y2, r, **kw):
@@ -266,8 +268,8 @@ class SLabel(tk.Frame):
     def _runs(text):
         """Group the text into runs of symbol / non-symbol characters."""
         runs = []
-        for ch in text:
-            sym = is_sym(ch)
+        for ch in plain_symbols(text):
+            sym = is_sym(ch) and not (os.name != "nt" and ch in "▶◀")        # (Linux: the triangles come from the text font)
             if ch == " " and runs:
                 sym = runs[-1][0]
             if runs and runs[-1][0] == sym:
@@ -395,6 +397,7 @@ class RoundBtn(tk.Canvas):
     def __init__(self, parent, text="", icon=None, bg=skin.CARD_ALT, fg=skin.TEXT, font=None, icon_font=None, padx=10,
         pady=5, radius=skin.RADIUS_BUTTON, chars=None):
         self._tkfont = tkfont
+        text, icon = plain_symbols(text), plain_symbols(icon)
         self._icon_font = icon_font
         self._icon_given = icon is not None
         self._f = tkfont.Font(font=font or (skin.FONT, 10))
@@ -429,7 +432,10 @@ class RoundBtn(tk.Canvas):
     def _resize(self):
         """Compute the requested size from the content."""
         tw, iw, gap = self._widths()
-        base_w = max(tw, self._f.measure("0") * self.chars) if self.chars else tw
+        digit = self._f.measure("0")
+        if os.name != "nt":                      # the digit of an emoji font is as wide as an emoji: measure it in the text font
+            digit = tkfont.Font(font=(skin.FONT, abs(int(self._f.actual("size"))))).measure("0")
+        base_w = max(tw, digit * self.chars) if self.chars else tw
         h = max(self._f.metrics("linespace"), self._if.metrics("linespace") if self._if else 0) + self.py * 2
         tk.Canvas.configure(self, width=self.px * 2 + iw + gap + base_w, height=h)
 

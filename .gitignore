@@ -9,6 +9,9 @@ dist/
 !buildozer.spec
 *.exe
 
+# Build Linux (AppImage)
+dist-linux/
+
 # Builds Android (Buildozer)
 .idea/
 .buildozer/

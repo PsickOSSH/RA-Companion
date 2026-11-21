@@ -96,6 +96,18 @@ Download the file of your platform from the [latest release](../../releases/late
 3. On first launch the settings window opens: enter your RetroAchievements username and your Web API key
    (<https://retroachievements.org/settings?tab=applications>).
 
+### Linux (AppImage)
+
+1. Download `RA-Companion-<version>-x86_64.AppImage` from the **Assets** list, make it executable (`chmod +x`) and run it.
+2. To build it yourself (Ubuntu / WSL): `sudo apt install python3-tk python3-venv`, create a virtual environment with
+   `pip install pyinstaller pillow`, then run `./build-linux.sh`; the file is written to `dist-linux/`.
+3. Not available on Linux: the global refresh shortcut (it still works while the window has the focus).
+4. The AppImage needs a glibc at least as recent as the one of the machine that built it. The release file is built
+   by the *Build Linux AppImage* GitHub workflow on Ubuntu 22.04, so it runs on Debian 12 and later, Ubuntu 22.04 and later,
+   Fedora, Mint... If you build it yourself on a very recent system and get `GLIBC_x.y not found` elsewhere, build on an
+   older one. On Debian / Ubuntu the AppImage also needs `libfuse2` (`libfuse2t64` on Debian 13 / Ubuntu 24.04).
+5. Without the AppImage: `sudo apt install python3-tk`, then `python3 ra_companion.py` from the project folder.
+
 ### Android
 
 1. Download the `.apk` from the release on your phone and open it.
@@ -569,6 +581,9 @@ The Buy Me a Coffee logo of the app is embedded in `config.py` (no download need
 
 The Android and iOS apps embed the [DejaVu Sans](https://dejavu-fonts.github.io/) font (free license, see `fonts/LICENSE_DEJAVU`),
 extended with a few drawn symbols.
+
+The Linux version embeds the monochrome [Noto Emoji](https://fonts.google.com/noto/specimen/Noto+Emoji) font (SIL Open Font
+License 1.1, see `fonts/LICENSE_NOTO_EMOJI`) so that the pictograms look like the ones of Windows.
 
 ## License
 
