@@ -14,6 +14,8 @@ try:                                            # Pillow draws smooth (anti-alia
     from PIL import Image, ImageDraw, ImageTk
 except Exception:                               # pragma: no cover
     Image = None
+if os.environ.get("RA_NO_SMOOTH"):               # switch to find out a slowness: plain (not smoothed) rounded corners
+    Image = None
 
 
 def screen_bounds(x, y):
@@ -74,7 +76,10 @@ class Tip:
         try:
             self.tw = tw = tk.Toplevel(self.w)
             tw.overrideredirect(True)
-            tw.attributes("-topmost", True)
+            if os.name == "nt":
+                tw.attributes("-topmost", True)
+            else:
+                tw.withdraw()               # Linux: built out of sight, shown once at its place (no flash at the corner)
             tw.configure(bg=TRANSPARENT_KEY)
             try:
                 tw.attributes("-transparentcolor", TRANSPARENT_KEY)
@@ -92,6 +97,9 @@ class Tip:
             if y + tw.winfo_height() > bottom:
                 y = self.w.winfo_rooty() - tw.winfo_height() - 6
             tw.geometry(f"+{x}+{y}")
+            if os.name != "nt":
+                tw.deiconify()
+                tw.lift()
         except Exception:
             self.tw = None
 
@@ -111,18 +119,23 @@ def rrect(cv, x1, y1, x2, y2, r, **kw):
 _CORNERS = {}
 
 
-def corner_images(r, color):
+def corner_images(r, color, bg=None):
     """The four corners (top-left, top-right, bottom-left, bottom-right) of a rounded rectangle of radius `r`, as smooth
-    PhotoImages (drawn 4 times bigger, then reduced, like the rounded buttons of the phone app). None without Pillow."""
+    PhotoImages (drawn 4 times bigger, then reduced, like the rounded buttons of the phone app). None without Pillow.
+
+    Windows: the corners are transparent (alpha). Linux: Tk must read back the pixels under every transparent image to
+    blend it (one round trip to the X server per image: a list of a hundred cards took seconds to appear), so the corners
+    are opaque images already blended with the background color `bg` of the canvas."""
     if Image is None or r < 2:
         return None
-    key = (r, color)
+    opaque = os.name != "nt" and bool(bg)
+    key = (r, color, bg if opaque else None)
     if key not in _CORNERS:
         if len(_CORNERS) > 600:
             _CORNERS.clear()
         try:
             s = 4
-            big = Image.new("RGBA", (2 * r * s, 2 * r * s), (0, 0, 0, 0))
+            big = Image.new("RGB", (2 * r * s, 2 * r * s), bg) if opaque else Image.new("RGBA", (2 * r * s, 2 * r * s), (0, 0, 0, 0))
             ImageDraw.Draw(big).ellipse((0, 0, 2 * r * s - 1, 2 * r * s - 1), fill=color)
             img = big.resize((2 * r, 2 * r), Image.LANCZOS)
             boxes = ((0, 0, r, r), (r, 0, 2 * r, r), (0, r, r, 2 * r), (r, r, 2 * r, 2 * r))
@@ -141,7 +154,11 @@ def fill_round(cv, w, h, r, color):
         return
     cv.create_rectangle(r, 0, w - r, h, **f)
     cv.create_rectangle(0, r, w, h - r, **f)
-    imgs = corner_images(r, color)
+    try:
+        bg = cv.cget("bg")
+    except tk.TclError:
+        bg = None
+    imgs = corner_images(r, color, bg)
     if imgs:
         cv._corner_imgs = imgs                  # a canvas does not keep its images alive by itself
         for img, (x, y) in zip(imgs, ((0, 0), (w - r, 0), (0, h - r), (w - r, h - r))):
