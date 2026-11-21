@@ -1687,7 +1687,51 @@ class App(tk.Tk):
         self.render_list(force=True)
 
     def render_list(self, force=False):
-        """Render the achievement list (filters, sort order, notes, missable markers). Skipped when nothing changed."""
+        """Render the achievement list. With the environment variable RA_PROFILE=1 the time spent in each kind of widget is
+        printed in the terminal (to find out why a list is slow on a given computer)."""
+        if not os.environ.get("RA_PROFILE"):
+            return self._render_list(force)
+        import cProfile
+        import io
+        import pstats
+        totals = {}
+
+        def timed(name, fn):
+            def run(*a, **k):
+                t0 = time.perf_counter()
+                try:
+                    return fn(*a, **k)
+                finally:
+                    n, s = totals.get(name, (0, 0.0))
+                    totals[name] = (n + 1, s + time.perf_counter() - t0)
+            return run
+        originals = {}
+        for name in ("lbl", "badge", "bind_click", "row_hover", "rewrap", "translate_labels", "photo", "note_of"):
+            originals[name] = getattr(self, name)
+            setattr(self, name, timed(name, originals[name]))
+        card_init = Card.__init__
+        Card.__init__ = lambda s, *a, **k: timed("Card()", card_init)(s, *a, **k)
+        prof = cProfile.Profile()
+        t0 = time.perf_counter()
+        prof.enable()
+        try:
+            self._render_list(force)
+        finally:
+            prof.disable()
+            Card.__init__ = card_init
+            for name, fn in originals.items():
+                setattr(self, name, fn)
+        t1 = time.perf_counter()
+        self.update_idletasks()
+        t2 = time.perf_counter()
+        out = io.StringIO()
+        pstats.Stats(prof, stream=out).sort_stats("tottime").print_stats(10)
+        print("--- RA_PROFILE: render_list %.2f s, then layout (update_idletasks) %.2f s" % (t1 - t0, t2 - t1), file=sys.stderr)
+        for name, (n, s) in sorted(totals.items(), key=lambda kv: -kv[1][1]):
+            print("    %-18s %5d calls  %.2f s" % (name, n, s), file=sys.stderr)
+        print(out.getvalue(), file=sys.stderr)
+
+    def _render_list(self, force=False):
         if not self.game:
             return
         inner = self.inners["ach"]
