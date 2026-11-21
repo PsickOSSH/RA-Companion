@@ -107,6 +107,12 @@ Download the file of your platform from the [latest release](../../releases/late
    Fedora, Mint... If you build it yourself on a very recent system and get `GLIBC_x.y not found` elsewhere, build on an
    older one. On Debian / Ubuntu the AppImage also needs `libfuse2` (`libfuse2t64` on Debian 13 / Ubuntu 24.04).
 5. Without the AppImage: `sudo apt install python3-tk`, then `python3 ra_companion.py` from the project folder.
+6. Linux details: the emoji are drawn with a bundled monochrome font (colour emoji fonts are ignored), the program does
+   not use the input method of the desktop (IBus, Fcitx: it made the lists very slow; the keyboard, dead keys and Compose
+   still work), and "always on top" only works if your window manager supports it (a message tells you when it does not).
+   Environment variables, for problems: `RA_KEEP_IM=1` keeps the input method (for CJK input), `RA_NO_EMOJI_FONT=1` does not
+   load the emoji font, `RA_NO_SMOOTH=1` draws plain rounded corners, `RA_PROFILE=1` prints in the terminal how long the
+   achievement list takes to be built, laid out and painted.
 
 ### Android
 
