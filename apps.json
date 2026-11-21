@@ -25,6 +25,13 @@
       },
       "versions": [
         {
+          "version": "2.2",
+          "date": "2026-11-21",
+          "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v2.2/ra-companion-2.2.ipa",
+          "size": 21914901,
+          "localizedDescription": "New Kirby skin. On a wide window the Windows app now shows two columns, and a button folds the profile and game cards. The rank wraps under the name when the screen is narrow, the window remembers its position, the Achievements tab shrinks its text instead of being cut.\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v2.1...v2.2"
+        },
+        {
           "version": "2.1",
           "date": "2026-11-17",
           "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v2.1/ra-companion-2.1.ipa",
