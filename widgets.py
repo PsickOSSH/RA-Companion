@@ -51,7 +51,11 @@ class Tip:
         self.quiet_until = 0.0
         w.bind("<Enter>", self.enter, add="+")
         w.bind("<Leave>", self.leave, add="+")
-        w.bind("<ButtonPress>", self.pressed, add="+")
+        # Tk runs only the most specific binding of a widget: a "<Button-1>" handler (the click of the button) hides the
+        # plain "<ButtonPress>" one, so the buttons are listed too
+        for seq in ("<ButtonPress>", "<Button-1>", "<Button-2>", "<Button-3>"):
+            w.bind(seq, self.pressed, add="+")
+        w._tip = self
 
     def pressed(self, _=None):
         """A click hides the tooltip, and it does not come back for a moment: a click often opens a window (settings...), and
