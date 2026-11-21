@@ -118,6 +118,7 @@ class App(tk.Tk):
         self.minsize(500, 310)
         self.protocol("WM_DELETE_WINDOW", self.close)
         self.wide = None                                           # layout in use: True = horizontal (two columns)
+        self.head_folded = False                                   # profile + game cards hidden (vertical layout only)
         self.layout_job = None
         self.bind("<Configure>", self.on_resize)
         for cls in ("Entry", "TEntry", "Text"):                    # right click in a text field: Cut / Copy / Paste / Select all
@@ -478,6 +479,9 @@ class App(tk.Tk):
             c.pack(side="left", fill="x", expand=True, padx=(0, 0 if key == "group" else 6))
             c.bind("<Button-1>", lambda e, k=key: self.show_view(k))
             self.tabs[key] = c
+        # fold / unfold the profile and game cards (as on the phone): only in the vertical layout, where room is short
+        self.b_fold = self.btn(tabs, "▲", self.toggle_head, lambda: T("tip_head"),
+                               font=(skin.SYMBOL_FONT, 11), width=3)
         self.footer = tk.Frame(self, bg=skin.BACKGROUND)
         self.footer.pack(side="bottom", fill="x", padx=10, pady=6)
         self.l_status = self.lbl(self.footer, "", 8, skin.TEXT_MUTED, anchor="w")
@@ -583,8 +587,25 @@ class App(tk.Tk):
             self.right.pack(side="left", fill="both", expand=True)
         else:
             self.left.pack_propagate(True)
-            self.left.pack(side="top", fill="x")
             self.right.pack(side="top", fill="both", expand=True)
+        self.apply_fold()
+
+    def toggle_head(self):
+        """Fold / unfold the profile and game cards."""
+        self.head_folded = not self.head_folded
+        self.apply_fold()
+
+    def apply_fold(self):
+        """Show or hide the cards and the fold button: the button only exists in the vertical layout."""
+        self.b_fold.pack_forget()
+        self.tabbar.pack_configure(pady=(10, 0) if (self.wide or self.head_folded) else (2, 0))   # not glued to the top edge
+        if self.wide:
+            return
+        self.b_fold.config(text="▼" if self.head_folded else "▲")
+        self.b_fold.pack(side="left", padx=(6, 0))
+        self.left.pack_forget()
+        if not self.head_folded:
+            self.left.pack(side="top", fill="x", before=self.right)
 
     def show_view(self, v, fetch=True):
         """Switch between the 'ach' (achievements), 'duel' and 'group' views."""

@@ -606,6 +606,19 @@ for _lang, _texts in _AI_LIST_TEXTS.items():
     i18n.I18N.setdefault(_lang, {}).update(_texts)
 
 
+# Button that folds / unfolds the profile and game cards
+_FOLD_TEXTS = {
+    "en": {"tip_head": "Hide / Show the profile and game cards"},
+    "fr": {"tip_head": "Masquer / Afficher les cartes profil et jeu"},
+    "es": {"tip_head": "Ocultar / Mostrar las tarjetas de perfil y juego"},
+    "de": {"tip_head": "Profil- und Spielkarten ausblenden / einblenden"},
+    "it": {"tip_head": "Nascondi / Mostra le schede profilo e gioco"},
+    "pt": {"tip_head": "Ocultar / Mostrar os cartões de perfil e jogo"},
+}
+for _lang, _texts in _FOLD_TEXTS.items():
+    i18n.I18N.setdefault(_lang, {}).update(_texts)
+
+
 def friendly_error(e):
     """Short, readable message (in the current language) for a network / API error."""
     if isinstance(e, urllib.error.HTTPError):
