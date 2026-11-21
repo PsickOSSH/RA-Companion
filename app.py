@@ -117,6 +117,9 @@ class App(tk.Tk):
         self.geometry(self.saved_geometry() or MAIN_WINDOW)
         self.minsize(500, 310)
         self.protocol("WM_DELETE_WINDOW", self.close)
+        self.wide = None                                           # layout in use: True = horizontal (two columns)
+        self.layout_job = None
+        self.bind("<Configure>", self.on_resize)
         for cls in ("Entry", "TEntry", "Text"):                    # right click in a text field: Cut / Copy / Paste / Select all
             self.bind_class(cls, "<Button-3>", self.edit_menu)
         # Messages from worker threads to the UI thread (Tk widgets must only be touched from the main thread).
@@ -383,7 +386,12 @@ class App(tk.Tk):
         """Build the whole window: header, game card, tabs, the three views and the footer."""
         self.cvs = {}
         self.inners = {}
-        self._hcard = Card(self, radius=skin.RADIUS_PANEL, pad=4)
+        # Two areas: `left` (profile + game cards) and `right` (tabs + lists). Stacked in a narrow window, side by side in a
+        # wide one (see `relayout`).
+        self.left = tk.Frame(self, bg=skin.BACKGROUND)
+        self.right = tk.Frame(self, bg=skin.BACKGROUND)
+        self.wide = None
+        self._hcard = Card(self.left, radius=skin.RADIUS_PANEL, pad=4)
         self._hcard.pack(fill="x", padx=10, pady=(10, 6))
         self.header = self._hcard.body
         self.avatar = tk.Label(self.header, bg=skin.CARD)
@@ -416,7 +424,7 @@ class App(tk.Tk):
         self.b_tr = self.btn(tools, "🌐", self.toggle_translate, lambda: T("tip_tr"))
         self.b_tr.grid(row=0, column=1, padx=2)
         self.btn(tools, "⚙", self.settings, lambda: T("tip_settings")).grid(row=0, column=2, padx=2)
-        self._gcard = Card(self, radius=skin.RADIUS_PANEL, pad=4)
+        self._gcard = Card(self.left, radius=skin.RADIUS_PANEL, pad=4)
         self._gcard.pack(fill="x", padx=10, pady=6)
         self.gcard = self._gcard.body
         top = tk.Frame(self.gcard, bg=skin.CARD)
@@ -442,7 +450,7 @@ class App(tk.Tk):
         self.l_prog.pack(fill="x", padx=10)
         self.l_prog2 = self.lbl(self.gcard, "", 9, skin.TEXT_MUTED, anchor="w")
         self.l_prog2.pack(fill="x", padx=10, pady=(0, 10))
-        tabs = tk.Frame(self, bg=skin.BACKGROUND)
+        tabs = tk.Frame(self.right, bg=skin.BACKGROUND)
         tabs.pack(fill="x", padx=10, pady=(2, 0))
         self.tabs = {}
         for key, name in (("ach", "tab_ach"), ("duel", "tab_duel"), ("group", "tab_group")):
@@ -472,7 +480,7 @@ class App(tk.Tk):
         sp.bind("<Return>", self.on_interval)
         sp.bind("<FocusOut>", self.on_interval)
         tk.Label(af, text="s", bg=skin.BACKGROUND, fg=skin.TEXT_MUTED, font=(skin.FONT, 10)).pack(side="left")
-        self.content = tk.Frame(self, bg=skin.BACKGROUND)
+        self.content = tk.Frame(self.right, bg=skin.BACKGROUND)
         self.content.pack(fill="both", expand=True, padx=10, pady=(6, 0))
         self.views = {k: tk.Frame(self.content, bg=skin.BACKGROUND) for k in ("ach", "duel", "group")}
         v = self.views["ach"]
@@ -521,6 +529,42 @@ class App(tk.Tk):
         self.make_scroll(v, "group").pack(fill="both", expand=True)
         self.bind_all("<MouseWheel>", self.wheel)
         self.show_view(self.view, fetch=False)
+        self.relayout()
+
+    # A window that is wide compared with its height gets another interface: the profile and the game on the left, the
+    # tabs and the lists on the right.
+    WIDE_MIN_WIDTH = 760
+    WIDE_RATIO = 1.25
+    LEFT_WIDTH = 390
+
+    @classmethod
+    def is_wide(cls, width, height):
+        return width >= cls.WIDE_MIN_WIDTH and width >= cls.WIDE_RATIO * height
+
+    def on_resize(self, e):
+        if e.widget is self and self.layout_job is None:
+            self.layout_job = self.after(60, self.relayout)
+
+    def relayout(self):
+        """Choose the vertical or the horizontal interface from the shape of the window."""
+        self.layout_job = None
+        if not hasattr(self, "left") or not self.left.winfo_exists():
+            return
+        wide = self.is_wide(self.winfo_width(), self.winfo_height())
+        if wide == self.wide:
+            return
+        self.wide = wide
+        self.left.pack_forget()
+        self.right.pack_forget()
+        if wide:
+            self.left.pack(side="left", fill="y", anchor="n")
+            self.left.configure(width=self.LEFT_WIDTH)
+            self.left.pack_propagate(False)
+            self.right.pack(side="left", fill="both", expand=True)
+        else:
+            self.left.pack_propagate(True)
+            self.left.pack(side="top", fill="x")
+            self.right.pack(side="top", fill="both", expand=True)
 
     def show_view(self, v, fetch=True):
         """Switch between the 'ach' (achievements), 'duel' and 'group' views."""
