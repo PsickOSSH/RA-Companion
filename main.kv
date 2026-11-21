@@ -531,10 +531,14 @@
                         BoxLayout:
                             orientation: 'vertical'
                             spacing: dp(2)
-                            BoxLayout:
-                                orientation: 'vertical' if root.width > root.height else 'horizontal'
+                            NameRow:
+                                id: name_row
+                                force: root.width > root.height
+                                name_w: root.name_width
+                                rank_w: root.rank_width
+                                orientation: 'vertical' if self.stacked else 'horizontal'
                                 size_hint_y: None
-                                height: dp(56) if root.width > root.height else dp(30)
+                                height: dp(56) if self.stacked else dp(30)
                                 spacing: dp(6)
                                 Label:
                                     text: root.username if root.username else tr('not_logged')
@@ -546,8 +550,8 @@
                                     shorten: True
                                     shorten_from: 'right'
                                     text_size: self.size
-                                    size_hint_x: 1 if root.width > root.height else None
-                                    width: root.name_width if root.width <= root.height else dp(100)
+                                    size_hint_x: 1 if name_row.stacked else None
+                                    width: root.name_width if not name_row.stacked else dp(100)
                                 Label:
                                     text: root.rank_line
                                     font_size: sp(12)

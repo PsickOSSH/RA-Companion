@@ -113,6 +113,15 @@ def _labels():
     return {"locked": tr("f_todo"), "sc_only": tr("sc_only"), "hc": tr("earned_hc"), "sc": tr("earned_sc")}
 
 
+def _rank_width(text):
+    """Width in pixels of the rank line (12 sp)."""
+    try:
+        from kivy.core.text import Label as CoreLabel
+        return CoreLabel(font_size=sp(12)).get_extents(text)[0] + dp(4)
+    except Exception:
+        return len(text) * dp(7)
+
+
 def _name_width(text):
     """Width in pixels of the player name (17 sp bold), so that the rank can be written right after it."""
     try:
@@ -259,6 +268,23 @@ class ChipButton(FlatButton):
 class TabButton(ChipButton):
     """Tab of the main screen: normal size (13 sp), smaller only when the text (for example 'Achievements') does not fit."""
     max_sp = 13
+
+
+class NameRow(BoxLayout):
+    """Line of the profile card with the player name and the rank: side by side when they fit, the rank under the name when
+    the screen is narrow (an iPhone in portrait) or in landscape (`force`)."""
+    stacked = BooleanProperty(False)
+    force = BooleanProperty(False)
+    name_w = NumericProperty(0)
+    rank_w = NumericProperty(0)
+
+    def __init__(self, **kw):
+        super().__init__(**kw)
+        for prop in ("width", "force", "name_w", "rank_w"):
+            self.bind(**{prop: self.update_stacked})
+
+    def update_stacked(self, *args):
+        self.stacked = bool(self.force or (self.width > 1 and self.name_w + self.rank_w + dp(14) > self.width))
 
 
 class ChipRow(BoxLayout):
@@ -498,6 +524,7 @@ class CommentItem(BoxLayout):
 class ProfileScreen(Screen):
     username = StringProperty("")
     name_width = NumericProperty(100)
+    rank_width = NumericProperty(0)
     rank_line = StringProperty("")
     hc_line = StringProperty("")
     retro_line = StringProperty("")
@@ -729,6 +756,7 @@ class ProfileScreen(Screen):
         self.avatar_url = f"{MEDIA}{pic}"
         rank_txt = features.fmt_rank(s.get("Rank"), s.get("TotalRanked"), uitext.current_language())
         self.rank_line = ("#" + rank_txt) if rank_txt and rank_txt[0].isdigit() else rank_txt
+        self.rank_width = _rank_width(self.rank_line)
         self.hc_line = f"{uitext.ICON_STAR} {fmt_int(s.get('TotalPoints', 0))} HardcorePoints"
         self.retro_line = f"{uitext.ICON_SPARK} {fmt_int(s.get('TotalTruePoints', 0))} RetroPoints"
         self.sc_line = f"{uitext.ICON_STAR_EMPTY} {fmt_int(s.get('TotalSoftcorePoints', 0))} SoftcorePoints"

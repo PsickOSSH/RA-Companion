@@ -404,6 +404,24 @@ class App(tk.Tk):
         self.l_user.pack(side="left", anchor="s")
         self.l_rank = self.lbl(name_row, "", 8, skin.TEXT_MUTED, anchor="w")
         self.l_rank.pack(side="left", anchor="s", padx=(4, 0), pady=(0, 5))
+
+        def place_rank(_=None):
+            """The rank goes under the name when the two do not fit side by side (it was cut)."""
+            under = self.l_user.winfo_reqwidth() + self.l_rank.winfo_reqwidth() + 12 > name_row.winfo_width() > 1
+            if under == getattr(name_row, "under", None):
+                return
+            name_row.under = under
+            self.l_user.pack_forget()
+            self.l_rank.pack_forget()
+            if under:
+                self.l_user.pack(side="top", anchor="w")
+                self.l_rank.pack(side="top", anchor="w", padx=(1, 0), pady=(0, 2))
+            else:
+                self.l_user.pack(side="left", anchor="s")
+                self.l_rank.pack(side="left", anchor="s", padx=(4, 0), pady=(0, 5))
+        name_row.bind("<Configure>", place_rank)
+        self.l_rank.bind("<Configure>", place_rank)
+        self.l_user.bind("<Configure>", place_rank)
         stats = tk.Frame(info, bg=skin.CARD)
         stats.pack(fill="x")
 
@@ -418,7 +436,7 @@ class App(tk.Tk):
         self.l_true = stat_row(1, "✦", skin.TEXT)
         self.l_sp = stat_row(2, "☆", skin.TEXT_MUTED)
         tools = tk.Frame(self.header, bg=skin.CARD)
-        tools.pack(side="right", padx=8)
+        tools.pack(side="right", padx=8, before=info)               # packed first: never pushed out by the texts
         self.b_pin = self.btn(tools, "📌", self.toggle_top, lambda: T("tip_pin"))
         self.b_pin.grid(row=0, column=0, padx=2)
         self.b_tr = self.btn(tools, "🌐", self.toggle_translate, lambda: T("tip_tr"))
@@ -444,13 +462,14 @@ class App(tk.Tk):
         self.l_console.pack(fill="x")
         self.l_rp = self.lbl(gi, "", 9, skin.SUCCESS, sym=True, anchor="w", wraplength=320, justify="left")
         self.l_rp.pack(fill="x")
+        gi.bind("<Configure>", lambda e: [w.config(wraplength=max(100, e.width - 6)) for w in (self.l_game, self.l_rp)])
         self.bar = Bar(self.gcard)
         self.bar.pack(fill="x", padx=10, pady=(4, 2))
         self.l_prog = self.lbl(self.gcard, "", 10, anchor="w")
         self.l_prog.pack(fill="x", padx=10)
         self.l_prog2 = self.lbl(self.gcard, "", 9, skin.TEXT_MUTED, anchor="w")
         self.l_prog2.pack(fill="x", padx=10, pady=(0, 10))
-        tabs = tk.Frame(self.right, bg=skin.BACKGROUND)
+        tabs = self.tabbar = tk.Frame(self.right, bg=skin.BACKGROUND)
         tabs.pack(fill="x", padx=10, pady=(2, 0))
         self.tabs = {}
         for key, name in (("ach", "tab_ach"), ("duel", "tab_duel"), ("group", "tab_group")):
@@ -535,7 +554,7 @@ class App(tk.Tk):
     # tabs and the lists on the right.
     WIDE_MIN_WIDTH = 760
     WIDE_RATIO = 1.25
-    LEFT_WIDTH = 390
+    LEFT_WIDTH = 430
 
     @classmethod
     def is_wide(cls, width, height):
@@ -556,6 +575,7 @@ class App(tk.Tk):
         self.wide = wide
         self.left.pack_forget()
         self.right.pack_forget()
+        self.tabbar.pack_configure(pady=(10, 0) if wide else (2, 0))
         if wide:
             self.left.pack(side="left", fill="y", anchor="n")
             self.left.configure(width=self.LEFT_WIDTH)
