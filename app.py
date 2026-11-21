@@ -1687,13 +1687,13 @@ class App(tk.Tk):
         self.render_list(force=True)
 
     def render_list(self, force=False):
-        """Render the achievement list. With the environment variable RA_PROFILE=1 the time spent in each kind of widget is
-        printed in the terminal (to find out why a list is slow on a given computer)."""
+        """Render the achievement list. With the environment variable RA_PROFILE=1 the time spent in each step is printed in
+        the terminal (to find out why a list is slow on a given computer): building, layout, painting."""
         if not os.environ.get("RA_PROFILE"):
             return self._render_list(force)
         import cProfile
-        import io
-        import pstats
+        import faulthandler
+        import widgets
         totals = {}
 
         def timed(name, fn):
@@ -1705,35 +1705,43 @@ class App(tk.Tk):
                     n, s = totals.get(name, (0, 0.0))
                     totals[name] = (n + 1, s + time.perf_counter() - t0)
             return run
-        originals = {}
-        for name in ("lbl", "badge", "bind_click", "row_hover", "rewrap", "translate_labels", "photo", "note_of"):
-            originals[name] = getattr(self, name)
-            setattr(self, name, timed(name, originals[name]))
-        card_init = Card.__init__
-        Card.__init__ = lambda s, *a, **k: timed("Card()", card_init)(s, *a, **k)
-        import faulthandler
-        print("--- RA_PROFILE: render_list starts (filter: %s)" % self.filter.get(), file=sys.stderr, flush=True)
+
+        def say(text):
+            print("--- RA_PROFILE: " + text, file=sys.stderr, flush=True)
+
+        def report():
+            for name, (n, s) in sorted(totals.items(), key=lambda kv: -kv[1][1]):
+                print("    %-24s %5d calls  %.2f s" % (name, n, s), file=sys.stderr, flush=True)
+        patched = []
+
+        def patch(obj, name, label):
+            original = getattr(obj, name)
+            setattr(obj, name, timed(label, original))
+            patched.append((obj, name, original))
+        for name in ("lbl", "badge", "bind_click", "row_hover", "rewrap", "translate_labels", "photo"):
+            patch(self, name, name)
+        patch(widgets.Card, "redraw", "Card.redraw (painting)")
+        patch(widgets.RoundBtn, "draw", "RoundBtn.draw")
+        patch(widgets.SLabel, "_build", "SLabel._build")
+        patch(widgets.SLabel, "_build_wrapped", "SLabel._build_wrapped")
+        say("render_list starts (filter: %s)" % self.filter.get())
         faulthandler.dump_traceback_later(4, repeat=True)      # still running after 4 s: shows where the program is stuck
-        prof = cProfile.Profile()
-        t0 = time.perf_counter()
-        prof.enable()
         try:
+            t0 = time.perf_counter()
             self._render_list(force)
+            t1 = time.perf_counter()
+            say("widgets built in %.2f s, layout starts" % (t1 - t0))
+            self.update_idletasks()
+            t2 = time.perf_counter()
+            say("layout done in %.2f s, painting starts" % (t2 - t1))
+            self.update()
+            t3 = time.perf_counter()
+            say("painting done in %.2f s (total %.2f s)" % (t3 - t2, t3 - t0))
+            report()
         finally:
-            prof.disable()
             faulthandler.cancel_dump_traceback_later()
-            Card.__init__ = card_init
-            for name, fn in originals.items():
-                setattr(self, name, fn)
-        t1 = time.perf_counter()
-        self.update_idletasks()
-        t2 = time.perf_counter()
-        out = io.StringIO()
-        pstats.Stats(prof, stream=out).sort_stats("tottime").print_stats(10)
-        print("--- RA_PROFILE: render_list %.2f s, then layout (update_idletasks) %.2f s" % (t1 - t0, t2 - t1), file=sys.stderr)
-        for name, (n, s) in sorted(totals.items(), key=lambda kv: -kv[1][1]):
-            print("    %-18s %5d calls  %.2f s" % (name, n, s), file=sys.stderr)
-        print(out.getvalue(), file=sys.stderr)
+            for obj, name, original in patched:
+                setattr(obj, name, original)
 
     def _render_list(self, force=False):
         if not self.game:
