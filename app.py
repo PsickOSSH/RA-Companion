@@ -80,6 +80,13 @@ def _fit(im, size):
 # ---------------------------------------------------------------------------
 # Sizes you can change (pixels). Every number below is used by the whole application.
 # ---------------------------------------------------------------------------
+if os.name != "nt" and not os.environ.get("RA_KEEP_IM"):
+    # Linux: Tk asks the input method of the desktop (IBus, Fcitx...) for one "input context" per widget, and each request
+    # waits for the answer: with the hundreds of widgets of the achievement list this took tens of seconds. The program
+    # does not use an external input method (the keyboard layout, dead keys and Compose still work). RA_KEEP_IM=1 keeps it.
+    os.environ["XMODIFIERS"] = "@im=none"
+
+
 def clean_env():
     """Environment for the programs started from the app. In a PyInstaller / AppImage build, LD_LIBRARY_PATH points to the
     libraries of the app, which can break the system programs (browser, file manager): the original value is restored."""
