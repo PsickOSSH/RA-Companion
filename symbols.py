@@ -21,7 +21,7 @@ def _font_path():
 
 def register_font():
     """Make the bundled Noto Emoji font known to this process (fontconfig). Returns True when it worked."""
-    if os.name == "nt":
+    if os.name == "nt" or os.environ.get("RA_NO_EMOJI_FONT"):       # (the variable is a switch to find out a crash)
         return False
     path = _font_path()
     if not os.path.exists(path):

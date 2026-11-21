@@ -32,6 +32,13 @@ python3 -m PyInstaller --clean --noconfirm --name RA-Companion \
   --add-data "$HERE/docs/icon.png:." --add-data "$HERE/skins:skins" --add-data "$HERE/fonts/NotoEmoji.ttf:fonts" "${HIDDEN[@]}" \
   --distpath "$WORK/dist" --workpath "$WORK/work" --specpath "$WORK" ra_companion.py
 
+# The libraries of the X server and of the fonts must come from the system of the user: an older copy taken from the build
+# machine can crash (segmentation fault) on a newer system. They are removed from the bundle (the hashed copies that Pillow
+# brings, such as libfreetype-<hash>.so, are not touched).
+for lib in libX11 libXau libXdmcp libXext libXft libXrender libXss libxcb libfontconfig libfreetype; do
+  find "$WORK/dist/RA-Companion" \( -name "$lib.so" -o -name "$lib.so.*" \) -delete
+done
+
 # AppDir: the program, a launcher (AppRun), the menu entry and the icon
 mkdir -p "$APPDIR/usr/lib"
 cp -r "$WORK/dist/RA-Companion" "$APPDIR/usr/lib/RA-Companion"
