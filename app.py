@@ -426,7 +426,7 @@ class App(tk.Tk):
         self.btn(top, "🔍", self.open_search, lambda: T("tip_search"), font=(skin.SYMBOL_FONT, 13), width=3).pack(side="right",
             anchor="n")
         self.b_hc = self.btn(top, "⚡", self.toggle_hc,
-            lambda: T("tip_hc_on") if self.cfg["hc_only"] else T("tip_hc_off"), font=(skin.SYMBOL_FONT, 13), width=3)
+            lambda: T("tip_hc_off"), font=(skin.SYMBOL_FONT, 13), width=3)
         self.b_hc.pack(side="right", anchor="n", padx=(0, 6))
         gi = tk.Frame(top, bg=skin.CARD)
         gi.pack(side="left", fill="x", expand=True, padx=10)

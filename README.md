@@ -61,6 +61,8 @@ progress live. It comes in three versions that look and behave the same way:
   height is remembered); a longer text scrolls
 - **Copy / paste in the text fields**: on Windows, a right click in a field (settings, notes, comments) opens a
   *Cut / Copy / Paste / Select all* menu; on Android and iOS, a long press on a field shows a *Cut / Copy / Paste* bar
+- **Window position remembered** (Windows): the main window reopens where and at the size you closed it; if that screen
+  is no longer connected, it opens at its default place
 - **Notifications** when you (or your friend) unlock an achievement (can be switched off in the settings; a
   **Send a test notification** button checks that they work, on all versions)
 - **Duel**: compare your progress with a friend on the same game, see who is ahead and who unlocked what
