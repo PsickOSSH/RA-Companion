@@ -1711,6 +1711,9 @@ class App(tk.Tk):
             setattr(self, name, timed(name, originals[name]))
         card_init = Card.__init__
         Card.__init__ = lambda s, *a, **k: timed("Card()", card_init)(s, *a, **k)
+        import faulthandler
+        print("--- RA_PROFILE: render_list starts (filter: %s)" % self.filter.get(), file=sys.stderr, flush=True)
+        faulthandler.dump_traceback_later(4, repeat=True)      # still running after 4 s: shows where the program is stuck
         prof = cProfile.Profile()
         t0 = time.perf_counter()
         prof.enable()
@@ -1718,6 +1721,7 @@ class App(tk.Tk):
             self._render_list(force)
         finally:
             prof.disable()
+            faulthandler.cancel_dump_traceback_later()
             Card.__init__ = card_init
             for name, fn in originals.items():
                 setattr(self, name, fn)
