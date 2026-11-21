@@ -3,6 +3,7 @@
 Every color, font and radius comes from the active skin (see the `skins` package)."""
 
 import os
+import time
 import tkinter as tk
 import tkinter.font as tkfont
 from tkinter import ttk
@@ -47,14 +48,30 @@ class Tip:
 
     def __init__(self, w, fn):
         self.w, self.fn, self.tw, self.job = (w, fn, None, None)
+        self.quiet_until = 0.0
         w.bind("<Enter>", self.enter, add="+")
         w.bind("<Leave>", self.leave, add="+")
-        w.bind("<ButtonPress>", self.leave, add="+")
+        w.bind("<ButtonPress>", self.pressed, add="+")
+
+    def pressed(self, _=None):
+        """A click hides the tooltip, and it does not come back for a moment: a click often opens a window (settings...), and
+        on Linux the grab of that window sends a new "enter" to the button, which would show the tooltip again."""
+        self.quiet_until = time.time() + 1.5
+        self.leave()
+
+    def over(self):
+        """True if the pointer is really on the widget (and not on a window opened above it)."""
+        try:
+            px, py = self.w.winfo_pointerxy()
+            return self.w.winfo_containing(px, py) == self.w
+        except (tk.TclError, KeyError):
+            return True
 
     def enter(self, _):
         """Schedule the tooltip to appear shortly after the pointer enters the widget."""
         self.leave()
-        self.job = self.w.after(400, self.show)
+        if time.time() >= self.quiet_until:
+            self.job = self.w.after(400, self.show)
 
     def leave(self, _=None):
         """Cancel a pending tooltip and hide the visible one."""
@@ -73,6 +90,9 @@ class Tip:
 
     def show(self):
         """Create the tooltip window just below the widget (rounded, drawn with the skin colors)."""
+        self.job = None
+        if time.time() < self.quiet_until or not self.over():
+            return
         try:
             self.tw = tw = tk.Toplevel(self.w)
             tw.overrideredirect(True)
