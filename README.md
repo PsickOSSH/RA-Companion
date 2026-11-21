@@ -64,6 +64,8 @@ progress live. It comes in three versions that look and behave the same way:
 - **Horizontal interface** (Windows): when the window is made wide (about 760 px and more, clearly wider than tall), the
   profile and the game card move to a left column and the tabs and lists to the right; it goes back to the vertical
   layout when the window is narrow again
+- **Fold the header**: a button at the end of the tabs (▲ / ▼) hides the profile and game cards to leave all the room to
+  the list, and shows them again (Windows and mobile, vertical layout; in the horizontal layout the cards are always shown)
 - **Window position remembered** (Windows): the main window reopens where and at the size you closed it; if that screen
   is no longer connected, it opens at its default place
 - **Notifications** when you (or your friend) unlock an achievement (can be switched off in the settings; a
