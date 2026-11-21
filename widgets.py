@@ -8,6 +8,11 @@ from tkinter import ttk
 
 from skins import active as skin
 
+try:                                            # Pillow draws smooth (anti-aliased) corners; without it the corners are plain ovals
+    from PIL import Image, ImageDraw, ImageTk
+except Exception:                               # pragma: no cover
+    Image = None
+
 
 def screen_bounds(x, y):
     """(left, top, right, bottom) of the work area of the monitor that contains the point (x, y), or None if unknown."""
@@ -101,6 +106,50 @@ def rrect(cv, x1, y1, x2, y2, r, **kw):
     return cv.create_polygon(pts, smooth=True, **kw)
 
 
+_CORNERS = {}
+
+
+def corner_images(r, color):
+    """The four corners (top-left, top-right, bottom-left, bottom-right) of a rounded rectangle of radius `r`, as smooth
+    PhotoImages (drawn 4 times bigger, then reduced, like the rounded buttons of the phone app). None without Pillow."""
+    if Image is None or r < 2:
+        return None
+    key = (r, color)
+    if key not in _CORNERS:
+        if len(_CORNERS) > 600:
+            _CORNERS.clear()
+        try:
+            s = 4
+            big = Image.new("RGBA", (2 * r * s, 2 * r * s), (0, 0, 0, 0))
+            ImageDraw.Draw(big).ellipse((0, 0, 2 * r * s - 1, 2 * r * s - 1), fill=color)
+            img = big.resize((2 * r, 2 * r), Image.LANCZOS)
+            boxes = ((0, 0, r, r), (r, 0, 2 * r, r), (0, r, r, 2 * r), (r, r, 2 * r, 2 * r))
+            _CORNERS[key] = tuple(ImageTk.PhotoImage(img.crop(b)) for b in boxes)
+        except Exception:
+            _CORNERS[key] = None
+    return _CORNERS[key]
+
+
+def fill_round(cv, w, h, r, color):
+    """Fill the rectangle (0, 0, w, h) of canvas `cv` with a rounded shape of radius `r` and color `color`."""
+    r = max(0, min(int(r), w // 2, h // 2))
+    f = dict(fill=color, outline="")
+    if r < 2:
+        cv.create_rectangle(0, 0, w, h, **f)
+        return
+    cv.create_rectangle(r, 0, w - r, h, **f)
+    cv.create_rectangle(0, r, w, h - r, **f)
+    imgs = corner_images(r, color)
+    if imgs:
+        cv._corner_imgs = imgs                  # a canvas does not keep its images alive by itself
+        for img, (x, y) in zip(imgs, ((0, 0), (w - r, 0), (0, h - r), (w - r, h - r))):
+            cv.create_image(x, y, image=img, anchor="nw")
+    else:
+        d = 2 * r
+        for x0, y0 in ((0, 0), (w - d, 0), (0, h - d), (w - d, h - d)):
+            cv.create_oval(x0, y0, x0 + d, y0 + d, **f)
+
+
 def blend(c1, c2, t):
     """Linearly mix two '#rrggbb' colors; `t` = 0 gives `c1`, `t` = 1 gives `c2`."""
     a = [int(c1[i:i + 2], 16) for i in (1, 3, 5)]
@@ -140,13 +189,7 @@ class Card(tk.Frame):
         if self.outline:
             rrect(self.cv, 1, 1, w - 1, h - 1, self.radius, fill=self.fill, outline=self.outline, width=2)
         else:
-            r = max(0, min(self.radius, w // 2, h // 2))
-            d = 2 * r
-            f = dict(fill=self.fill, outline="")
-            self.cv.create_rectangle(r, 0, w - r, h, **f)
-            self.cv.create_rectangle(0, r, w, h - r, **f)
-            for x0, y0 in ((0, 0), (w - d, 0), (0, h - d), (w - d, h - d)):
-                self.cv.create_oval(x0, y0, x0 + d, y0 + d, **f)
+            fill_round(self.cv, w, h, self.radius, self.fill)
 
     def set_fill(self, color):
         """Change the fill color (used by the hover effect)."""
@@ -396,7 +439,7 @@ class RoundBtn(tk.Canvas):
         w, h = (self.winfo_width(), self.winfo_height())
         if w < 4:
             w, h = (int(float(self.cget("width"))), int(float(self.cget("height"))))
-        rrect(self, 0, 0, w, h, self.radius, fill=self.cur, outline="")
+        fill_round(self, w, h, self.radius, self.cur)
         tw, iw, gap = self._widths()
         x = (w - (iw + gap + tw)) / 2
         if self.icon:

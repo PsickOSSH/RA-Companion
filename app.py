@@ -481,7 +481,7 @@ class App(tk.Tk):
             self.tabs[key] = c
         # fold / unfold the profile and game cards (as on the phone): only in the vertical layout, where room is short
         self.b_fold = self.btn(tabs, "▲", self.toggle_head, lambda: T("tip_head"),
-                               font=(skin.SYMBOL_FONT, 11), width=3)
+                               font=(skin.SYMBOL_FONT, 11), width=3, pady=TAB_BTN[1])
         self.footer = tk.Frame(self, bg=skin.BACKGROUND)
         self.footer.pack(side="bottom", fill="x", padx=10, pady=6)
         self.l_status = self.lbl(self.footer, "", 8, skin.TEXT_MUTED, anchor="w")
@@ -602,7 +602,7 @@ class App(tk.Tk):
         if self.wide:
             return
         self.b_fold.config(text="▼" if self.head_folded else "▲")
-        self.b_fold.pack(side="left", padx=(6, 0))
+        self.b_fold.pack(side="left", fill="y", padx=(6, 0))          # same height as the tabs
         self.left.pack_forget()
         if not self.head_folded:
             self.left.pack(side="top", fill="x", before=self.right)
