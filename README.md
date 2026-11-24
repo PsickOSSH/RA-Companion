@@ -7,7 +7,7 @@
 > **AI-assisted project.** The code of this project was written with the help of an AI assistant,
 > directed and tested by the author. Expect rough edges and please report any bug you find.
 
-![Release](https://img.shields.io/github/v/release/PsickOSSH/RA-Companion)
+[![Release](https://img.shields.io/github/v/release/PsickOSSH/RA-Companion)](https://github.com/PsickOSSH/RA-Companion/releases)
 ![Downloads](https://img.shields.io/github/downloads/PsickOSSH/RA-Companion/total)
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011%20%7C%20Android%20%7C%20iOS-green)
 ![Architecture](https://img.shields.io/badge/architecture-x64-orange)
