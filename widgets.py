@@ -2,6 +2,7 @@
 
 Every color, font and radius comes from the active skin (see the `skins` package)."""
 
+import math
 import os
 import time
 import tkinter as tk
@@ -251,6 +252,9 @@ class Card(tk.Frame):
     def __init__(self, parent, fill=skin.CARD, radius=skin.RADIUS_PANEL, pad=6, outline=None):
         super().__init__(parent, bg=parent["bg"])
         self.fill, self.radius, self.outline = (fill, radius, outline)
+        # `body` is a plain rectangle: with a very round skin the margin grows so that its square corners stay inside the
+        # rounded shape (1 pixel of tolerance: the usual radius of 16 keeps its margin)
+        pad = max(pad, math.ceil(radius - (radius + 1) / math.sqrt(2)))
         self.cv = tk.Canvas(self, width=1, height=1, bg=parent["bg"], highlightthickness=0, bd=0)
         self.cv.grid(row=0, column=0, sticky="nsew")
         self.body = tk.Frame(self, bg=fill)

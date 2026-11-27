@@ -1,4 +1,4 @@
-"""Dream Land (Kirby) skin: soft pink background, white cards, round corners (fan-made, not affiliated).
+"""Dream Land (Kirby) skin: soft pink background, white cards (fan-made, not affiliated).
 
 Light skin: hover darkens the controls instead of lightening them (HOVER_TINT is black).
 Any variable left out falls back to the default skin (see `default.py` for the documented list).
@@ -35,14 +35,6 @@ CONTROL_HOVER = "#f5b5cf"
 SCROLL_THUMB = "#f0a6c4"
 BAR_TRACK_ALT = "#f7c4d8"
 HOVER_TINT = "#000000"             # buttons get darker on hover (light backgrounds)
-HOVER_STRENGTH = 0.07
 TOOLTIP_BG = "#ffffff"
 TOOLTIP_TEXT = "#4a2238"
 TOOLTIP_BORDER = "#d63a7c"
-
-# ---- Shapes (corner radius in pixels): extra round, like Kirby ----------------
-RADIUS_PANEL = 24
-RADIUS_CARD = 18
-RADIUS_BUTTON = 14
-RADIUS_BUTTON_LARGE = 18
-RADIUS_TOAST = 26

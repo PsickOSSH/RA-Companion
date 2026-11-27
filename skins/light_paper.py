@@ -35,14 +35,6 @@ CONTROL_HOVER = "#d6cfc2"
 SCROLL_THUMB = "#c4bcad"
 BAR_TRACK_ALT = "#ddd6c9"
 HOVER_TINT = "#000000"  # buttons get darker on hover (light backgrounds)
-HOVER_STRENGTH = 0.07
 TOOLTIP_BG = "#fffdfa"
 TOOLTIP_TEXT = "#241f2e"
 TOOLTIP_BORDER = "#5b4bdb"
-
-# ---- Shapes (corner radius in pixels) ---------------------------------------
-RADIUS_PANEL = 16
-RADIUS_CARD = 12
-RADIUS_BUTTON = 10
-RADIUS_BUTTON_LARGE = 12
-RADIUS_TOAST = 18
