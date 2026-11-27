@@ -78,7 +78,10 @@ progress live. It comes in three versions that look and behave the same way:
   `Backspace` restores the default). Windows keeps the shortcut for RA Companion, so choose one your emulator does not
   use (for example Dolphin uses `F1`-`F8`); if it is already taken by another program, a message is shown
 - **6 interface languages** (English, Français, Español, Deutsch, Italiano, Português), a separate **translation
-  language**, and **skins** (default, dark, light and several game themes such as Kirby, Zelda or Mario are included; a skin file works on all versions)
+  language**, and **skins** (default, dark, light and several game themes such as Kirby, Zelda or Mario are included;
+  they all share the shapes of the default skin and differ by their colors; a skin file works on all versions)
+- **Themed title bar** (Windows): the title bar of every window takes the background and text colors of the skin on
+  Windows 11; on Windows 10 it is only dark or light, according to the skin
 - **Update check** in the settings: looks for a newer `.exe` (Windows), `.apk` (Android) or `.ipa` (iOS) in the GitHub releases
 - **iOS support** (experimental): safe-area margins for the notch and home indicator, native clipboard (the *Cut / Copy / Paste* bar) and automatic detection of the device language
 - **In-app unlock banner** (Android and iOS): when the app is open, a new achievement shows a banner with its badge, title, description, points and a gold outline for your unlocks or a blue one for a friend's; up to 4 banners are stacked, a tap dismisses them, and the height adapts to the text
@@ -440,8 +443,9 @@ The in-app update check compares the installed version with the newest release t
 ## Creating a skin
 
 1. Copy `skins/default.py` to `skins/my_skin.py` (any name not starting with an underscore).
-2. Change `NAME` and any color / font / corner radius. Variables you remove fall back to the default skin,
-   so a skin can override just a few values.
+2. Change `NAME` and any color / font. Variables you remove fall back to the default skin, so a skin can
+   override just a few values. The included skins only define colors and fonts: their corner radii (`RADIUS_*`,
+   Windows and Linux) and hover strength (`HOVER_STRENGTH`) come from `default.py`. Your skin may set its own.
 3. Open **Settings -> Skin** and select it (Windows restarts to apply it).
 
 Every variable is documented in `skins/default.py`. When you add a skin variable to the code, also add it to
