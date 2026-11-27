@@ -127,6 +127,7 @@ MIN_WINDOW = (500, 310)         # smallest size of the main window: width, heigh
 MAIN_WINDOW = "580x760"        # main window when it opens: width x height
 TRANSLATION_KEYS_WINDOW = "430x780"   # window of the translation keys (opened from the settings): width x starting height
 SETTINGS_WINDOW = "430x865"  # settings window: width x starting height (then reduced to what its content needs)
+LIST_BATCH = 12                # achievement and duel lists: cards built at a time, as the list is scrolled
 TAB_BTN = (14, 6)              # Achievements / Duel / Group tabs: (horizontal padding, vertical padding)
 FILTER_BTN = (10, 4)           # All / Locked / Unlocked / Missable buttons
 ICON_BTN = (12, 5)             # buttons with an icon and a text (Refresh, Last played game)
@@ -198,6 +199,8 @@ class App(tk.Tk):
         self.desc_labels = []
         self.desc_items = []
         self.duel_items = []
+        self.lazy = {}                  # "ach" / "duel" -> list shown, with the cards that are not built yet (fill_list)
+        self.more_jobs = {}
         self.sigs = {"duel": None, "group": None}
         self.search_win = None
         self.session_win = None
@@ -282,6 +285,7 @@ class App(tk.Tk):
         self.desc_labels = []
         self.desc_items = []
         self.duel_items = []
+        self.lazy = {}
         self.build()
         self.apply_window()
         if self.payload:
@@ -440,7 +444,11 @@ class App(tk.Tk):
         wrap = tk.Frame(parent, bg=skin.BACKGROUND)
         cv = tk.Canvas(wrap, bg=skin.BACKGROUND, highlightthickness=0)
         sb = ttk.Scrollbar(wrap, orient="vertical", command=cv.yview, style="App.Vertical.TScrollbar")
-        cv.configure(yscrollcommand=sb.set)
+
+        def scrolled(first, last):
+            sb.set(first, last)
+            self.check_more(name)
+        cv.configure(yscrollcommand=scrolled)
         sb.pack(side="right", fill="y", padx=(8, 0))
         cv.pack(side="left", fill="both", expand=True)
         sb.update_idletasks()
@@ -456,6 +464,7 @@ class App(tk.Tk):
             job["id"] = None
             cv.itemconfig(win, width=job["w"], state="normal")
             self.rewrap(job["w"])
+            self.check_more(name)                          # a taller window shows more cards
 
         def on_cfg(e):
             if e.width == job["w"] and job["id"] is None:
@@ -883,9 +892,9 @@ class App(tk.Tk):
                 if lab.winfo_exists():
                     lab.config(text=orig)
 
-    def translate_labels(self, attempt=0):
-        """Translate every visible description in background threads and update the labels when done."""
-        items = list(self.desc_items) + list(self.duel_items)
+    def translate_labels(self, attempt=0, items=None):
+        """Translate the descriptions (all the built ones, or `items`) in background threads and update the labels."""
+        items = list(self.desc_items) + list(self.duel_items) if items is None else list(items)
         lang = tr_lang(self.cfg)
 
         failed = []
@@ -1923,16 +1932,13 @@ class App(tk.Tk):
         if sig == self.sig and (not force):
             return
         self.sig = sig
-        for w in inner.winfo_children():
-            w.destroy()
-        self.desc_labels = []
-        self.desc_items = []
-        if not ach:
-            self.lbl(inner, T("nothing"), 11, skin.TEXT_MUTED).pack(pady=30)
         players = int(self.game.get("NumDistinctPlayers") or self.game.get("NumDistinctPlayersCasual") or 0)
         lang = tr_lang(self.cfg)
-        for a in ach:
-            e = E(a)
+        self.desc_labels = []
+        self.desc_items = []
+
+        def build(a):
+            e = is_counted(a, hc_only)
             card = Card(inner, fill=skin.CARD if e else skin.CARD_LOCKED, radius=skin.RADIUS_CARD, pad=4)
             card.pack(fill="x", pady=3)
             row = card.body
@@ -1970,9 +1976,57 @@ class App(tk.Tk):
             row.config(cursor="hand2")
             self.bind_click(row, lambda a=a: self.open_detail(a))
             self.row_hover(row)
-        self.rewrap(self.cvs["ach"].winfo_width())
-        if self.cfg["translate"]:
-            self.translate_labels()
+            return d, orig
+        self.fill_list("ach", (self.game.get("ID"), f, bool(self.cfg.get("miss_only")), self.cfg.get("sort", "disp_asc")), ach, build)
+        if not ach:
+            self.lbl(inner, T("nothing"), 11, skin.TEXT_MUTED).pack(pady=30)
+
+    # ---- long lists: the cards are built as they come into view ---------
+    def fill_list(self, name, key, items, build):
+        """Show in the list `name` ("ach" or "duel") one card per item: only the first ones now, the others when the list is
+        scrolled to them. `build(item)` creates a card and returns (description label, original description).
+
+        The same list drawn again (same `key`: new unlock, note, translation...) keeps as many cards as before, so that the
+        scroll position stays; another one starts at the top."""
+        cv, inner = self.cvs[name], self.inners[name]
+        old = self.lazy.get(name)
+        count, offset = LIST_BATCH, 0
+        if old and old["key"] == key:
+            count, offset = max(count, old["built"]), cv.canvasy(0)
+        for w in inner.winfo_children():
+            w.destroy()
+        self.lazy[name] = {"key": key, "pending": list(items), "build": build, "built": 0}
+        self.add_cards(name, count)
+        if offset:
+            self.update_idletasks()                          # the new cards need their size before scrolling back
+        height = inner.winfo_reqheight()
+        cv.configure(scrollregion=(0, 0, cv.winfo_width(), height))
+        cv.yview_moveto(offset / height if offset and height else 0)
+
+    def add_cards(self, name, count):
+        """Build the next `count` cards of the list `name`."""
+        state = self.lazy[name]
+        batch, state["pending"] = state["pending"][:count], state["pending"][count:]
+        new = [state["build"](item) for item in batch]
+        state["built"] += len(new)
+        self.rewrap(self.cvs[name].winfo_width())
+        if self.cfg["translate"] and new:
+            self.translate_labels(items=new)
+        self.check_more(name)
+
+    def check_more(self, name):
+        """Look soon whether the list `name` needs more cards (called when it is scrolled or resized)."""
+        if self.lazy.get(name, {}).get("pending") and not self.more_jobs.get(name):
+            self.more_jobs[name] = self.after(10, lambda: self.load_more(name))
+
+    def load_more(self, name):
+        """Build the next cards when less than one screen of them is left below the visible part of the list."""
+        self.more_jobs[name] = None
+        cv = self.cvs[name]
+        if not self.lazy.get(name, {}).get("pending") or not cv.winfo_ismapped():
+            return
+        if self.inners[name].winfo_reqheight() - cv.canvasy(cv.winfo_height()) < cv.winfo_height():
+            self.add_cards(name, LIST_BATCH)
 
     def render_duel(self, force=False):
         """Render the duel view: who unlocked what, who is ahead, with dates and modes."""
@@ -1996,6 +2050,7 @@ class App(tk.Tk):
             if sig == self.sigs["duel"] and (not force):
                 return
             self.sigs["duel"] = sig
+            self.lazy.pop("duel", None)                      # a message replaces the cards
             for w in inner.winfo_children():
                 w.destroy()
             self.duel_items = []
@@ -2027,8 +2082,6 @@ class App(tk.Tk):
             lead = T("duel_tie", d=x)
         self.l_duel.config(text=lead)
         self.l_duel2.config(text=f"{user}: {x}/{tot} • {pa} pts     |     {fr}: {y}/{tot} • {pb} pts")
-        for w in inner.winfo_children():
-            w.destroy()
         self.duel_items = []
 
         def order(d):
@@ -2036,7 +2089,9 @@ class App(tk.Tk):
             grp = 0 if fr_e and (not me_e) else 1 if me_e and (not fr_e) else 2 if not (me_e or fr_e) else 3
             return (grp, int(a.get("DisplayOrder", 0)))
         lang = tr_lang(self.cfg)
-        for a, b, me_e, fr_e in sorted(data, key=order):
+
+        def build(entry):
+            a, b, me_e, fr_e = entry
             any_e = me_e or fr_e
             card = Card(inner, fill=skin.CARD if any_e else skin.CARD_LOCKED, radius=skin.RADIUS_CARD, pad=4)
             card.pack(fill="x", pady=3)
@@ -2071,9 +2126,8 @@ class App(tk.Tk):
             row.config(cursor="hand2")
             self.bind_click(row, lambda a=a: self.open_detail(a))
             self.row_hover(row)
-        self.rewrap(self.cvs["duel"].winfo_width())
-        if self.cfg["translate"]:
-            self.translate_labels()
+            return d, orig
+        self.fill_list("duel", (fr.lower(), me.get("ID")), sorted(data, key=order), build)
 
     def render_group(self, force=False):
         """Render the group dashboard: every player ranked by progress on the tracked game."""
