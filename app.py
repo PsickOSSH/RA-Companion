@@ -27,7 +27,8 @@ import medians
 import imgcache
 from utils import (DEFAULT_REFRESH_KEY, date_of, fmt_date, fmt_int, is_any, is_counted, is_hc, is_missable, norm,
                    shortcut_from_key, shortcut_label, sort_achievements, split_links)
-from widgets import Bar, Card, RoundBtn, SLabel, SYMF, TRANSPARENT_KEY, Tip, has_sym, is_sym, screen_bounds, setup_ttk_styles
+from widgets import (Bar, Card, RoundBtn, SLabel, SYMF, TRANSPARENT_KEY, Tip, color_title_bar, has_sym, is_sym, screen_bounds,
+                     setup_ttk_styles)
 import appinfo
 import updater
 from symbols import sym
@@ -163,6 +164,8 @@ class App(tk.Tk):
         except Exception:
             pass
         self.configure(bg=skin.BACKGROUND)
+        for cls in (self.winfo_class(), "Toplevel"):               # every title bar takes the colors of the skin (Windows)
+            self.bind_class(cls, "<Map>", lambda e: color_title_bar(e.widget), add="+")
         self.geometry(self.saved_geometry() or MAIN_WINDOW)
         self.minsize(*MIN_WINDOW)
         self.protocol("WM_DELETE_WINDOW", self.close)

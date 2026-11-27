@@ -43,6 +43,45 @@ def screen_bounds(x, y):
     return None
 
 
+def color_title_bar(window):
+    """Give the Windows title bar of `window` the colors of the skin. Windows 11: the background and text colors of the
+    skin; Windows 10: only a dark or light bar, according to the skin. Elsewhere the bar belongs to the window manager."""
+    if os.name != "nt":
+        return
+    try:
+        if window.overrideredirect():               # tooltips, notifications, pop-up lists: no title bar
+            return
+        import ctypes
+        from ctypes import wintypes
+        user32, dwm = ctypes.windll.user32, ctypes.windll.dwmapi
+        user32.GetAncestor.argtypes = [wintypes.HWND, wintypes.UINT]
+        user32.GetAncestor.restype = wintypes.HWND
+        user32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND] + [ctypes.c_int] * 4 + [wintypes.UINT]
+        dwm.DwmSetWindowAttribute.argtypes = [wintypes.HWND, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD]
+        hwnd = user32.GetAncestor(window.winfo_id(), 2)                  # 2 = GA_ROOT: the frame around the Tk window
+
+        def put(attribute, number):
+            value = ctypes.c_int(number)
+            return dwm.DwmSetWindowAttribute(hwnd, attribute, ctypes.byref(value), ctypes.sizeof(value)) == 0
+
+        def rgb(color):
+            return tuple(int(color[i:i + 2], 16) for i in (1, 3, 5))
+
+        def colorref(color):                        # Windows wants 0x00BBGGRR
+            r, g, b = rgb(color)
+            return r | g << 8 | b << 16
+
+        r, g, b = rgb(skin.BACKGROUND)
+        dark = int(0.299 * r + 0.587 * g + 0.114 * b <= 140)
+        if not put(20, dark):                       # DWMWA_USE_IMMERSIVE_DARK_MODE (19 on the first Windows 10 versions)
+            put(19, dark)
+        put(35, colorref(skin.BACKGROUND))          # DWMWA_CAPTION_COLOR (Windows 11)
+        put(36, colorref(skin.TEXT))                # DWMWA_TEXT_COLOR (Windows 11)
+        user32.SetWindowPos(hwnd, None, 0, 0, 0, 0, 0x37)                # redraw the frame, nothing moves
+    except Exception:
+        pass
+
+
 def pointer_on(widget):
     """True if the pointer is really on `widget`: not on another window opened above it, and no other window of the program
     holds a modal grab (while the settings are open, the buttons of the main window are not "hovered")."""
