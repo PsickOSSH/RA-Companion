@@ -127,6 +127,9 @@
     size_hint_y: None
     height: dp(48)
 
+<TapPic>:
+    opacity: 0.55 if self.state == 'down' else 1       # a picture that opens a page: dimmed while it is pressed
+
 <TextLabel>:
     color: app.c_text
     font_size: sp(13)
@@ -523,8 +526,9 @@
                         height: max(dp(122), AVATAR_SIZE + dp(24)) + (dp(26) if root.width > root.height else 0)
                         padding: dp(10)
                         spacing: dp(10)
-                        Pic:
+                        TapPic:
                             url: root.avatar_url
+                            on_release: root.open_profile_page()
                             size_hint: None, None
                             size: AVATAR_SIZE, AVATAR_SIZE
                             pos_hint: {'center_y': 0.5}
@@ -615,8 +619,9 @@
                         height: max(self.minimum_height, dp(140))
                         padding: dp(10)
                         spacing: dp(8)
-                        Pic:
+                        TapPic:
                             url: root.game_icon_url
+                            on_release: root.open_game_page()
                             size_hint: None, None
                             size: GAME_ICON_SIZE, GAME_ICON_SIZE
                             pos_hint: {'center_y': 0.5}
@@ -681,6 +686,20 @@
                                 text_size: self.size
                                 size_hint_y: None
                                 height: dp(18)
+                            TextLabel:
+                                text: root.time_line
+                                font_size: sp(11)
+                                color: app.c_muted
+                                padding: 0, dp(2), 0, 0        # a little apart from the HC / SC counters
+                                height: self.texture_size[1] if self.text else 0
+                                opacity: 1 if self.text else 0
+                            TapLabel:
+                                text: root.session_line
+                                font_size: sp(12)
+                                bold: True
+                                color: app.c_info
+                                height: self.texture_size[1] + dp(8)
+                                on_release: root.open_session()
                         BoxLayout:
                             orientation: 'vertical'
                             size_hint_x: None
@@ -998,10 +1017,11 @@
                     height: self.minimum_height
                     padding: dp(12)
                     spacing: dp(12)
-                    Pic:
+                    TapPic:
                         url: root.badge_url
                         size_hint: None, None
                         size: DETAIL_BADGE_SIZE, DETAIL_BADGE_SIZE
+                        on_release: root.open_page()
                     BoxLayout:
                         orientation: 'vertical'
                         size_hint_y: None
@@ -1313,6 +1333,7 @@
             pos: self.pos
             size: self.size
     BoxLayout:
+        id: search_layout
         orientation: 'vertical'
         padding: dp(12) + app.safe_left, app.safe_top + dp(4), dp(12) + app.safe_right, app.safe_bottom + dp(2)
         spacing: dp(8)
@@ -1334,16 +1355,46 @@
                 halign: 'left'
                 valign: 'middle'
                 text_size: self.size
-        DarkSpinner:
-            id: console_spinner
-            text: root.all_label
-            values: root.console_values
-            on_text: root.schedule_search()
+        BoxLayout:
+            id: search_tabs
+            size_hint_y: None
+            height: dp(46)
+            spacing: dp(6)
+            TabButton:
+                text: tr('se_tab_search')
+                height: dp(46)
+                active: root.mode == 'search'
+                on_release: root.set_mode('search')
+            TabButton:
+                text: tr('se_tab_recent')
+                height: dp(46)
+                active: root.mode == 'recent'
+                on_release: root.set_mode('recent')
+            TabButton:
+                text: tr('se_tab_want')
+                height: dp(46)
+                active: root.mode == 'want'
+                on_release: root.set_mode('want')
+        BoxLayout:
+            id: search_form
+            orientation: 'vertical'
+            spacing: dp(8)
+            size_hint_y: None
+            height: self.minimum_height
+            DarkSpinner:
+                id: console_spinner
+                text: root.all_label
+                values: root.console_values
+                on_text: root.schedule_search()
+            DarkInput:
+                id: query
+                hint_text: tr('se_name')
+                on_text: root.schedule_search()
+                on_text_validate: root.run_search()
         DarkInput:
-            id: query
-            hint_text: tr('se_name')
-            on_text: root.schedule_search()
-            on_text_validate: root.run_search()
+            id: list_query
+            hint_text: tr('se_filter')
+            on_text: root.filter_changed()
         Label:
             text: root.status
             font_size: sp(11)

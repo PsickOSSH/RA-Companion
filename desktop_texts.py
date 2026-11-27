@@ -632,6 +632,33 @@ for _lang, _texts in _TOP_TEXTS.items():
     i18n.I18N.setdefault(_lang, {}).update(_texts)
 
 
+# OBS overlay (settings)
+_OVERLAY_KEYS = ["s_overlay", "ov_copy", "ov_copied", "ov_hint", "ov_error", "ov_last"]
+_OVERLAY = {
+    "en": ["OBS overlay (streaming)", "Copy the address", "Address copied ✓", "In OBS, add a \"Browser\" source (460 × 240):",
+           "The OBS overlay cannot start: port {p} is already used.", "Latest achievement"],
+    "fr": ["Overlay OBS (streaming)", "Copier l'adresse", "Adresse copiée ✓", "Dans OBS, ajoutez une source « Navigateur » (460 × 240) :",
+           "L'overlay OBS ne peut pas démarrer : le port {p} est déjà utilisé.", "Dernier succès débloqué"],
+    "es": ["Overlay OBS (streaming)", "Copiar la dirección", "Dirección copiada ✓", "En OBS, añade una fuente «Navegador» (460 × 240):",
+           "El overlay OBS no puede iniciarse: el puerto {p} ya está en uso.", "Último logro desbloqueado"],
+    "de": ["OBS-Overlay (Streaming)", "Adresse kopieren", "Adresse kopiert ✓", "In OBS eine „Browser“-Quelle hinzufügen (460 × 240):",
+           "Das OBS-Overlay kann nicht starten: Port {p} wird bereits verwendet.", "Zuletzt freigeschaltet"],
+    "it": ["Overlay OBS (streaming)", "Copia l'indirizzo", "Indirizzo copiato ✓", "In OBS, aggiungi una sorgente «Browser» (460 × 240):",
+           "L'overlay OBS non può avviarsi: la porta {p} è già in uso.", "Ultimo obiettivo sbloccato"],
+    "pt": ["Overlay OBS (streaming)", "Copiar o endereço", "Endereço copiado ✓", "No OBS, adicione uma fonte «Navegador» (460 × 240):",
+           "O overlay OBS não pode iniciar: a porta {p} já está a ser usada.", "Última conquista desbloqueada"],
+}
+for _lang, _values in _OVERLAY.items():
+    i18n.I18N.setdefault(_lang, {}).update(zip(_OVERLAY_KEYS, _values))
+
+
+# Clickable pictures (profile, game, achievement): tooltip
+for _lang, _text in (("en", "Open on RetroAchievements"), ("fr", "Ouvrir sur RetroAchievements"),
+                     ("es", "Abrir en RetroAchievements"), ("de", "Auf RetroAchievements öffnen"),
+                     ("it", "Apri su RetroAchievements"), ("pt", "Abrir no RetroAchievements")):
+    i18n.I18N.setdefault(_lang, {})["tip_ra"] = _text
+
+
 def friendly_error(e):
     """Short, readable message (in the current language) for a network / API error."""
     if isinstance(e, urllib.error.HTTPError):

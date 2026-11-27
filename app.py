@@ -14,7 +14,7 @@ import tkinter as tk
 import webbrowser
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-from tkinter import filedialog, ttk
+from tkinter import filedialog, messagebox, ttk
 
 from skins import active as skin
 import i18n
@@ -25,8 +25,9 @@ from ra_api import call_api, http_get
 from hotkey import GlobalHotkey
 import medians
 import imgcache
-from utils import (DEFAULT_REFRESH_KEY, date_of, fmt_date, fmt_int, is_any, is_counted, is_hc, is_missable, norm,
-                   shortcut_from_key, shortcut_label, sort_achievements, split_links)
+from utils import (DEFAULT_REFRESH_KEY, Session, achievement_url, date_of, filter_games, fmt_date, fmt_duration, fmt_int,
+                   game_url, is_any, is_counted, is_hc, is_missable, median_master, norm, recent_games, shortcut_from_key,
+                   shortcut_label, sort_achievements, split_links, user_url, want_games)
 from widgets import (Bar, Card, RoundBtn, SLabel, SYMF, TRANSPARENT_KEY, Tip, color_title_bar, has_sym, is_sym, screen_bounds,
                      setup_ttk_styles)
 import appinfo
@@ -35,6 +36,7 @@ from symbols import sym
 import desktop_texts  # noqa: F401  (adds the texts of the new settings to i18n)
 from desktop_texts import friendly_error
 import notes_io
+import overlay
 import translator
 
 # Translation shared with the Android app: several free endpoints, cache file, readable errors.
@@ -198,11 +200,15 @@ class App(tk.Tk):
         self.duel_items = []
         self.sigs = {"duel": None, "group": None}
         self.search_win = None
+        self.session_win = None
+        self.session = Session()                                   # achievements unlocked since the program was started
+        self.overlay = overlay.Overlay()                           # web page for OBS (off unless enabled in the settings)
         self.gdb = None
         setup_ttk_styles(self)
         self.build()
         self.apply_window()
         self.apply_refresh_key()
+        self.after(500, self.apply_overlay)
         self.after(150, self.pump)
         self.after(1000, self.tick)
         if self.cfg["key"] and self.cfg["user"]:
@@ -237,6 +243,7 @@ class App(tk.Tk):
                 save_cfg(self.cfg)
         except tk.TclError:
             pass
+        self.overlay.stop()
         self.destroy()
 
     def restart(self):
@@ -247,6 +254,7 @@ class App(tk.Tk):
                 save_cfg(self.cfg)
         except tk.TclError:
             pass
+        self.overlay.stop()                                  # the new program needs the same port
         env = clean_env()
         if os.environ.get("APPIMAGE"):
             # AppImage: the folder the program runs from is unmounted when this process ends, so the new process
@@ -478,7 +486,8 @@ class App(tk.Tk):
         self._hcard.pack(fill="x", padx=10, pady=(10, 6))
         self.header = self._hcard.body
         self.avatar = tk.Label(self.header, bg=skin.CARD)
-        self.avatar.pack(side="left", padx=10, pady=10)
+        self.avatar.pack(side="left", padx=8, pady=8)
+        self.picture_link(self.avatar, self.profile_page)
         info = tk.Frame(self.header, bg=skin.CARD)
         info.pack(side="left", fill="x", expand=True)
         name_row = tk.Frame(info, bg=skin.CARD)
@@ -532,6 +541,7 @@ class App(tk.Tk):
         top.pack(fill="x", padx=10, pady=(10, 4))
         self.gicon = tk.Label(top, bg=skin.CARD)
         self.gicon.pack(side="left")
+        self.picture_link(self.gicon, self.game_page)
         self.btn(top, "🔍", self.open_search, lambda: T("tip_search"), font=(skin.SYMBOL_FONT, 13), width=3).pack(side="right",
             anchor="n")
         self.b_hc = self.btn(top, "⚡", self.toggle_hc,
@@ -551,7 +561,16 @@ class App(tk.Tk):
         self.l_prog = self.lbl(self.gcard, "", 10, anchor="w")
         self.l_prog.pack(fill="x", padx=10)
         self.l_prog2 = self.lbl(self.gcard, "", 9, skin.TEXT_MUTED, anchor="w")
-        self.l_prog2.pack(fill="x", padx=10, pady=(0, 10))
+        self.l_prog2.pack(fill="x", padx=10)
+        self.gpad = tk.Frame(self.gcard, bg=skin.CARD, height=10)         # bottom margin: the next lines go above it
+        self.gpad.pack(fill="x")
+        # average time to master the game, shown when RetroAchievements has a value
+        self.l_time = self.lbl(self.gcard, "", 9, skin.TEXT_MUTED, anchor="w")
+        # unlocks of the session (paint_session); a click lists them
+        self.l_session = self.lbl(self.gcard, "", 9, skin.INFO, bold=True, anchor="w")
+        self.l_session.pack(fill="x", padx=10, pady=(2, 0), before=self.gpad)
+        self.l_session.bind("<Button-1>", lambda e: self.open_session())
+        self.paint_session()
         tabs = self.tabbar = tk.Frame(self.right, bg=skin.BACKGROUND)
         tabs.pack(fill="x", padx=10, pady=(2, 0))
         self.tabs = {}
@@ -951,6 +970,22 @@ class App(tk.Tk):
         tk.Checkbutton(w, text=T("s_notify"), variable=nv, bg=skin.BACKGROUND, fg=skin.TEXT, selectcolor=skin.CARD,
             activebackground=skin.BACKGROUND, activeforeground=skin.TEXT, font=(skin.FONT, 10, "bold"), bd=0,
             highlightthickness=0, cursor="hand2").pack(anchor="w", padx=14, pady=(14, 0))
+        ov = tk.BooleanVar(value=bool(self.cfg.get("overlay")))
+        ov_row = tk.Frame(w, bg=skin.BACKGROUND)
+        ov_row.pack(fill="x", padx=14)
+        tk.Checkbutton(ov_row, text=T("s_overlay"), variable=ov, bg=skin.BACKGROUND, fg=skin.TEXT, selectcolor=skin.CARD,
+            activebackground=skin.BACKGROUND, activeforeground=skin.TEXT, font=(skin.FONT, 10, "bold"), bd=0,
+            highlightthickness=0, cursor="hand2").pack(side="left")
+        ov_url = overlay.address(self.overlay_port())
+        ov_copy = self.lbl(ov_row, T("ov_copy"), 9, skin.INFO, cursor="hand2")
+        ov_copy.pack(side="right", padx=4)
+        Tip(ov_copy, lambda: f"{T('ov_hint')}\n{ov_url}")
+
+        def copy_address(_=None):
+            self.clipboard_clear()
+            self.clipboard_append(ov_url)
+            ov_copy.config(text=T("ov_copied"))
+        ov_copy.bind("<Button-1>", copy_address, add="+")
         row(T("s_refresh_key"))
         rk = {"seq": self.cfg.get("refresh_key") or DEFAULT_REFRESH_KEY}
         rk_var = tk.StringVar(value=shortcut_label(rk["seq"]))
@@ -972,8 +1007,12 @@ class App(tk.Tk):
         bt = RoundBtn(w, text=T("s_test_notif"), font=(skin.FONT, SETTINGS_BTN_FONT, "bold"), padx=SETTINGS_BTN[0],
             pady=SETTINGS_BTN[1], radius=skin.RADIUS_BUTTON)
         bt.pack(fill="x", padx=18, pady=(10, 0))
-        bt.bind("<Button-1>", lambda e: self.toast({"Title": "RA Companion", "Description": T("notif_test"), "Points": 0,
-            "BadgeName": ""}))
+
+        def test_notification(_=None):
+            self.toast({"Title": "RA Companion", "Description": T("notif_test"), "Points": 0, "BadgeName": ""})
+            if self.overlay.running:                          # also on the OBS page, to place it on the video
+                self.overlay.push({"title": "RA Companion", "description": T("notif_test")}, T("toast"))
+        bt.bind("<Button-1>", test_notification)
         row(T("s_notes"))
         nb = tk.Frame(w, bg=skin.BACKGROUND)
         nb.pack(fill="x", padx=18, pady=(2, 0))
@@ -1000,11 +1039,14 @@ class App(tk.Tk):
 
         def ok():
             old = i18n.CUR
+            old_account = (self.cfg["user"], self.cfg["key"])
             new_skin = skin_names.get(sk.get(), "default")
             skin_changed = new_skin != self.cfg.get("skin", "default")
             self.cfg.update(user=u.get().strip(), key=k.get().strip(), skin=new_skin, notify=bool(nv.get()),
                 lang=LANGS.get(lg.get(), "auto"), ui_lang=UI_LANGS.get(ui.get(), "auto"), refresh_key=rk["seq"],
-                tr_service="auto", **tr_conf)
+                tr_service="auto", overlay=bool(ov.get()), **tr_conf)
+            if (self.cfg["user"], self.cfg["key"]) != old_account:
+                self.session = Session()
             TRANSLATOR.configure_from(self.cfg)
             TRANSLATOR.reset_failures()               # texts that failed with the old service are tried again
             save_cfg(self.cfg)
@@ -1022,6 +1064,7 @@ class App(tk.Tk):
                 self.rebuild_ui()
             else:
                 self.apply_window()
+            self.apply_overlay()
             self.refresh()
         b = RoundBtn(w, text=T("save"), bg=skin.ACCENT, fg=skin.TEXT_ON_ACCENT, font=(skin.FONT, SAVE_BTN[0], "bold"), pady=SAVE_BTN[1],
             radius=skin.RADIUS_BUTTON_LARGE)
@@ -1492,6 +1535,7 @@ class App(tk.Tk):
 
     def tick(self):
         """Run every second: trigger an automatic refresh when the countdown reaches zero."""
+        self.paint_session()
         if self.cfg.get("auto_refresh", True):
             self.countdown -= 1
             if self.countdown <= 0 and (not self.busy):
@@ -1605,9 +1649,11 @@ class App(tk.Tk):
         if not game:
             self.game = None
             self.l_game.config(text=T("no_game"))
+            self.publish_overlay()
             self.render_views()
             return
         self.game = game
+        new_unlocks = self.session.add(game) if fresh else []
         self.l_game.config(text=game.get("Title", "?"))
         self.l_console.config(text=game.get("ConsoleName", ""))
         gi = self.photo(game.get("ImageIcon", ""), 56)
@@ -1623,7 +1669,15 @@ class App(tk.Tk):
         self.bar.set(len(counted) / len(ach) if ach else 0)
         self.l_prog.config(text=T("progress", d=len(counted), t=len(ach), gp=got_pts, tp=tot_pts,
                 p=round(100 * len(counted) / len(ach)) if ach else 0))
+        t100 = fmt_duration(median_master(game))               # nothing when RetroAchievements has no value for this game
         self.l_prog2.config(text=T("hcsc", h=n_hc, s=n_sc))
+        self.l_time.config(text=T("t100", t=t100) if t100 else "")
+        if t100:
+            self.l_time.pack(fill="x", padx=10, pady=(2, 0), after=self.l_prog2)
+        else:
+            self.l_time.pack_forget()
+        self.paint_session()
+        self.publish_overlay(new_unlocks)
         gid = game.get("ID")
         if fresh:
             ids = {a["ID"] for a in ach if is_any(a)}
@@ -1649,6 +1703,102 @@ class App(tk.Tk):
         self.render_views()
         if fresh and self.view == "group" and (p.get("group") is None) and self.cfg["group"]:
             self.refresh()
+
+    # ----------------------------------------------------------------------
+    # Session summary and OBS overlay
+    # ----------------------------------------------------------------------
+    def paint_session(self):
+        """Line "Session: n unlocked • points • duration" of the game card."""
+        n, points, duration = self.session.summary(self.cfg["hc_only"])
+        self.l_session.config(text=T("session", n=n, p=points, t=duration), cursor="hand2" if n else "")
+
+    # ---- pictures that open a RetroAchievements page -------------------
+    def picture_link(self, label, address):
+        """Make a picture open the page given by `address()` (nothing when it returns None). So that it can be discovered, a
+        frame of the accent color surrounds it under the mouse, with a hand pointer and a tooltip."""
+        ring = label["bg"]
+        label.config(cursor="hand2", bd=0, highlightthickness=2, highlightbackground=ring, highlightcolor=ring)
+
+        def paint(color):
+            label.config(highlightbackground=color, highlightcolor=color)
+
+        def click(_event):
+            url = address()
+            if url:
+                open_url(url)
+        label.bind("<Button-1>", click)
+        label.bind("<Enter>", lambda _e: paint(skin.ACCENT) if address() else None, add="+")
+        label.bind("<Leave>", lambda _e: paint(ring), add="+")
+        Tip(label, lambda: T("tip_ra"))
+
+    def profile_page(self):
+        name = ((self.payload or {}).get("s") or {}).get("User") or self.cfg["user"]
+        return user_url(name) if name else None
+
+    def game_page(self):
+        return game_url(self.game["ID"]) if self.game and self.game.get("ID") else None
+
+    def open_session(self):
+        """Window with the achievements unlocked since the program was started, the newest first."""
+        if not self.session.unlocks(self.cfg["hc_only"]):
+            return
+        if self.session_win is not None and self.session_win.winfo_exists():
+            self.session_win.destroy()
+        w = self.session_win = tk.Toplevel(self)
+        w.title(T("session_title"))
+        w.configure(bg=skin.BACKGROUND)
+        self.place_window(w, "460x420")
+        w.transient(self)
+        w.attributes("-topmost", bool(self.cfg["ontop"]))
+        box = tk.Frame(w, bg=skin.BACKGROUND)
+        box.pack(fill="both", expand=True, padx=14, pady=14)
+        text = tk.Text(box, bg=skin.CARD, fg=skin.TEXT, relief="flat", font=(skin.FONT, 10), wrap="word",
+                       highlightthickness=0, padx=10, pady=8, cursor="arrow")
+        bar = ttk.Scrollbar(box, command=text.yview, style="App.Vertical.TScrollbar")
+        text.configure(yscrollcommand=bar.set)
+        bar.pack(side="right", fill="y")
+        text.pack(side="left", fill="both", expand=True)
+        text.tag_configure("title", font=(skin.FONT, 10, "bold"))
+        text.tag_configure("info", foreground=skin.TEXT_MUTED, font=(skin.FONT, 9), spacing3=8)
+        for i in self.session.unlocks(self.cfg["hc_only"]):
+            text.insert("end", f"{i['title']}  (+{i['points']})\n", "title")
+            hour = datetime.fromtimestamp(i["when"]).strftime("%I:%M %p" if i18n.CUR == "en" else "%H:%M")
+            text.insert("end", f"{hour} • {i['game']} • {'HARDCORE' if i['hc'] else 'softcore'}\n", "info")
+        text.config(state="disabled")
+
+    def apply_overlay(self):
+        """Start or stop the web page for OBS according to the settings."""
+        if not self.cfg.get("overlay"):
+            self.overlay.stop()
+            return
+        port = self.overlay_port()
+        if self.overlay.start(port):
+            self.publish_overlay()
+        else:
+            messagebox.showwarning("RA Companion", T("ov_error", p=port), parent=self)
+
+    def overlay_port(self):
+        """Port of the OBS page ("overlay_port" of the configuration file)."""
+        try:
+            port = int(self.cfg.get("overlay_port") or overlay.DEFAULT_PORT)
+        except (TypeError, ValueError):
+            return overlay.DEFAULT_PORT
+        return port if 0 < port < 65536 else overlay.DEFAULT_PORT
+
+    def publish_overlay(self, new=()):
+        """Send the current game and the new unlocks to the OBS page (nothing when it is off)."""
+        if not self.overlay.running:
+            return
+        game, hc_only, line = self.game, self.cfg["hc_only"], ""
+        if game:
+            ach = list((game.get("Achievements") or {}).values())
+            done = [a for a in ach if is_counted(a, hc_only)]
+            line = T("progress", d=len(done), t=len(ach), gp=sum(int(a.get("Points", 0)) for a in done),
+                     tp=sum(int(a.get("Points", 0)) for a in ach), p=round(100 * len(done) / len(ach)) if ach else 0)
+        self.overlay.set_game(game, hc_only, line, T("ov_last"))
+        for item in new:
+            if item["hc"] or not hc_only:
+                self.overlay.push(item, T("toast"))
 
     def render_views(self, force=False):
         """Render the currently visible view."""
@@ -2018,25 +2168,41 @@ class App(tk.Tk):
         w.configure(bg=skin.BACKGROUND)
         self.place_window(w, "540x600")
         w.transient(self)
-        self.lbl(w, T("se_console"), 10, bold=True, anchor="w").pack(fill="x", padx=14, pady=(12, 0))
+        tabs = tk.Frame(w, bg=skin.BACKGROUND)
+        tabs.pack(fill="x", padx=14, pady=(12, 0))
+        tab_btns = {}
+        for mode, name in (("search", "se_tab_search"), ("recent", "se_tab_recent"), ("want", "se_tab_want")):
+            tb = RoundBtn(tabs, text=T(name), font=(skin.FONT, 10, "bold"), padx=TAB_BTN[0], pady=TAB_BTN[1],
+                radius=skin.RADIUS_BUTTON_LARGE)
+            tb.pack(side="left", fill="x", expand=True, padx=(0, 0 if mode == "want" else 6))
+            tb.bind("<Button-1>", lambda e, m=mode: set_mode(m))
+            tab_btns[mode] = tb
+        form = tk.Frame(w, bg=skin.BACKGROUND)                       # console and name fields: only in the "Search" tab
+        form.pack(fill="x")
+        self.lbl(form, T("se_console"), 10, bold=True, anchor="w").pack(fill="x", padx=14, pady=(10, 0))
         all_label = T("se_all")
         con_var = tk.StringVar(value=all_label)
         csel = {"name": all_label}
         pop = {"w": None, "lb": None, "items": []}
-        ce = self.entry(w, con_var)
+        ce = self.entry(form, con_var)
         ce.pack(fill="x", padx=14, ipady=5)
-        self.lbl(w, T("se_name"), 10, bold=True, anchor="w").pack(fill="x", padx=14, pady=(10, 0))
+        self.lbl(form, T("se_name"), 10, bold=True, anchor="w").pack(fill="x", padx=14, pady=(10, 0))
         q_var = tk.StringVar()
-        ent = self.entry(w, q_var)
+        ent = self.entry(form, q_var)
         ent.pack(fill="x", padx=14, ipady=5)
         ent.focus_set()
+        list_form = tk.Frame(w, bg=skin.BACKGROUND)                  # search field of the "Recent" and "Want to play" tabs
+        self.lbl(list_form, T("se_filter"), 10, bold=True, anchor="w").pack(fill="x", padx=14, pady=(10, 0))
+        f_var = tk.StringVar()
+        f_ent = self.entry(list_form, f_var)
+        f_ent.pack(fill="x", padx=14, ipady=5)
         status = self.lbl(w, "", 9, skin.TEXT_MUTED, anchor="w")
         status.pack(fill="x", padx=14, pady=4)
         lb = tk.Listbox(w, bg=skin.CARD, fg=skin.TEXT, selectbackground=skin.ACCENT,
             selectforeground=skin.TEXT_ON_ACCENT, relief="flat", font=(skin.FONT, 10), activestyle="none",
             highlightthickness=0)
         lb.pack(fill="both", expand=True, padx=14)
-        st = {"results": [], "job": None, "indexing": False}
+        st = {"results": [], "job": None, "indexing": False, "mode": "search", "lists": {}, "loading": set()}
 
         def selected_cids():
             n = csel["name"]
@@ -2049,7 +2215,7 @@ class App(tk.Tk):
             return bool(g) and time.time() - g["t"] < GAMES_TTL
 
         def filter_now():
-            if not w.winfo_exists():
+            if not w.winfo_exists() or st["mode"] != "search":
                 return
             q = norm(q_var.get().strip())
             res = []
@@ -2085,8 +2251,8 @@ class App(tk.Tk):
             def job():
                 for i, cid in enumerate(cids, 1):
                     self.q.put(("call",
-                            lambda i=i: w.winfo_exists() and (status.config(text=T("se_index", i=i, n=len(cids))),
-                                filter_now())))
+                            lambda i=i: w.winfo_exists() and st["mode"] == "search" and (
+                                status.config(text=T("se_index", i=i, n=len(cids))), filter_now())))
                     try:
                         games = call_api("API_GetGameList.php", key, i=cid, f=1)
                         if isinstance(games, list):
@@ -2214,6 +2380,77 @@ class App(tk.Tk):
         if not gdb["consoles"] or time.time() - gdb.get("ct", 0) > GAMES_TTL:
             load_consoles()
 
+        def show_list(mode):
+            """Fill the list with the recently played games or the "Want to Play" games that match the search field."""
+            games = filter_games(st["lists"][mode], f_var.get())
+            st["results"] = [(g["game_id"], g["title"], g["console"], g["total"]) for g in games]
+            lb.delete(0, "end")
+            for g in games:
+                count = T("se_progress", d=g["done"], t=g["total"]) if mode == "recent" else T("se_ach", n=g["total"])
+                lb.insert("end", f"{g['title']} — {g['console']} ({count})")
+            empty = T("se_none" if st["lists"][mode] else "se_recent_none" if mode == "recent" else "se_want_none")
+            status.config(text=T("se_results", n=len(games)) if games else empty, fg=skin.TEXT_MUTED)
+
+        def load_list(mode):
+            st["results"] = []
+            lb.delete(0, "end")
+            status.config(text=T("se_loading"), fg=skin.TEXT_MUTED)
+            if mode in st["loading"]:
+                return
+            st["loading"].add(mode)
+            user, hc_only = self.cfg["user"], self.cfg["hc_only"]
+
+            def job():
+                try:
+                    if mode == "recent":
+                        games = recent_games(call_api("API_GetUserRecentlyPlayedGames.php", key, u=user, c=50), hc_only)
+                    else:
+                        games = want_games(call_api("API_GetUserWantToPlayList.php", key, u=user, c=500))
+                except Exception as ex:
+                    msg = friendly_error(ex)
+
+                    def failed():
+                        st["loading"].discard(mode)
+                        if w.winfo_exists() and st["mode"] == mode:
+                            status.config(text=T("error", e=msg), fg=skin.DANGER)
+                    self.q.put(("call", failed))
+                    return
+
+                def done():
+                    st["loading"].discard(mode)
+                    st["lists"][mode] = games
+                    if w.winfo_exists() and st["mode"] == mode:
+                        show_list(mode)
+                self.q.put(("call", done))
+            threading.Thread(target=job, daemon=True).start()
+
+        def set_mode(mode):
+            st["mode"] = mode
+            for m, tb in tab_btns.items():
+                tb.config(bg=skin.ACCENT if m == mode else skin.CARD_ALT, fg=skin.TEXT_ON_ACCENT if m == mode else skin.TEXT)
+            close_pop()
+            f_var.set("")
+            if mode == "search":
+                list_form.pack_forget()
+                form.pack(fill="x", before=status)
+                status.config(text="", fg=skin.TEXT_MUTED)
+                filter_now()
+                ent.focus_set()
+                return
+            form.pack_forget()
+            list_form.pack(fill="x", before=status)
+            f_ent.focus_set()
+            if mode in st["lists"]:
+                show_list(mode)
+            else:
+                load_list(mode)
+
+        def filter_list(*_):
+            if st["mode"] in st["lists"]:
+                show_list(st["mode"])
+        f_var.trace_add("write", filter_list)
+        set_mode("search")
+
         def follow(_=None):
             sel = lb.curselection()
             if not sel:
@@ -2267,7 +2504,9 @@ class App(tk.Tk):
         _hc = Card(w, radius=skin.RADIUS_PANEL, pad=4)
         _hc.pack(fill="x", padx=10, pady=10)
         head = _hc.body
-        self.badge(head, a, e, 64, skin.CARD).pack(side="left", padx=10, pady=10)
+        picture = self.badge(head, a, e, 64, skin.CARD)            # a click opens the page of the achievement
+        picture.pack(side="left", padx=8, pady=8)
+        self.picture_link(picture, lambda: achievement_url(a["ID"]) if a.get("ID") else None)
         c = tk.Frame(head, bg=skin.CARD)
         c.pack(side="left", fill="x", expand=True)
         self.lbl(c, a.get("Title", ""), 13, bold=True, bg=skin.CARD, anchor="w", wraplength=340, justify="left").pack(fill="x")

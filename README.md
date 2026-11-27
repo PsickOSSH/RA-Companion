@@ -103,6 +103,13 @@ progress live. It comes in three versions that look and behave the same way:
   are reused after restarting the app, reducing repeated requests to the RetroAchievements media server.
 
 - **Live profile**: hardcore / softcore points, RetroPoints, rank (`#1 234`) and percentile, current game with rich presence
+- **Time to 100%**: the game card shows the average time needed to master the current game (the median of the hardcore
+  players, from RetroAchievements); the line is hidden when the game has no value
+- **Session summary**: the game card counts the achievements and points unlocked since the app was opened, with the time
+  elapsed; click / tap the line to list them. Only the games followed by the app are counted
+- **Clickable pictures**: your avatar, the game picture and the badge of the achievement page open the matching page on
+  retroachievements.org. On Windows and Linux a frame and a tooltip appear under the mouse; on a phone the picture is
+  dimmed while pressed
 - **Achievement list**: filters *All / Locked / Unlocked* that combine with a **missable** option (<img src="docs/icons/missable.png" alt="warning button" height="22" align="top"> *Missable*),
   11 sort orders, optional hardcore-only counting (<img src="docs/icons/hardcore.png" alt="hardcore button" height="22" align="top">), HC / SC counters, badges, unlock dates in your language and
   time zone, and the share of players who earned each locked achievement
@@ -129,7 +136,13 @@ progress live. It comes in three versions that look and behave the same way:
   **Send a test notification** button checks that they work, on all versions)
 - **Duel**: compare your progress with a friend on the same game, see who is ahead and who unlocked what
 - **Group dashboard**: follow several players at once, ranked by progress on the current game
-- **Game search** by name (all consoles or a single one) to track any game
+- **Game search** by name (all consoles or a single one) to track any game, with two more tabs, **Recent** (your
+  recently played games) and **Want to Play** (your list from the website), each with its own search field (name or console)
+- **OBS overlay** (Windows and Linux, off by default) for streams and recordings: it shows the progress on the current
+  game, the last unlocked achievement and a banner at each new one. Tick **OBS overlay** in the settings and save, click
+  **Copy the address** (`http://127.0.0.1:8765`), then add a **Browser** source with that address in OBS (460 x 240).
+  **Send a test notification** also shows it in OBS, to place the overlay. New achievements appear at the next refresh
+  of the app, which must stay open. If the port is already used, set another `overlay_port` in `.ra_companion.json`
 - **Automatic refresh** with a configurable interval (`Auto` button + seconds, from 5 s to 1 hour) or manual refresh.
   On Windows, a **global keyboard shortcut** also refreshes, even while an emulator has the focus (`Ctrl+Alt+R` by
   default; change it in the settings: click the field, then press `F1`-`F12` or `Ctrl`/`Alt` + a letter or digit;
@@ -209,7 +222,7 @@ Build it from source using a Mac with Xcode and `kivy-ios` (see [Building for iO
 python ra_companion.py
 ```
 
-Needs Python 3.9 or newer with Tkinter (included in the official Windows installer). No third-party package is required. `pip install pillow` is optional: with it the rounded buttons and cards get smooth corners (the `.exe` already includes it).
+Needs Python 3.9 or newer with Tkinter (included in the official Windows installer). No third-party package is required. `pip install pillow` is optional: with it the rounded buttons and cards get smooth corners and the banner of the OBS overlay gets its trophy icon (the `.exe` already includes it).
 
 To try the Android / iOS interface on a PC: `pip install kivy certifi`, then `python main.py` (Kivy 2.1 or newer).
 
@@ -226,8 +239,9 @@ Kivy interface; only a few files are specific to one of them.
 | `desktop_texts.py` texts | `uitext.py`, `mobile_i18n.py` texts | | | `i18n.py` translations |
 | `notes_io.py` notes export / import | `notify.py` notifications (Android and iOS code paths) | | | `translator.py` translation |
 | `build-exe.bat`, `docs/logo.ico` | `layoututil.py`, `fonts/` | | | `updater.py`, `appinfo.py` update check, version |
+| `overlay.py` OBS overlay (also Linux) | | | | |
 | | | | | `imgcache.py` persistent image cache |
-| | | | | `medians.py` hardcore median unlock times (cached for a day) |
+| | | | | `medians.py` hardcore median unlock and mastery times (cached for a day) |
 | | | | | `skins/` visual themes |
 
 The iOS app is built outside the repository with kivy-ios and Xcode (see *Building → iOS*), from a copy of the
@@ -581,6 +595,8 @@ Every variable is documented in `skins/default.py`. When you add a skin variable
   DeepL, Google or MyMemory), and should only be used for a server you control, for example on your own network or VPN.
   Existing cached images are reused according to the policy above instead of downloaded at every launch.
 - The game list of each console is downloaded once and kept for 30 days.
+- **OBS overlay:** when enabled, the program serves a small web page on `127.0.0.1` only: it cannot be reached from the
+  network. The page shows the current game and your unlocked achievements, never your API key.
 - Calls to the RetroAchievements API are retried twice (after 1 s, then 3 s, or the pause requested by the server, at
   most 10 s) on temporary errors: HTTP 429 or 5xx, timeouts and network errors. A wrong key or a missing page fails
   immediately.

@@ -48,7 +48,8 @@ from config import MEDIA
 from ra_api import call_api
 import translator
 from uitext import friendly_error, tr
-from utils import date_of, fmt_date, fmt_int, is_any, is_hc, is_missable, markup_links, norm
+from utils import (Session, achievement_url, date_of, filter_games, fmt_date, fmt_duration, fmt_int, game_url, is_any, is_hc,
+                   is_missable, markup_links, median_master, norm, recent_games, user_url, want_games)
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 
@@ -231,6 +232,10 @@ class Pic(AsyncImage):
     def _loaded(self, url, path):
         if self.url == url:
             self.source = path
+
+
+class TapPic(ButtonBehavior, Pic):
+    """Picture that reacts to a tap (opens a RetroAchievements page)."""
 
 class FlatButton(Button):
     """Flat button; `active` paints it with the accent color; `idle_color` (optional) is the text color when it is not active."""
@@ -444,6 +449,10 @@ class LinkLabel(TextLabel):
         App.get_running_app().open_url(ref)
 
 
+class TapLabel(ButtonBehavior, TextLabel):
+    """Text that reacts to a tap (session summary of the game card)."""
+
+
 class LinkLogo(ButtonBehavior, BoxLayout):
     """Logo + name that open a web link."""
     url = StringProperty("")
@@ -536,6 +545,8 @@ class ProfileScreen(Screen):
     game_console = StringProperty("")
     game_progress = StringProperty("")
     hcsc_line = StringProperty("")
+    time_line = StringProperty("")          # average time to master the game (empty when unknown)
+    session_line = StringProperty("")       # unlocks since the app was started
     game_ratio = NumericProperty(0)
     status_text = StringProperty("")
     current_tab = StringProperty("success")
@@ -582,6 +593,7 @@ class ProfileScreen(Screen):
         self.miss_on = bool(cfg.get("miss_only"))
         self.auto_on = bool(cfg.get("auto_refresh", True))
         self.interval_text = str(self._interval())
+        self.paint_session()
         if self._tick_ev is None:
             self._tick_ev = Clock.schedule_interval(self._tick, 1)
         if self._from_detail:
@@ -611,6 +623,7 @@ class ProfileScreen(Screen):
         self.game_console = ""
         self.game_progress = ""
         self.hcsc_line = ""
+        self.time_line = ""
         self.rich_presence = ""
         self.game_ratio = 0
         self.game_icon_url = ""
@@ -624,6 +637,7 @@ class ProfileScreen(Screen):
             return 30
 
     def _tick(self, dt):
+        self.paint_session()
         if not _cfg().get("auto_refresh", True):
             return
         self._countdown -= 1
@@ -726,6 +740,7 @@ class ProfileScreen(Screen):
             self._group_data = payload["group"]
         app = App.get_running_app()
         friend = str(_cfg().get("friend", "")).strip()
+        app.session.add(payload.get("game"))
         mine, theirs = app.tracker.check(payload.get("gid"), payload.get("game"), friend, payload.get("friend"))
         app.notify_unlocks(mine, None)
         app.notify_unlocks(theirs, friend)
@@ -772,6 +787,8 @@ class ProfileScreen(Screen):
             self.game_ratio = prog["ratio"]
             self.game_progress = tr("progress", d=prog["done"], t=prog["total"], gp=prog["got_pts"], tp=prog["tot_pts"], p=prog["pct"])
             self.hcsc_line = tr("hcsc", h=prog["n_hc"], s=prog["n_sc"])
+            t100 = fmt_duration(median_master(game))
+            self.time_line = tr("t100", t=t100) if t100 else ""
             achs = features.achievements_of(game)
             self._ach_index = {str(a.get("ID")): a for a in achs}
             self._rows_all = features.achievement_rows(game, MEDIA, hc, cfg.get("sort", "disp_asc"), _labels(), desc_fn, noted)
@@ -784,12 +801,57 @@ class ProfileScreen(Screen):
             self.game_icon_url = ""
             self.game_progress = ""
             self.hcsc_line = ""
+            self.time_line = ""
             self.game_ratio = 0
             self._rows_all = []
             self._ach_index = {}
+        self.paint_session()
         self.apply_filter()
         self.render_duel()
         self.render_group()
+
+    # ---- session summary ------------------------------------------------
+    def paint_session(self):
+        app = App.get_running_app()
+        n, points, duration = app.session.summary(bool(_cfg().get("hc_only")))
+        self.session_line = tr("session", n=n, p=points, t=duration)
+
+    def open_profile_page(self):
+        """Open the RetroAchievements page of the player in the browser."""
+        if self.username:
+            App.get_running_app().open_url(user_url(self.username))
+
+    def open_game_page(self):
+        """Open the RetroAchievements page of the current game in the browser."""
+        game = (self._payload or {}).get("game")
+        if game and game.get("ID"):
+            App.get_running_app().open_url(game_url(game["ID"]))
+
+    def open_session(self):
+        """Window with the achievements unlocked since the app was started, the newest first."""
+        app = App.get_running_app()
+        items = app.session.unlocks(bool(_cfg().get("hc_only")))
+        if not items:
+            return
+        view = ModalView(size_hint=(0.9, None), height=min(dp(520), Window.height * 0.85), auto_dismiss=True,
+                         background="", background_color=tuple(app.c_card))
+        outer = BoxLayout(orientation="vertical", padding=dp(10), spacing=dp(8))
+        outer.add_widget(TextLabel(text=f"{uitext.ICON_TROPHY}  {tr('session_title')}", bold=True, color=tuple(app.c_accent)))
+        scroll = ScrollView(do_scroll_x=False)
+        box = BoxLayout(orientation="vertical", spacing=dp(10), size_hint_y=None)
+        box.bind(minimum_height=box.setter("height"))
+        for i in items:
+            hour = time.strftime("%H:%M", time.localtime(i["when"]))
+            box.add_widget(TextLabel(text=f"{i['title']}  (+{i['points']})", bold=True))
+            box.add_widget(TextLabel(text=f"{hour} • {i['game']} • {'HARDCORE' if i['hc'] else 'softcore'}", font_size=sp(11),
+                                     color=tuple(app.c_muted)))
+        scroll.add_widget(box)
+        outer.add_widget(scroll)
+        close = FlatButton(text=tr("back"), size_hint_y=None, height=dp(46))
+        close.bind(on_release=lambda _b: view.dismiss())
+        outer.add_widget(close)
+        view.add_widget(outer)
+        view.open()
 
     def _after_translation(self):
         self.render_all()
@@ -1038,6 +1100,11 @@ class DetailScreen(Screen):
         if self.translate_on:
             TRANSLATOR.reset_failures()                  # opening a page is a new try for the texts that failed before
             translate_async([self._desc], lambda: self._apply_translation(gen))
+
+    def open_page(self):
+        """Open the RetroAchievements page of the achievement in the browser."""
+        if self._ach_id:
+            App.get_running_app().open_url(achievement_url(self._ach_id))
 
     # ---- personal note: saved 0.9 s after the last key press, when the field loses focus and when leaving the page
     def note_changed(self):
@@ -1364,6 +1431,8 @@ class SettingsScreen(Screen):
         if notify_on:
             notify.request_permission()
         account_changed = (cfg.get("user"), cfg.get("key")) != old_account
+        if account_changed:
+            app.session = Session()
         if cfg["ui_lang"] != old_ui:
             app.apply_language()
             if account_changed:
@@ -1385,22 +1454,105 @@ class SearchScreen(Screen):
     results = ListProperty([])
     console_values = ListProperty([])
     all_label = StringProperty("")
+    mode = StringProperty("search")             # tab shown: "search", "recent" or "want"
 
     def __init__(self, **kw):
         super().__init__(**kw)
         self._search_ev = None
         self._indexing = False
         self._loading_consoles = False
+        self._lists = {}                        # "recent" / "want" -> games, loaded once per visit of the page
+        self._visit = 0
+
+    def on_kv_post(self, base_widget):
+        # the two search forms: the one of the tab shown is in the page, the other one is kept here
+        self._form = self.ids.search_form.__self__
+        self._filter = self.ids.list_query.__self__
 
     def _index(self):
         return App.get_running_app().games_index
 
     def on_enter(self):
+        self._visit += 1
+        self._lists = {}
         self.all_label = tr("se_all")
         self._fill_consoles()
         if not self._index().consoles_fresh():
             self._load_consoles()
-        self.run_search()
+        self.set_mode("search")
+
+    # ---- tabs ------------------------------------------------------------
+    def set_mode(self, mode):
+        self.mode = mode
+        self._filter.text = ""
+        self._show_form(mode == "search")
+        if mode == "search":
+            self.status = ""
+            self.results = []
+            self.run_search()
+        elif mode in self._lists:
+            self._show_list(mode)
+        else:
+            self._load_list(mode)
+
+    def _show_form(self, search):
+        """Console and name fields in the "Search" tab, the search field of the list in the two others."""
+        layout = self.ids.search_layout
+        shown, hidden = (self._form, self._filter) if search else (self._filter, self._form)
+        if hidden.parent is not None:
+            hidden.parent.remove_widget(hidden)
+        if shown.parent is None:
+            # just under the tabs (the children of a layout are listed from the bottom to the top)
+            layout.add_widget(shown, index=layout.children.index(self.ids.search_tabs))
+
+    def filter_changed(self):
+        if self.mode in self._lists:
+            self._show_list(self.mode)
+
+    def _load_list(self, mode):
+        self.results = []
+        self.status = tr("se_loading")
+        cfg = _cfg()
+        user, key = str(cfg.get("user", "")).strip(), str(cfg.get("key", "")).strip()
+        if not user or not key:
+            self.status = tr("need_cfg")
+            return
+        visit, hc_only = self._visit, bool(cfg.get("hc_only"))
+
+        def job():
+            games, msg = None, ""
+            try:
+                if mode == "recent":
+                    games = recent_games(call_api("API_GetUserRecentlyPlayedGames.php", key, u=user, c=50), hc_only)
+                else:
+                    games = want_games(call_api("API_GetUserWantToPlayList.php", key, u=user, c=500))
+            except Exception as e:
+                msg = friendly_error(e)
+            Clock.schedule_once(lambda dt: self._list_loaded(visit, mode, games, msg))
+        threading.Thread(target=job, daemon=True).start()
+
+    def _list_loaded(self, visit, mode, games, msg):
+        if visit != self._visit:
+            return
+        if games is not None:
+            self._lists[mode] = games
+        if self.mode != mode:
+            return
+        if games is None:
+            self.status = tr("error", e=msg)
+        else:
+            self._show_list(mode)
+
+    def _show_list(self, mode):
+        games = filter_games(self._lists[mode], self._filter.text)
+        self.results = [{
+            "title": g["title"],
+            "subtitle": (f"{g['console']} • " if g["console"] else "")
+            + (tr("se_progress", d=g["done"], t=g["total"]) if mode == "recent" else tr("se_ach", n=g["total"])),
+            "game_id": str(g["game_id"]),
+        } for g in games]
+        empty = tr("se_none" if self._lists[mode] else "se_recent_none" if mode == "recent" else "se_want_none")
+        self.status = tr("se_results", n=len(games)) if games else empty
 
     def _fill_consoles(self):
         self.console_values = [self.all_label] + [name for _cid, name in self._index().console_list()]
@@ -1425,7 +1577,8 @@ class SearchScreen(Screen):
     def _consoles_loaded(self, msg):
         self._loading_consoles = False
         if msg:
-            self.status = msg
+            if self.mode == "search":
+                self.status = msg
             return
         self._fill_consoles()
         self.run_search()
@@ -1444,7 +1597,7 @@ class SearchScreen(Screen):
         return [cid for cid, _name in consoles]
 
     def run_search(self):
-        if "query" not in self.ids:
+        if "query" not in self.ids or self.mode != "search":
             return
         query = self.ids.query.text
         cids = self._selected_cids(self.ids.console_spinner.text)
@@ -1495,10 +1648,11 @@ class SearchScreen(Screen):
         threading.Thread(target=job, daemon=True).start()
 
     def _set_status(self, text):
-        self.status = text
+        if self.mode == "search":
+            self.status = text
 
     def _refresh_results(self):
-        if "query" in self.ids:
+        if "query" in self.ids and self.mode == "search":
             query = self.ids.query.text
             self._show_results(self._index().search(query, self._selected_cids(self.ids.console_spinner.text)), query)
 
@@ -1668,6 +1822,7 @@ class RACompanionApp(App):
         self.set_skin(self.cfg.get("skin", "default"))
         self.apply_language()
         self.tracker = features.UnlockTracker()
+        self.session = Session()                    # achievements unlocked since the app was started
         self.games_index = features.GameIndex(os.path.join(self.user_data_dir, "games_index.json"))
         self.notes = features.NotesStore(os.path.join(self.user_data_dir, "notes.json"))
         self.bmc_logo = self._write_embedded_icon("bmc_logo.png", uitext.BMC_ICON_B64)
@@ -1853,6 +2008,7 @@ class RACompanionApp(App):
                 fgame = call_api("API_GetGameInfoAndUserProgress.php", key, u=friend, g=gid)
             except Exception:
                 fgame = None
+        self.session.add(game)
         mine, theirs = self.tracker.check(gid, game, friend, fgame)
         self.notify_unlocks(mine, None)
         self.notify_unlocks(theirs, friend)

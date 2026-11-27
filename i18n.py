@@ -245,6 +245,33 @@ I18N = {
 for _l in I18N: I18N[_l].update(COMMON)
 
 
+# Texts shared with the mobile app (uitext.py copies them): time to 100 %, search tabs, session summary
+SHARED_KEYS = ["t100", "se_tab_search", "se_tab_recent", "se_tab_want", "se_loading", "se_recent_none", "se_want_none",
+               "se_progress", "session", "session_title", "se_filter"]
+_SHARED = {
+    "en": ["Average time to 100%: ≈ {t}", "Search", "Recent", "Want to play", "Loading…", "No recently played game.",
+           "Your \"Want to Play\" list is empty.", "{d}/{t} achievements", "Session: {n} unlocked • +{p} pts • {t}",
+           "Unlocked this session", "Search in this list"],
+    "fr": ["Temps moyen pour le 100 % : ≈ {t}", "Rechercher", "Récents", "À jouer", "Chargement…", "Aucun jeu joué récemment.",
+           "Votre liste « Want to Play » est vide.", "{d}/{t} succès", "Session : {n} succès • +{p} pts • {t}",
+           "Succès de la session", "Rechercher dans la liste"],
+    "es": ["Tiempo medio para el 100 %: ≈ {t}", "Buscar", "Recientes", "Por jugar", "Cargando…", "Ningún juego jugado recientemente.",
+           "Tu lista «Want to Play» está vacía.", "{d}/{t} logros", "Sesión: {n} logros • +{p} pts • {t}",
+           "Logros de la sesión", "Buscar en la lista"],
+    "de": ["Durchschnittliche Zeit bis 100 %: ≈ {t}", "Suchen", "Zuletzt", "Wunschliste", "Wird geladen…",
+           "Kein zuletzt gespieltes Spiel.", "Deine „Want to Play“-Liste ist leer.", "{d}/{t} Erfolge",
+           "Sitzung: {n} Erfolge • +{p} Pkt • {t}", "In dieser Sitzung freigeschaltet", "In der Liste suchen"],
+    "it": ["Tempo medio per il 100%: ≈ {t}", "Cerca", "Recenti", "Da giocare", "Caricamento…", "Nessun gioco giocato di recente.",
+           "La tua lista «Want to Play» è vuota.", "{d}/{t} obiettivi", "Sessione: {n} obiettivi • +{p} pt • {t}",
+           "Obiettivi della sessione", "Cerca nell'elenco"],
+    "pt": ["Tempo médio para os 100%: ≈ {t}", "Procurar", "Recentes", "Por jogar", "A carregar…", "Nenhum jogo jogado recentemente.",
+           "A sua lista «Want to Play» está vazia.", "{d}/{t} conquistas", "Sessão: {n} conquistas • +{p} pts • {t}",
+           "Conquistas da sessão", "Procurar na lista"],
+}
+for _l, _values in _SHARED.items():
+    I18N[_l].update(zip(SHARED_KEYS, _values))
+
+
 # Current UI language code; read it as `i18n.CUR` from other modules and change it with set_language().
 CUR = "en"
 

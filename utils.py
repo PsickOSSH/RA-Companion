@@ -1,10 +1,13 @@
 """Small pure helpers: number/date formatting, achievement predicates and sorting."""
 
 import re
+import time
 import unicodedata
 from datetime import datetime, timezone
+from urllib.parse import quote
 
 import i18n
+from config import SITE_URL
 
 
 def fmt_int(n):
@@ -48,6 +51,21 @@ def markup_links(text, color):
         else:
             parts.append(esc(piece))
     return "".join(parts)
+
+
+def game_url(game_id):
+    """Page of a game on RetroAchievements."""
+    return f"{SITE_URL}/game/{game_id}"
+
+
+def achievement_url(ach_id):
+    """Page of an achievement on RetroAchievements."""
+    return f"{SITE_URL}/achievement/{ach_id}"
+
+
+def user_url(name):
+    """Profile page of a player on RetroAchievements."""
+    return f"{SITE_URL}/user/{quote(str(name), safe='')}"
 
 
 def norm(s):
@@ -172,6 +190,105 @@ def fmt_duration(seconds):
     if hours >= 100:
         return f"{hours} h"
     return f"{hours} h {minutes:02d} min" if minutes else f"{hours} h"
+
+
+# ---------------------------------------------------------------------------
+# Recently played games and "Want to Play" list (search page)
+# ---------------------------------------------------------------------------
+def _count(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def recent_games(reply, hc_only=False):
+    """Games of API_GetUserRecentlyPlayedGames.php: [{game_id, title, console, done, total}], the last played first."""
+    out = []
+    for g in reply if isinstance(reply, list) else []:
+        if not isinstance(g, dict) or not g.get("GameID"):
+            continue
+        hc = _count(g.get("NumAchievedHardcore"))
+        out.append({"game_id": _count(g.get("GameID")), "title": str(g.get("Title") or "?"),
+                    "console": str(g.get("ConsoleName") or ""), "done": hc if hc_only else max(hc, _count(g.get("NumAchieved"))),
+                    "total": _count(g.get("NumPossibleAchievements") or g.get("AchievementsTotal"))})
+    return out
+
+
+def want_games(reply):
+    """Games of API_GetUserWantToPlayList.php: [{game_id, title, console, total}], sorted by title."""
+    items = reply.get("Results") if isinstance(reply, dict) else None
+    out = [{"game_id": _count(g.get("ID")), "title": str(g.get("Title") or "?"), "console": str(g.get("ConsoleName") or ""),
+            "total": _count(g.get("AchievementsPublished"))} for g in items or [] if isinstance(g, dict) and g.get("ID")]
+    return sorted(out, key=lambda g: norm(g["title"]))
+
+
+def filter_games(games, query):
+    """Games of a list whose title or console contains every word of `query` (case and accents ignored)."""
+    words = norm(query).split()
+    return [g for g in games if all(w in norm(f"{g['title']} {g['console']}") for w in words)]
+
+
+# ---------------------------------------------------------------------------
+# Session summary: the achievements unlocked since the program was started
+# ---------------------------------------------------------------------------
+SESSION_MARGIN = 60        # seconds: tolerated difference between the clock of the device and the one of the server
+
+
+def api_time(text):
+    """Time stamp (seconds since 1970) of an API date ('YYYY-MM-DD HH:MM:SS', UTC), or None."""
+    try:
+        dt = datetime.strptime(str(text).replace("T", " ")[:19], "%Y-%m-%d %H:%M:%S")
+    except (TypeError, ValueError):
+        return None
+    return dt.replace(tzinfo=timezone.utc).timestamp()
+
+
+def short_time(seconds):
+    """'12 min' or '1 h 05' (whole minutes)."""
+    minutes = max(0, int(seconds // 60))
+    return f"{minutes} min" if minutes < 60 else f"{minutes // 60} h {minutes % 60:02d}"
+
+
+class Session:
+    """Remembers the achievements unlocked since `start`. The games given to `add` can change from one call to the next."""
+
+    def __init__(self, start=None):
+        self.start = time.time() if start is None else start
+        self.items = {}                      # achievement ID -> description of the unlock
+
+    def add(self, game):
+        """Look for new unlocks in a game (answer of API_GetGameInfoAndUserProgress). Returns the new ones, oldest first."""
+        achievements = (game or {}).get("Achievements") or {}
+        new = []
+        for a in achievements.values() if isinstance(achievements, dict) else achievements:
+            hc, sc = api_time(a.get("DateEarnedHardcore")), api_time(a.get("DateEarned"))
+            when = max(hc or 0, sc or 0)
+            if when < self.start - SESSION_MARGIN:
+                continue
+            key = str(a.get("ID"))
+            is_new_hc = bool(hc) and hc >= self.start - SESSION_MARGIN
+            old = self.items.get(key)
+            if old and (old["hc"] or not is_new_hc):
+                continue                     # already known (an achievement won again in hardcore is updated)
+            item = {"id": key, "title": str(a.get("Title") or ""), "description": str(a.get("Description") or ""),
+                    "points": _count(a.get("Points")), "badge": str(a.get("BadgeName") or ""),
+                    "game": str(game.get("Title") or ""), "hc": is_new_hc, "when": when}
+            self.items[key] = item
+            if not old:
+                new.append(item)
+        return sorted(new, key=lambda i: i["when"])
+
+    def unlocks(self, hc_only=False):
+        """The unlocks of the session, the newest first."""
+        items = list(self.items.values())      # copy: the phone app adds unlocks from its background thread
+        return sorted((i for i in items if i["hc"] or not hc_only), key=lambda i: i["when"], reverse=True)
+
+    def summary(self, hc_only=False, now=None):
+        """(number of achievements, points, duration as text)."""
+        items = self.unlocks(hc_only)
+        now = time.time() if now is None else now
+        return len(items), sum(i["points"] for i in items), short_time(now - self.start)
 
 
 # --- Keyboard shortcut of the Refresh button (Windows) -----------------------------------------------------------

@@ -89,6 +89,7 @@ _UPD = {'en': ['Version {v}', 'Check for updates', 'Download version {v}', 'Chec
 _OWN = {'en': 'owned by {p}% of players', 'fr': 'obtenu par {p}% des joueurs', 'es': 'conseguido por el {p}% de los jugadores', 'de': 'von {p}% der Spieler erreicht', 'it': 'ottenuto dal {p}% dei giocatori', 'pt': 'obtida por {p}% dos jogadores'}
 
 for _lang, _values in _EXTRA.items():
+    MOBILE[_lang].update({_key: i18n.I18N[_lang][_key] for _key in i18n.SHARED_KEYS})
     MOBILE[_lang].update(dict(zip(_EXTRA_KEYS, _values)))
     MOBILE[_lang]["sort_title"] = _SORT[_lang][0]
     MOBILE[_lang]["owned_by"] = _OWN[_lang]

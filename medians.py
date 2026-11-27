@@ -1,8 +1,9 @@
 """Median time to unlock (hardcore players only) of each achievement of a game.
 
 Source: API_GetGameProgression.php, field MedianTimeToUnlockHardcore, in seconds. The standard median is ignored on purpose:
-softcore allows save states and other shortcuts, so only the hardcore values describe the real effort. The answer is kept in
-memory and on disk for one day, so the app does not ask for it at every refresh.
+softcore allows save states and other shortcuts, so only the hardcore values describe the real effort. The same answer
+gives the median time to master the game (MedianTimeToMaster), kept under the key MASTER. The answer is kept in memory and on
+disk for one day, so the app does not ask for it at every refresh.
 """
 
 import json
@@ -11,13 +12,14 @@ import time
 
 TTL = 24 * 3600
 RETRY_AFTER = 600
+MASTER = 0              # key of the median time to master the game (an achievement ID is never 0)
 
 _MEMORY = {}
 _FAILED = {}
 
 
 def _parse(reply):
-    """{achievement id: seconds} from the answer of the API (only the positive hardcore medians)."""
+    """{achievement id: seconds, MASTER: seconds} from the answer of the API (only the positive medians)."""
     items = reply.get("Achievements") if isinstance(reply, dict) else None
     if isinstance(items, dict):
         items = list(items.values())
@@ -29,11 +31,17 @@ def _parse(reply):
                 out[int(a["ID"])] = seconds
         except (TypeError, ValueError, KeyError, AttributeError):
             continue
+    try:
+        seconds = float(reply.get("MedianTimeToMaster"))
+        if seconds > 0:
+            out[MASTER] = seconds
+    except (TypeError, ValueError, AttributeError):
+        pass
     return out
 
 
 def _file(folder, game_id):
-    return os.path.join(folder, f"{game_id}.json") if folder else None
+    return os.path.join(folder, f"{game_id}_v2.json") if folder else None     # v2: with the time to master the game
 
 
 def _read(folder, game_id, now):
@@ -83,7 +91,10 @@ def fetch(call_api, key, game_id, folder=None):
 
 
 def apply(game, medians):
-    """Put the median of each achievement of `game` (the answer of API_GetGameInfoAndUserProgress) in its dictionary."""
+    """Put the median of each achievement of `game` (the answer of API_GetGameInfoAndUserProgress) in its dictionary, and
+    the median time to master it in the game itself."""
+    if isinstance(game, dict) and medians.get(MASTER):
+        game["MedianTimeToMaster"] = medians[MASTER]
     items = game.get("Achievements") if isinstance(game, dict) else None
     if isinstance(items, dict):
         items = list(items.values())
