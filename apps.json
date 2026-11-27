@@ -26,6 +26,13 @@
       },
       "versions": [
         {
+          "version": "2.4",
+          "date": "2026-11-27",
+          "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v2.4/ra-companion-2.4.ipa",
+          "size": 24978146,
+          "localizedDescription": "The game card shows the average time to 100% and a summary of your session. The game search has two new tabs, Recent and Want to Play, each with a search field. Tap your avatar, the game picture or an achievement badge to open its RetroAchievements page. New on Windows and Linux: an overlay for OBS, and long lists that show up at once.\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v2.3...v2.4"
+        },
+        {
           "version": "2.3",
           "date": "2026-11-27",
           "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v2.3/ra-companion-2.3.ipa",
