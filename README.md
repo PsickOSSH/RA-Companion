@@ -136,6 +136,8 @@ progress live. It comes in three versions that look and behave the same way:
   **Send a test notification** button checks that they work, on all versions)
 - **Duel**: compare your progress with a friend on the same game, see who is ahead and who unlocked what
 - **Group dashboard**: follow several players at once, ranked by progress on the current game
+- **Fast long lists**: the achievement and duel lists only build the rows as they are scrolled into view, so a game with
+  hundreds of achievements shows up at once (all versions)
 - **Game search** by name (all consoles or a single one) to track any game, with two more tabs, **Recent** (your
   recently played games) and **Want to Play** (your list from the website), each with its own search field (name or console)
 - **OBS overlay** (Windows and Linux, off by default) for streams and recordings: it shows the progress on the current
@@ -186,7 +188,7 @@ Download the file of your platform from the [latest release](../../releases/late
    still work), and "always on top" only works if your window manager supports it (a message tells you when it does not).
    Environment variables, for problems: `RA_KEEP_IM=1` keeps the input method (for CJK input), `RA_NO_EMOJI_FONT=1` does not
    load the emoji font, `RA_NO_SMOOTH=1` draws plain rounded corners, `RA_PROFILE=1` prints in the terminal how long the
-   achievement list takes to be built, laid out and painted.
+   first rows of the achievement list take to be built, laid out and painted.
 
 ### Android
 
