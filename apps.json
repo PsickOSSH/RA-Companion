@@ -25,6 +25,13 @@
       },
       "versions": [
         {
+          "version": "2.3",
+          "date": "2026-11-27",
+          "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v2.3/ra-companion-2.3.ipa",
+          "size": 23165874,
+          "localizedDescription": "The color of a pressed button is more visible on the Dark, Light, Light Paper and Kirby themes. On Windows, the title bar takes the colors of the theme. On Windows and Linux, all themes now share the shapes of the default theme.\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v2.2...v2.3"
+        },
+        {
           "version": "2.2",
           "date": "2026-11-21",
           "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v2.2/ra-companion-2.2.ipa",
