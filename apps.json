@@ -15,7 +15,8 @@
 		"https://raw.githubusercontent.com/PsickOSSH/RA-Companion/main/docs/duel.png",
 		"https://raw.githubusercontent.com/PsickOSSH/RA-Companion/main/docs/group.png",
 		"https://raw.githubusercontent.com/PsickOSSH/RA-Companion/main/docs/detail.png",
-		"https://raw.githubusercontent.com/PsickOSSH/RA-Companion/main/docs/skin.png"
+        "https://raw.githubusercontent.com/PsickOSSH/RA-Companion/main/docs/skin-kirby.png",
+        "https://raw.githubusercontent.com/PsickOSSH/RA-Companion/main/docs/horizontal.png"
       ],
       "appPermissions": {
         "entitlements": [

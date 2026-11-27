@@ -21,15 +21,73 @@
   <a href="https://buymeacoffee.com/psickossh"><img src="docs/bmc-button.png" alt="Buy me a coffee" width="220"></a>
 </p>
 
-![Main window](docs/main.png)
+## Screenshots
 
-| Achievement detail | Duel |
-|---|---|
-| ![Detail](docs/detail.png) | ![Duel](docs/duel.png) |
+<details>
+<summary><b><picture><img src="docs/icons/phone.png" alt="" height="22" align="top"></picture> Main window</b> (click to show)</summary>
+<br>
 
-| Group | Skin |
-|---|---|
-| ![Group](docs/group.png) | ![Skin](docs/skin.png) |
+<table>
+  <tr>
+    <td align="center" valign="top"><b>Achievements</b><br><img src="docs/main.png" alt="Achievements" width="300"></td>
+    <td align="center" valign="top"><b>Folded header</b><br><img src="docs/main2.png" alt="Folded header" width="300"></td>
+  </tr>
+</table>
+
+</details>
+
+<details>
+<summary><b><picture><img src="docs/icons/desktop.png" alt="" height="22" align="top"></picture> Horizontal interface</b> (click to show)</summary>
+<br>
+
+<p align="center"><img src="docs/horizontal.png" alt="Horizontal interface" width="850"></p>
+
+</details>
+
+<details>
+<summary><b><picture><img src="docs/icons/search.png" alt="" height="22" align="top"></picture> Achievement page, duel and group</b> (click to show)</summary>
+<br>
+
+<table>
+  <tr>
+    <td align="center" valign="top"><b>Achievement page</b><br><img src="docs/detail.png" alt="Achievement page" width="270"></td>
+    <td align="center" valign="top"><b>Duel</b><br><img src="docs/duel.png" alt="Duel" width="270"></td>
+    <td align="center" valign="top"><b>Group</b><br><img src="docs/group.png" alt="Group" width="270"></td>
+  </tr>
+</table>
+
+</details>
+
+<details>
+<summary><b><picture><img src="docs/icons/palette.png" alt="" height="22" align="top"></picture> Themes</b> (click to show)</summary>
+<br>
+
+<table>
+  <tr>
+    <td align="center" valign="top"><b>Dark (Graphite)</b><br><img src="docs/skin-dark.png" alt="Dark (Graphite)" width="210"></td>
+    <td align="center" valign="top"><b>Light (Daylight)</b><br><img src="docs/skin-daylight.png" alt="Light (Daylight)" width="210"></td>
+    <td align="center" valign="top"><b>Light (Paper Indigo)</b><br><img src="docs/skin-paper-indigo.png" alt="Light (Paper Indigo)" width="210"></td>
+    <td align="center" valign="top"><b>Dream Land (Kirby)</b><br><img src="docs/skin-kirby.png" alt="Dream Land (Kirby)" width="210"></td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><b>Mushroom Kingdom (Mario)</b><br><img src="docs/skin-mario.png" alt="Mushroom Kingdom (Mario)" width="210"></td>
+    <td align="center" valign="top"><b>Hyrule (Zelda)</b><br><img src="docs/skin-zelda.png" alt="Hyrule (Zelda)" width="210"></td>
+    <td align="center" valign="top"><b>Kanto (Pokémon)</b><br><img src="docs/skin-pokemon.png" alt="Kanto (Pokémon)" width="210"></td>
+    <td align="center" valign="top"><b>Green Hill (Sonic)</b><br><img src="docs/skin-sonic.png" alt="Green Hill (Sonic)" width="210"></td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><b>Zebes (Metroid)</b><br><img src="docs/skin-metroid.png" alt="Zebes (Metroid)" width="210"></td>
+    <td align="center" valign="top"><b>Spartan (Halo)</b><br><img src="docs/skin-halo.png" alt="Spartan (Halo)" width="210"></td>
+    <td align="center" valign="top"><b>Hell (Doom)</b><br><img src="docs/skin-doom.png" alt="Hell (Doom)" width="210"></td>
+    <td align="center" valign="top"><b>Overworld (Minecraft)</b><br><img src="docs/skin-minecraft.png" alt="Overworld (Minecraft)" width="210"></td>
+  </tr>
+</table>
+
+The default theme (Midnight Gold) is the one of the other screenshots.
+
+</details>
+
+## About
 
 A companion for [RetroAchievements](https://retroachievements.org): keep it open next to your emulator and follow your
 progress live. It comes in three versions that look and behave the same way:
@@ -45,11 +103,11 @@ progress live. It comes in three versions that look and behave the same way:
   are reused after restarting the app, reducing repeated requests to the RetroAchievements media server.
 
 - **Live profile**: hardcore / softcore points, RetroPoints, rank (`#1 234`) and percentile, current game with rich presence
-- **Achievement list**: filters *All / Locked / Unlocked* that combine with a **missable** option (`⚠ Missable`),
-  11 sort orders, optional hardcore-only counting (`⚡`), HC / SC counters, badges, unlock dates in your language and
+- **Achievement list**: filters *All / Locked / Unlocked* that combine with a **missable** option (<img src="docs/icons/missable.png" alt="warning button" height="22" align="top"> *Missable*),
+  11 sort orders, optional hardcore-only counting (<img src="docs/icons/hardcore.png" alt="hardcore button" height="22" align="top">), HC / SC counters, badges, unlock dates in your language and
   time zone, and the share of players who earned each locked achievement
-- **Achievement page**: description, points, unlock date, **personal note** (`✎`) and the community **comments**,
-  with one-click **translation** (`🌐`) through several services: if one stops working, the next one takes over
+- **Achievement page**: description, points, unlock date, **personal note** (<img src="docs/icons/note.png" alt="note button" height="22" align="top">) and the community **comments**,
+  with one-click **translation** (<img src="docs/icons/translate.png" alt="translate button" height="22" align="top">) through several services: if one stops working, the next one takes over
   (free Google and MyMemory by default; **DeepL**, **LibreTranslate** and an **AI model** (Gemini, Groq, Mistral,
   OpenRouter, Ollama...) once you enter a key / server address in the settings, and you choose the **order** in which the
   services are tried (arrows in the settings). Translations are cached on disk, a
@@ -63,7 +121,7 @@ progress live. It comes in three versions that look and behave the same way:
 - **Horizontal interface** (Windows): when the window is made wide (about 760 px and more, clearly wider than tall), the
   profile and the game card move to a left column and the tabs and lists to the right; it goes back to the vertical
   layout when the window is narrow again
-- **Fold the header**: a button at the end of the tabs (▲ / ▼) hides the profile and game cards to leave all the room to
+- **Fold the header**: a button at the end of the tabs (<img src="docs/icons/fold.png" alt="fold button" height="22" align="top"> / <img src="docs/icons/unfold.png" alt="unfold button" height="22" align="top">) hides the profile and game cards to leave all the room to
   the list, and shows them again (Windows and mobile, vertical layout; in the horizontal layout the cards are always shown)
 - **Window position remembered** (Windows): the main window reopens where and at the size you closed it; if that screen
   is no longer connected, it opens at its default place
