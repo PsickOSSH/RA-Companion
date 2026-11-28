@@ -1325,6 +1325,31 @@
                     font_size: sp(11)
                     color: app.c_text
                 TextLabel:
+                    text: tr('s_params_all')
+                    font_size: sp(14)
+                    color: app.c_text
+                BoxLayout:
+                    size_hint_y: None
+                    height: dp(44)
+                    spacing: dp(8)
+                    FlatButton:
+                        text: tr('btn_export')
+                        height: dp(44)
+                        on_release: root.export_all()
+                    FlatButton:
+                        text: tr('btn_import')
+                        height: dp(44)
+                        on_release: root.import_all()
+                    FlatButton:
+                        text: tr('btn_delete')
+                        color: app.c_danger
+                        height: dp(44)
+                        on_release: root.delete_all()
+                TextLabel:
+                    text: root.all_msg
+                    font_size: sp(11)
+                    color: app.c_text
+                TextLabel:
                     text: tr('s_version', v=APP_VERSION)
                     font_size: sp(14)
                     color: app.c_text

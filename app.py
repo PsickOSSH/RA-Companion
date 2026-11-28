@@ -31,6 +31,7 @@ from utils import (DEFAULT_REFRESH_KEY, Session, achievement_url, date_of, filte
 from widgets import (Bar, Card, RoundBtn, SLabel, SYMF, TRANSPARENT_KEY, Tip, color_title_bar, has_sym, is_sym, screen_bounds,
                      setup_ttk_styles)
 import appinfo
+import backup_io
 import updater
 from symbols import sym
 import desktop_texts  # noqa: F401  (adds the texts of the new settings to i18n)
@@ -1135,6 +1136,7 @@ class App(tk.Tk):
                 b.bind("<Button-1>", lambda _e, command=command: run(command))
         io_row(T("s_notes"), self.export_notes, self.import_notes, self.delete_notes)
         io_row(T("s_params"), self.export_settings, self.import_settings, self.delete_settings)
+        io_row(T("s_params_all"), self.export_all, self.import_all, self.delete_all)
 
         row(T("s_version", v=appinfo.__version__))
         ub = tk.Frame(w, bg=skin.BACKGROUND)
@@ -1600,6 +1602,102 @@ class App(tk.Tk):
         self.apply_overlay()
         if self.cfg["key"] and self.cfg["user"]:
             self.refresh()
+
+    # ---- everything: settings, theme, imported skins and notes (backup_io.py) ----
+    def export_all(self, win, msg):
+        """Save everything in one file chosen by the user. It holds the keys: a warning is shown first."""
+        if not self.ask(win, T("s_all_warn"), T("btn_export")):
+            return
+        path = filedialog.asksaveasfilename(parent=win, defaultextension=".json", initialfile="ra_companion_backup.json",
+            filetypes=[("JSON", "*.json")])
+        if not path:
+            return
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(backup_io.export_text(self.cfg, self.notes,
+                                              [values for _i, values, _p in userskins.listing(skins.USER_DIR)]))
+            msg.config(text=T("s_all_exported"), fg=skin.SUCCESS)
+        except OSError as e:
+            msg.config(text=T("n_error", e=e), fg=skin.DANGER)
+
+    def import_all(self, win, msg):
+        """Import a file of export_all, after a confirmation: settings and theme are replaced, skins added, notes merged.
+        The program restarts when the colors change."""
+        path = filedialog.askopenfilename(parent=win, filetypes=[("JSON", "*.json"), ("*", "*.*")])
+        if not path:
+            return
+        try:
+            with open(path, encoding="utf-8") as f:
+                data = backup_io.parse(f.read(backup_io.MAX_FILE + 1))
+        except OSError as e:
+            msg.config(text=T("n_error", e=e), fg=skin.DANGER)
+            return
+        except ValueError:
+            msg.config(text=T("s_all_bad"), fg=skin.DANGER)
+            return
+        if not self.ask(win, T("s_all_replace"), T("btn_import")):
+            return
+        colors = userskins.load(skins.USER_DIR, self.skin_loaded)
+        try:
+            installed = backup_io.install_skins(data["skins"], skins.USER_DIR, T("s_skin_custom"))
+        except OSError as e:
+            msg.config(text=T("n_error", e=e), fg=skin.DANGER)
+            return
+        added, merged, _same = notes_io.merge(self.notes, data["notes"])
+        write_json(NOTES_FILE, self.notes)
+        for other in self.winfo_children():            # an open page must not save its old text again
+            if getattr(other, "note_id", None) in data["notes"]:
+                other.note_text.delete("1.0", "end")
+                other.note_text.insert("1.0", self.notes.get(other.note_id, ""))
+        theme = data["skin"] if data["skin"] in skins.available().values() else self.cfg.get("skin", "default")
+
+        def change(cfg):
+            cfg.update(data["settings"], skin=theme)
+        win.destroy()
+        restart = theme != self.skin_loaded or userskins.load(skins.USER_DIR, theme) != colors     # new colors on screen
+        if restart:
+            change(self.cfg)
+            save_cfg(self.cfg)
+            i18n.set_language(resolve_ui(self.cfg["ui_lang"]))
+        else:
+            self.apply_settings(change)
+        self.ask(self, T("s_all_imported", s=len(installed), a=added, m=merged), "OK", cancel=False)
+        if restart:
+            self.restart()
+
+    def delete_all(self, win, msg):
+        """Settings (account included) and theme back to default, imported skins and notes deleted, after a confirmation.
+        The program restarts when the colors change."""
+        if not self.ask(win, T("s_all_reset"), T("btn_delete"), skin.DANGER):
+            return
+        try:
+            for ident, _values, _path in userskins.listing(skins.USER_DIR):
+                userskins.remove(skins.USER_DIR, ident)
+        except OSError as e:
+            msg.config(text=T("n_error", e=e), fg=skin.DANGER)
+            return
+        self.notes.clear()
+        write_json(NOTES_FILE, self.notes)
+        for other in self.winfo_children():            # an open page must not save its note again
+            if getattr(other, "note_id", None):
+                other.note_text.delete("1.0", "end")
+
+        def change(cfg):
+            settings_io.reset(cfg, default_cfg(), keep_account=False)
+            cfg["skin"] = "default"
+        win.destroy()
+        restart = self.skin_loaded != "default"                       # the default colors need a new start
+        if restart:
+            change(self.cfg)
+            save_cfg(self.cfg)
+            i18n.set_language(resolve_ui(self.cfg["ui_lang"]))
+        else:
+            self.apply_settings(change)
+        self.ask(self, T("s_all_deleted"), "OK", cancel=False)
+        if restart:
+            self.restart()                                            # without account, the settings open at the start
+        else:
+            self.settings()                                           # as at a first start: the account is asked
 
     def delete_notes(self, win, msg):
         """Delete the personal notes chosen in a list, after a confirmation."""

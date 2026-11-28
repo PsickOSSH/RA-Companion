@@ -35,6 +35,7 @@ from kivy.uix.image import AsyncImage
 import androidutil
 import iosutil
 import appinfo
+import backup_io
 import updater
 import features
 import medians
@@ -1219,6 +1220,7 @@ class SettingsScreen(Screen):
     skin_msg = StringProperty("")
     notes_msg = StringProperty("")
     params_msg = StringProperty("")
+    all_msg = StringProperty("")
     _next_msg = ""                                   # shown when the page opens (after an import of the settings)
     update_msg = StringProperty("")
     update_url = StringProperty("")
@@ -1250,7 +1252,8 @@ class SettingsScreen(Screen):
         self.tr_lang_text = auto if lg == "auto" else (uitext.lang_label(uitext.TR_LANGS, lg) or auto)
         self.skin_text = next((s["name"] for s in app.skins if s["id"] == cfg.get("skin", "default")), app.skins[0]["name"])
         self.notes_msg = ""
-        self.params_msg, self._next_msg = self._next_msg, ""
+        self.params_msg = ""
+        self.all_msg, self._next_msg = self._next_msg, ""
         self.skin_msg = ""
         self.data_info = f"{tr('s_data_dir')}: {app.user_data_dir}"
 
@@ -1461,9 +1464,9 @@ class SettingsScreen(Screen):
         defaults = dict(CFG_DEFAULTS, user="", key="")
         self.apply_settings(lambda cfg: settings_io.reset(cfg, defaults, keep_account), "s_params_reset_done")
 
-    def apply_settings(self, change, message):
+    def apply_settings(self, change, message, **values):
         """Change the settings with `change(configuration)` and use them at once; the screens are made again so that they
-        show the new values, then `message` is shown (a text, or the key of one, translated in the new language)."""
+        show the new values, then the text `message` (a key, with its `values`) is shown in the new language."""
         app = App.get_running_app()
         old_account = (app.cfg.get("user"), app.cfg.get("key"))
         change(app.cfg)
@@ -1478,8 +1481,86 @@ class SettingsScreen(Screen):
         app.apply_language()
         app.rebuild_ui()
         page = app.root.get_screen("settings")
-        page._next_msg = tr(message) if saved else tr("err_save", e=app.save_error)[:120]
+        page._next_msg = tr(message, **values) if saved else tr("err_save", e=app.save_error)[:120]
         app.root.current = "settings"
+
+    # ---- everything: settings, theme, imported skins and notes (backup_io.py)
+    def export_all(self):
+        """The file holds the keys: a warning is shown first."""
+        self.confirm(tr("s_all_warn"), tr("btn_export"), self._export_all)
+
+    def _export_all(self):
+        app = App.get_running_app()
+        text = backup_io.export_text(app.cfg, app.notes.data,
+                                     [values for _i, values, _p in userskins.listing(app.user_skins_dir)])
+        androidutil.save_file_text("ra_companion_backup.json", text, self._after_all_export)
+
+    def _after_all_export(self, status, info):
+        if status == "cancel":
+            return
+        if status == "error":
+            self.all_msg = tr("error", e=info)
+        else:
+            self.all_msg = tr("s_all_copied" if status == "copied" else "s_all_exported")
+
+    def import_all(self):
+        androidutil.load_file_text(self._after_all_text, "ra_companion_backup.json")
+
+    def _after_all_text(self, status, text):
+        if status == "cancel":
+            return
+        if status == "error":
+            self.all_msg = tr("error", e=text)
+            return
+        try:
+            data = backup_io.parse(text)
+        except ValueError:
+            self.all_msg = tr("s_all_bad")
+            return
+        self.confirm(tr("s_all_replace"), tr("btn_import"), lambda: self.apply_backup(data))
+
+    def apply_backup(self, data):
+        """Settings and theme are replaced, skins added, notes merged."""
+        app = App.get_running_app()
+        try:
+            installed = backup_io.install_skins(data["skins"], app.user_skins_dir, tr("s_skin_custom"))
+        except OSError as e:
+            self.all_msg = tr("error", e=e)
+            return
+        added, merged, _same = app.notes.merge(data["notes"])
+        page = app.root.get_screen("detail")
+        if page._ach_id in data["notes"] and "note_input" in page.ids:     # its page must not save the old text again
+            page._note_loading = True
+            page.ids.note_input.text = app.notes.get(page._ach_id)
+            page._note_loading = False
+        app.load_skins()
+        theme = data["skin"] if any(s["id"] == data["skin"] for s in app.skins) else app.cfg.get("skin", "default")
+        app.set_skin(theme)
+        self.apply_settings(lambda cfg: cfg.update(data["settings"]), "s_all_imported", s=len(installed), a=added, m=merged)
+
+    def delete_all(self):
+        """Settings (account included) and theme back to default, imported skins and notes deleted, after a confirmation."""
+        self.confirm(tr("s_all_reset"), tr("btn_delete"), self.erase_all)
+
+    def erase_all(self):
+        app = App.get_running_app()
+        try:
+            for ident, _values, _path in userskins.listing(app.user_skins_dir):
+                userskins.remove(app.user_skins_dir, ident)
+        except OSError as e:
+            self.all_msg = tr("error", e=e)
+            return
+        page = app.root.get_screen("detail")
+        if "note_input" in page.ids:                      # its page must not save its note again
+            page._note_loading = True
+            page.ids.note_input.text = ""
+            page._note_loading = False
+        for ident in list(app.notes.data):
+            app.notes.set(ident, "")
+        app.load_skins()
+        app.set_skin("default")
+        defaults = dict(CFG_DEFAULTS, user="", key="")
+        self.apply_settings(lambda cfg: settings_io.reset(cfg, defaults, keep_account=False), "s_all_deleted")
 
     # ---- update check: looks for an .apk in the GitHub releases of appinfo.UPDATE_REPO
     def check_update(self):

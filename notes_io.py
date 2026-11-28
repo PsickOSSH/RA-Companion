@@ -39,6 +39,8 @@ def export_text(notes):
 def parse_notes(text):
     """Read an exported file. Raises ValueError when it is not a notes file."""
     data = json.loads(text)
+    if isinstance(data, dict) and "format" in data:                 # another file of the app (settings, backup...)
+        raise ValueError("not a notes file")
     if isinstance(data, dict) and isinstance(data.get("notes"), dict):
         data = data["notes"]
     if not isinstance(data, dict):

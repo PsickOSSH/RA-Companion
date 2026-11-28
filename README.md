@@ -157,8 +157,15 @@ progress live. It comes in three versions that look and behave the same way:
 - **Settings file**: export every setting (account, keys, languages, refresh, translation, friends...) and import it on
   another device or after a new installation, on all versions. The skin, the window position, the imported skins and the
   notes are not in it (skins and notes have their own export). The **Delete** button of the same line puts the settings
-  back to their default values, either everything or keeping only the username and the API key. **The file contains your API keys in plain text: do not
-  share it.** On iPhone the export copies to the clipboard; to import, copy the content of the file first
+  back to their default values, either everything or keeping only the username and the API key. **The file contains your
+  API keys in plain text: do not share it.** On iPhone the export copies to the clipboard; to import, copy the content of
+  the file first
+- **Complete backup**: the **Everything** line of the settings exports one file with the settings, the theme, the
+  imported skins and the notes, and imports it on another device or after a new installation (all versions). The import
+  replaces the settings and the theme, adds the skins (same name: replaced) and merges the notes, after a confirmation.
+  **The file contains your API keys in plain text: do not share it.** The **Delete** button of the same line resets all the
+  settings (account included) and the theme, and deletes the imported skins and the notes, after a confirmation. On
+  iPhone it goes through the clipboard, like the settings file.
 - **Your own skins**: import a skin file in the settings, without rebuilding the app, then export or delete the imported
   skins, one or several at a time (all versions; see [Creating a skin](#creating-a-skin))
 - **Themed title bar** (Windows): the title bar of every window takes the background and text colors of the skin on
@@ -256,6 +263,7 @@ Kivy interface; only a few files are specific to one of them.
 | | | | | `userskins.py` skins imported by the user |
 | | | | | `settings_io.py` settings export / import |
 | | | | | `notes_io.py` notes export / import / list |
+| | | | | `backup_io.py` complete backup |
 
 The iOS app is built outside the repository with kivy-ios and Xcode (see *Building → iOS*), from a copy of the
 Kivy files listed above.
@@ -421,7 +429,7 @@ mkdir -p ~/RA-Companion-iOS-app
 cd ~/RA-Companion
 cp main.py main.kv features.py storage.py themes.py uitext.py mobile_i18n.py notify.py \
    androidutil.py layoututil.py ra_api.py utils.py medians.py config.py i18n.py translator.py \
-   updater.py appinfo.py iosutil.py imgcache.py userskins.py settings_io.py notes_io.py ~/RA-Companion-iOS-app/
+   updater.py appinfo.py iosutil.py imgcache.py userskins.py settings_io.py notes_io.py backup_io.py ~/RA-Companion-iOS-app/
 cp -R skins fonts ~/RA-Companion-iOS-app/
 ```
 
@@ -562,7 +570,7 @@ Every variable is documented in `skins/default.py`. When you add a skin variable
 
 - Your settings (including the **API key**, stored as plain text) and personal notes are saved on your device only:
   in your home directory as `.ra_companion*.json` on Windows, in the private folder of the app on Android and iOS.
-  Never publish these files.
+  Never publish these files, nor the **settings** and **complete backup** files you export: they hold the same keys.
 - **Image cache:** achievement badges (colored and locked versions), game icons and avatars are saved on disk,
   not just in memory. Previously downloaded badges and game icons are reused across app restarts.
   Images are cached separately by URL, so the colored and locked badge versions each have their own file.
