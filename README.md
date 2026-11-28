@@ -147,7 +147,7 @@ progress live. It comes in three versions that look and behave the same way:
   **Copy the address** (`http://127.0.0.1:8765`), then add a **Browser** source with that address in OBS (460 x 240).
   **Send a test notification** also shows it in OBS, to place the overlay. New achievements appear at the next refresh
   of the app, which must stay open. If the port is already used, change the **Port** next to the checkbox (1024 to
-  65535), save, and update the address of the source in OBS
+  65535), save, and update the address of the source in OBS. The port is part of the settings file.
 - **Automatic refresh** with a configurable interval (`Auto` button + seconds, from 5 s to 1 hour) or manual refresh.
   On Windows, a **global keyboard shortcut** also refreshes, even while an emulator has the focus (`Ctrl+Alt+R` by
   default; change it in the settings: click the field, then press `F1`-`F12` or `Ctrl`/`Alt` + a letter or digit;
@@ -156,9 +156,9 @@ progress live. It comes in three versions that look and behave the same way:
 - **6 interface languages** (English, Français, Español, Deutsch, Italiano, Português), a separate **translation
   language**, and **skins** (default, dark, light and several game themes such as Kirby, Zelda or Mario are included;
   they all share the shapes of the default skin and differ by their colors; a skin file works on all versions)
-- **Settings file**: export every setting (account, keys, languages, refresh, translation, friends...) and import it on
-  another device or after a new installation, on all versions. The skin, the window position, the imported skins and the
-  notes are not in it (skins and notes have their own export). The **Delete** button of the same line puts the settings
+- **Settings file**: export every setting (account, keys, languages, refresh, translation, friends, OBS overlay and its
+  port...) and import it on another device or after a new installation, on all versions. The skin, the window position,
+  the imported skins and the notes are not in it (skins and notes have their own export). The **Delete** button of the same line puts the settings
   back to their default values, either everything or keeping only the username and the API key. **The file contains your
   API keys in plain text: do not share it.** On iPhone the export copies to the clipboard; to import, copy the content of
   the file first
