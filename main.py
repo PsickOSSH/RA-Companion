@@ -21,12 +21,13 @@ from kivy.logger import Logger
 from kivy.metrics import dp, sp
 from kivy.properties import BooleanProperty, ListProperty, NumericProperty, StringProperty
 from kivy.uix.anchorlayout import AnchorLayout
-from kivy.uix.behaviors import ButtonBehavior
+from kivy.uix.behaviors import ButtonBehavior, FocusBehavior
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.label import Label
 from kivy.uix.modalview import ModalView
+from kivy.uix.recycleview import RecycleView
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.screenmanager import Screen, ScreenManager
 from kivy.uix.textinput import TextInput
@@ -240,6 +241,71 @@ class Pic(AsyncImage):
 
 class TapPic(ButtonBehavior, Pic):
     """Picture that reacts to a tap (opens a RetroAchievements page)."""
+
+
+class FingerBar:
+    """Scroll bar of the long lists and pages, made for a finger. Kivy only gives it the few pixels of the drawn bar: a
+    finger a little beside it drags the content, which moves the other way, and the glide of an earlier swipe goes on
+    against the bar. Here the free margin on the right (`bar_zone`) belongs to the bar: a finger put there stops the glide,
+    moves the bar and nothing else."""
+    bar_zone = NumericProperty(0)
+
+    def _holds_bar(self, touch):
+        content = self._viewport
+        if self.disabled or content is None or content.height <= self.height:        # nothing to scroll
+            return False
+        if "button" in touch.profile and touch.button.startswith("scroll"):          # mouse wheel (preview on a computer)
+            return False
+        return self.collide_point(*touch.pos) and touch.x >= self.right - self.bar_zone
+
+    def _stop_glide(self):
+        if self.effect_y:
+            self.effect_y.is_manual = False
+            self.effect_y.velocity = 0
+            self.effect_y.overscroll = 0
+        self.scroll_y = min(max(self.scroll_y, 0.), 1.)
+        self._update_effect_bounds()                       # the next swipe starts from here
+
+    def on_touch_down(self, touch):
+        if not self._holds_bar(touch):
+            return super().on_touch_down(touch)
+        self._stop_glide()
+        handle = self.height * self.vbar[1]
+        bottom = self.y + self.height * self.vbar[0]
+        reach = max(0, dp(48) - handle) / 2                # a short handle is easier to take
+        if not bottom - reach <= touch.y <= bottom + handle + reach:        # elsewhere: the handle comes under the finger
+            self.scroll_y = min(max((touch.y - self.y - handle / 2) / (self.height - handle), 0.), 1.)
+            self._stop_glide()
+        touch.ud[("bar", self.uid)] = True
+        touch.grab(self)
+        FocusBehavior.ignored_touch.append(touch)          # a field being typed in keeps the keyboard, as with a swipe
+        return True
+
+    def on_touch_move(self, touch):
+        if ("bar", self.uid) not in touch.ud:
+            return super().on_touch_move(touch)
+        if touch.grab_current is self:
+            free = self.height * (1 - self.vbar[1])        # the way the handle can travel
+            if free > 0:
+                self.scroll_y = min(max(self.scroll_y + touch.dy / free, 0.), 1.)
+        return True
+
+    def on_touch_up(self, touch):
+        if ("bar", self.uid) not in touch.ud:
+            return super().on_touch_up(touch)
+        if touch.grab_current is self:
+            touch.ungrab(self)
+            self._stop_glide()
+        return True
+
+
+class FingerScrollView(FingerBar, ScrollView):
+    pass
+
+
+class FingerRecycleView(FingerBar, RecycleView):
+    pass
+
 
 class FlatButton(Button):
     """Flat button; `active` paints it with the accent color; `idle_color` (optional) is the text color when it is not active."""

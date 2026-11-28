@@ -51,6 +51,10 @@
 # All colors come from the current skin: `app.c_*` are properties of the App (see themes.py), so they follow a skin change.
 
 # ---------------------------------------------------------------- shared widgets
+# lists and pages with a wide scroll bar (main.py, FingerBar): a finger anywhere in the right margin holds the bar
+<FingerScrollView,FingerRecycleView>:
+    bar_zone: BAR_GUTTER
+
 <Card>:
     canvas.before:
         Color:
@@ -797,7 +801,7 @@
                                     size_hint_x: None
                                     width: dp(44)
                                     on_release: root.open_sort_menu()
-                            RecycleView:
+                            FingerRecycleView:
                                 viewclass: 'AchievementRow'
                                 data: root.success_rows
                                 bar_width: dp(14)
@@ -849,7 +853,7 @@
                                 text: root.duel_detail
                                 font_size: sp(11)
                                 color: app.c_muted
-                            RecycleView:
+                            FingerRecycleView:
                                 viewclass: 'DuelRow'
                                 data: root.duel_rows
                                 bar_width: dp(14)
@@ -890,7 +894,7 @@
                                 text: root.group_hint
                                 font_size: sp(12)
                                 color: app.c_muted
-                            RecycleView:
+                            FingerRecycleView:
                                 viewclass: 'GroupRow'
                                 data: root.group_rows
                                 bar_width: dp(14)
@@ -999,7 +1003,7 @@
                 height: dp(48)
                 active: root.translate_on
                 on_release: root.toggle_translate()
-        ScrollView:
+        FingerScrollView:
             do_scroll_x: False
             bar_width: dp(14)
             bar_margin: dp(2)
@@ -1100,7 +1104,7 @@
             color: app.c_text
             size_hint_y: None
             height: dp(44)
-        ScrollView:
+        FingerScrollView:
             do_scroll_x: False
             bar_width: dp(14)
             bar_margin: dp(2)
@@ -1483,7 +1487,7 @@
             text_size: self.size
             size_hint_y: None
             height: dp(22)
-        RecycleView:
+        FingerRecycleView:
             viewclass: 'GameRow'
             data: root.results
             bar_width: dp(14)
