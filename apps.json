@@ -26,6 +26,13 @@
       },
       "versions": [
         {
+          "version": "2.5",
+          "date": "2026-11-28",
+          "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v2.5/ra-companion-2.5.ipa",
+          "size": 25054334,
+          "localizedDescription": "Import your own skins in the settings, then export or delete them. Export, import or reset your settings, delete your personal notes, and back up everything (settings, theme, skins and notes) in one file. On iPhone, files are now chosen and saved with the Files app. The scroll bar of the lists no longer fights with the swipe, and the notes import refuses a file that is not a notes file. On Windows and Linux, the port of the OBS overlay can be changed in the settings.\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v2.4...v2.5"
+        },
+        {
           "version": "2.4",
           "date": "2026-11-27",
           "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v2.4/ra-companion-2.4.ipa",
