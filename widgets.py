@@ -512,7 +512,8 @@ class RoundBtn(tk.Canvas):
         self.bindtags(self.bindtags() + ("RoundBtnClick",))
         if not RoundBtn._click_tag:
             RoundBtn._click_tag = True
-            self.bind_class("RoundBtnClick", "<Button-1>", lambda e: e.widget._after_click())
+            # (when the click closed the window of the button, Tk gives its name instead of the widget: nothing to do)
+        self.bind_class("RoundBtnClick", "<Button-1>", lambda e: getattr(e.widget, "_after_click", lambda: None)())
 
     _click_tag = False
 

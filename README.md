@@ -153,6 +153,8 @@ progress live. It comes in three versions that look and behave the same way:
 - **6 interface languages** (English, Français, Español, Deutsch, Italiano, Português), a separate **translation
   language**, and **skins** (default, dark, light and several game themes such as Kirby, Zelda or Mario are included;
   they all share the shapes of the default skin and differ by their colors; a skin file works on all versions)
+- **Your own skins**: import a skin file in the settings, without rebuilding the app, then export or delete the imported
+  skins, one or several at a time (all versions; see [Creating a skin](#creating-a-skin))
 - **Themed title bar** (Windows): the title bar of every window takes the background and text colors of the skin on
   Windows 11; on Windows 10 it is only dark or light, according to the skin
 - **Update check** in the settings: looks for a newer `.exe` (Windows), `.apk` (Android) or `.ipa` (iOS) in the GitHub releases
@@ -245,6 +247,7 @@ Kivy interface; only a few files are specific to one of them.
 | | | | | `imgcache.py` persistent image cache |
 | | | | | `medians.py` hardcore median unlock and mastery times (cached for a day) |
 | | | | | `skins/` visual themes |
+| | | | | `userskins.py` skins imported by the user |
 
 The iOS app is built outside the repository with kivy-ios and Xcode (see *Building → iOS*), from a copy of the
 Kivy files listed above.
@@ -410,7 +413,7 @@ mkdir -p ~/RA-Companion-iOS-app
 cd ~/RA-Companion
 cp main.py main.kv features.py storage.py themes.py uitext.py mobile_i18n.py notify.py \
    androidutil.py layoututil.py ra_api.py utils.py medians.py config.py i18n.py translator.py \
-   updater.py appinfo.py iosutil.py imgcache.py ~/RA-Companion-iOS-app/
+   updater.py appinfo.py iosutil.py imgcache.py userskins.py ~/RA-Companion-iOS-app/
 cp -R skins fonts ~/RA-Companion-iOS-app/
 ```
 
@@ -520,7 +523,22 @@ The in-app update check compares the installed version with the newest release t
 2. Change `NAME` and any color / font. Variables you remove fall back to the default skin, so a skin can
    override just a few values. The included skins only define colors and fonts: their corner radii (`RADIUS_*`,
    Windows and Linux) and hover strength (`HOVER_STRENGTH`) come from `default.py`. Your skin may set its own.
-3. Open **Settings -> Skin** and select it (Windows restarts to apply it).
+3. **Import it** in the app, without rebuilding anything: in the settings, press **Import…** (Windows and Linux) or
+   **Import a skin…** (phone), choose your file, then save (Windows and Linux restart to apply it). On Android the file
+   picker opens; on iPhone, copy the content of the file first, then tap the button. Importing a skin with the same
+   `NAME` replaces it.
+   When you run or build the app from the sources, a file placed in `skins/` is also listed in **Settings -> Skin**.
+
+An imported file is **read, never executed**: only the lines `NAME = value` with a plain text or number are kept, and
+only known variables with a valid value (colors written `"#rrggbb"`). It is saved in `.ra_companion_skins/` in your home
+directory (in the private folder of the app on a phone). Imported skins are kept when the app is updated (they are lost
+if the app is uninstalled from a phone). The **Export** and **Delete** buttons of the settings open the list of your
+imported skins, where you choose one or several:
+
+- **Export**: to share them, copy them to another device or keep a backup. On Windows and Linux each skin becomes a `.py`
+  file (in a folder you choose when there are several). On a phone several skins are put in one file, which
+  **Import a skin** reads back entirely; on iPhone the text is copied to the clipboard.
+- **Delete**: a confirmation is asked first. If the skin in use is deleted, the default one comes back.
 
 Every variable is documented in `skins/default.py`. When you add a skin variable to the code, also add it to
 `default.py` so that other skins keep working.

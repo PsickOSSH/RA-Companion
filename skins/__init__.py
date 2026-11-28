@@ -10,6 +10,7 @@ this package is imported, and exposed as `skins.active`. Other modules simply do
     ... skin.CARD, skin.ACCENT, skin.RADIUS_CARD ...
 
 Changing the skin therefore requires a restart, which the settings window does automatically.
+The skins imported by the user are data files in `USER_DIR` (see userskins.py).
 """
 
 import importlib
@@ -17,9 +18,11 @@ import os
 import pkgutil
 from types import SimpleNamespace
 
-from config import CONFIG_FILE, read_json
+import userskins
+from config import CONFIG_FILE, HOME, read_json
 
 _PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__))
+USER_DIR = os.path.join(HOME, ".ra_companion_skins")          # skins imported in the settings
 
 
 def _values(module):
@@ -32,7 +35,7 @@ def _import(name):
 
 
 def available():
-    """Return {display name: module name} for every skin file found in this folder."""
+    """Return {display name: skin identifier} for every skin of this folder and every imported one."""
     found = {}
     for info in pkgutil.iter_modules([_PACKAGE_DIR]):
         if info.name.startswith("_"):          # files starting with "_" are ignored (templates, helpers)
@@ -42,13 +45,17 @@ def available():
         except Exception:                      # a broken skin must never prevent the app from starting
             continue
         found[getattr(module, "NAME", info.name)] = info.name
+    for ident, values, _path in userskins.listing(USER_DIR):
+        found[userskins.unique_name(values["NAME"], found)] = ident
     return found
 
 
 def load(name):
     """Build a skin: the default values, overridden by the variables of skin `name`."""
     values = _values(_import("default"))
-    if name != "default":
+    if str(name).startswith(userskins.PREFIX):
+        values.update(userskins.load(USER_DIR, name))
+    elif name != "default":
         try:
             values.update(_values(_import(name)))
         except Exception:                      # unknown / broken skin -> fall back to the default one

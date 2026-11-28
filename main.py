@@ -47,6 +47,7 @@ import uitext
 from config import MEDIA
 from ra_api import call_api
 import translator
+import userskins
 from uitext import friendly_error, tr
 from utils import (Session, achievement_url, date_of, filter_games, fmt_date, fmt_duration, fmt_int, game_url, is_any, is_hc,
                    is_missable, markup_links, median_master, norm, recent_games, user_url, want_games)
@@ -1213,6 +1214,7 @@ class SettingsScreen(Screen):
     ui_lang_text = StringProperty("")
     tr_lang_text = StringProperty("")
     skin_text = StringProperty("")
+    skin_msg = StringProperty("")
     notes_msg = StringProperty("")
     update_msg = StringProperty("")
     update_url = StringProperty("")
@@ -1244,7 +1246,149 @@ class SettingsScreen(Screen):
         self.tr_lang_text = auto if lg == "auto" else (uitext.lang_label(uitext.TR_LANGS, lg) or auto)
         self.skin_text = next((s["name"] for s in app.skins if s["id"] == cfg.get("skin", "default")), app.skins[0]["name"])
         self.notes_msg = ""
+        self.skin_msg = ""
         self.data_info = f"{tr('s_data_dir')}: {app.user_data_dir}"
+
+    # ---- imported skins (their files are read, never executed: userskins.py) --
+    def import_skin(self):
+        androidutil.read_skin_text(self._after_skin)
+
+    def _after_skin(self, status, text):
+        if status == "cancel":
+            return
+        if status == "error":
+            self.skin_msg = tr("error", e=text)
+            return
+        app = App.get_running_app()
+        try:
+            done = userskins.install_all(text, app.user_skins_dir, tr("s_skin_custom"))
+        except ValueError:
+            self.skin_msg = tr("s_skin_bad")
+            return
+        except OSError as e:
+            self.skin_msg = tr("error", e=e)
+            return
+        name = self._show_skins(done[0][0])
+        self.skin_msg = tr("s_skin_ok", n=name) if len(done) == 1 else tr("s_skins_imported", n=len(done))
+
+    def _show_skins(self, selected):
+        """Read the list of skins again and select the skin `selected` (an identifier); returns its name."""
+        app = App.get_running_app()
+        app.load_skins()
+        entry = next((s for s in app.skins if s["id"] == selected),
+                     next((s for s in app.skins if s["id"] == "default"), app.skins[0]))
+        self.skin_values = [s["name"] for s in app.skins]
+        self.skin_text = entry["name"]
+        if "skin_spinner" in self.ids:
+            self.ids.skin_spinner.text = entry["name"]
+        return entry["name"]
+
+    def pick_export(self):
+        self._pick_skins(tr("s_skin_pick_export"), tr("btn_export"), self.export_skins)
+
+    def pick_delete(self):
+        self._pick_skins(tr("s_skin_pick_delete"), tr("btn_delete"), self.ask_delete_skins)
+
+    def _pick_skins(self, title, action, done):
+        """Window with the list of the imported skins: `done([(identifier, name)])` receives the chosen ones."""
+        app = App.get_running_app()
+        items = [(s["id"], s["name"]) for s in app.skins if s["id"].startswith(userskins.PREFIX)]
+        if not items:
+            self.skin_msg = tr("s_skin_none")
+            return
+        view = ModalView(size_hint=(0.92, None), height=min(dp(520), Window.height * 0.85), auto_dismiss=True,
+                         background="", background_color=tuple(app.c_card))
+        outer = BoxLayout(orientation="vertical", padding=dp(12), spacing=dp(8))
+        outer.add_widget(TextLabel(text=title, bold=True, color=tuple(app.c_accent)))
+        scroll = ScrollView(do_scroll_x=False)
+        box = BoxLayout(orientation="vertical", spacing=dp(6), size_hint_y=None)
+        box.bind(minimum_height=box.setter("height"))
+        rows = []
+        for ident, name in items:
+            row = FlatButton(text=name, height=dp(46))
+            row.bind(on_release=lambda b: setattr(b, "active", not b.active))     # a tap selects / unselects
+            rows.append((row, ident, name))
+            box.add_widget(row)
+        scroll.add_widget(box)
+        outer.add_widget(scroll)
+        select_all = FlatButton(text=tr("s_skin_all"), height=dp(44))
+        select_all.bind(on_release=lambda _b: [setattr(r, "active", True) for r, _i, _n in rows])
+        outer.add_widget(select_all)
+        foot = BoxLayout(size_hint_y=None, height=dp(46), spacing=dp(10))
+        cancel = FlatButton(text=tr("btn_cancel"), height=dp(46))
+        cancel.bind(on_release=lambda _b: view.dismiss())
+        ok = FlatButton(text=action, height=dp(46))
+
+        def confirm(_button):
+            chosen = [(ident, name) for row, ident, name in rows if row.active]
+            if chosen:
+                view.dismiss()
+                done(chosen)
+        ok.bind(on_release=confirm)
+        foot.add_widget(cancel)
+        foot.add_widget(ok)
+        outer.add_widget(foot)
+        view.add_widget(outer)
+        view.open()
+
+    def export_skins(self, chosen):
+        """One skin: a skin file. Several: one file that holds them all, which "Import a skin" reads back. On iPhone the text
+        is copied to the clipboard."""
+        app = App.get_running_app()
+        loaded = [(ident, userskins.load(app.user_skins_dir, ident)) for ident, _name in chosen]
+        loaded = [(ident, values) for ident, values in loaded if values]
+        if not loaded:
+            return
+        if len(loaded) == 1:
+            filename, text = userskins.file_name(loaded[0][0]), userskins.export_text(loaded[0][1])
+        else:
+            filename, text = "ra_companion_skins.py", userskins.bundle_text([values for _i, values in loaded])
+        androidutil.save_skin_text(filename, text, lambda status, info: self._after_skin_export(status, info, len(loaded)))
+
+    def _after_skin_export(self, status, info, count):
+        if status == "cancel":
+            return
+        if status == "error":
+            self.skin_msg = tr("error", e=info)
+        else:
+            self.skin_msg = tr("s_skins_copied" if status == "copied" else "s_skins_exported", n=count)
+
+    def ask_delete_skins(self, chosen):
+        """Confirmation window before the chosen skins are deleted."""
+        app = App.get_running_app()
+        view = ModalView(size_hint=(0.9, None), height=min(dp(420), Window.height * 0.8), auto_dismiss=True, background="",
+                         background_color=tuple(app.c_card))
+        outer = BoxLayout(orientation="vertical", padding=dp(12), spacing=dp(10))
+        scroll = ScrollView(do_scroll_x=False)
+        names = "\n".join(name for _ident, name in chosen)
+        scroll.add_widget(TextLabel(text=tr("s_skin_confirm_n", n=len(chosen), names=names), bold=True))
+        outer.add_widget(scroll)
+        row = BoxLayout(size_hint_y=None, height=dp(46), spacing=dp(10))
+        cancel = FlatButton(text=tr("btn_cancel"), height=dp(46))
+        cancel.bind(on_release=lambda _b: view.dismiss())
+        ok = FlatButton(text=tr("btn_delete"), height=dp(46), active=True)
+        ok.bind(on_release=lambda _b: (view.dismiss(), self.delete_skins([ident for ident, _name in chosen])))
+        row.add_widget(cancel)
+        row.add_widget(ok)
+        outer.add_widget(row)
+        view.add_widget(outer)
+        view.open()
+
+    def delete_skins(self, idents):
+        app = App.get_running_app()
+        selected = next((s["id"] for s in app.skins if s["name"] == self.ids.skin_spinner.text), "default")
+        count, error = 0, None
+        try:
+            for ident in idents:
+                count += userskins.remove(app.user_skins_dir, ident)
+        except OSError as e:
+            error = e
+        if app.cfg.get("skin") in idents:                # the skin in use: back to the default one at once
+            app.load_skins()
+            app.set_skin("default")
+            save_cfg(app.cfg)
+        self._show_skins(app.cfg.get("skin", "default") if selected in idents else selected)
+        self.skin_msg = tr("error", e=error) if error else tr("s_skins_deleted", n=count)
 
     # ---- update check: looks for an .apk in the GitHub releases of appinfo.UPDATE_REPO
     def check_update(self):
@@ -1818,7 +1962,8 @@ class RACompanionApp(App):
         self.settings_path = os.path.join(self.user_data_dir, "settings.json")
         self.save_error = ""
         self.cfg = self._load_settings()
-        self.skins = themes.discover(os.path.join(BASE, "skins"))
+        self.user_skins_dir = os.path.join(self.user_data_dir, "user_skins")      # skins imported in the settings
+        self.load_skins()
         self.set_skin(self.cfg.get("skin", "default"))
         self.apply_language()
         self.tracker = features.UnlockTracker()
@@ -1889,6 +2034,10 @@ class RACompanionApp(App):
         if first_start:
             storage.save_json(self.settings_path, data)
         return data
+
+    def load_skins(self):
+        """The skins of the app and the imported ones."""
+        self.skins = themes.discover(os.path.join(BASE, "skins"), self.user_skins_dir)
 
     def set_skin(self, skin_id):
         """Apply a skin (the same skin files as the Windows version). Colors are properties: the interface updates by itself."""

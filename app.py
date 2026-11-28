@@ -14,7 +14,7 @@ import tkinter as tk
 import webbrowser
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, ttk
 
 from skins import active as skin
 import i18n
@@ -38,6 +38,7 @@ from desktop_texts import friendly_error
 import notes_io
 import overlay
 import translator
+import userskins
 
 # Translation shared with the Android app: several free endpoints, cache file, readable errors.
 TRANSLATOR = translator.Translator(os.path.join(HOME, ".ra_companion_translations.json"))
@@ -152,6 +153,7 @@ class App(tk.Tk):
                 pass
         super().__init__()
         self.cfg = load_cfg()
+        self.skin_loaded = self.cfg.get("skin", "default")        # skin of the colors on screen (a change needs a restart)
         TRANSLATOR.configure_from(self.cfg)
         i18n.set_language(resolve_ui(self.cfg["ui_lang"]))
         self.notes = read_json(NOTES_FILE, {})
@@ -974,7 +976,98 @@ class App(tk.Tk):
         row(T("s_skin"))
         skin_names = skins.available()
         sk = tk.StringVar(value=next((n for n, m in skin_names.items() if m == self.cfg.get("skin", "default")), skin.NAME))
-        self.combo(w, sk, list(skin_names)).pack(fill="x", padx=18)
+        sk_box = self.combo(w, sk, list(skin_names))
+        sk_box.pack(fill="x", padx=18)
+        sk_new = {"box": sk_box, "ids": set()}                   # skins imported while this window is open
+        sk_buttons = tk.Frame(w, bg=skin.BACKGROUND)
+        sk_buttons.pack(fill="x", padx=18, pady=(6, 0))
+        sk_msg = self.lbl(w, "", 8, skin.TEXT_MUTED, anchor="w", justify="left", wraplength=390)   # result of an action
+
+        def say(text, color):
+            sk_msg.config(text=text, fg=color)
+            sk_msg.pack(fill="x", padx=18, pady=(4, 0), after=sk_buttons)
+
+        def show_skins(selected):
+            """Read the list of skins again and select `selected`; returns its name."""
+            skin_names.clear()
+            skin_names.update(skins.available())
+            name = next((n for n, m in skin_names.items() if m == selected), None)
+            if name is None:
+                name = next((n for n, m in skin_names.items() if m == "default"), next(iter(skin_names)))
+            sk_new["box"].destroy()
+            sk_new["box"] = self.combo(w, sk, list(skin_names))           # a new drop-down, with the new list
+            sk_new["box"].pack(fill="x", padx=18, before=sk_buttons)
+            sk.set(name)
+            return name
+
+        def import_skin():
+            path = filedialog.askopenfilename(parent=w, filetypes=[("Skin", "*.py"), ("*", "*.*")])
+            if not path:
+                return
+            try:
+                with open(path, encoding="utf-8") as f:
+                    text = f.read(userskins.MAX_FILE + 1)
+                done = userskins.install_all(text, skins.USER_DIR, os.path.splitext(os.path.basename(path))[0])
+            except OSError as e:
+                return say(T("n_error", e=e), skin.DANGER)
+            except ValueError:
+                return say(T("s_skin_bad"), skin.DANGER)
+            sk_new["ids"].update(ident for ident, _values in done)
+            name = show_skins(done[0][0])
+            say(T("s_skin_ok", n=name) if len(done) == 1 else T("s_skins_imported", n=len(done)), skin.SUCCESS)
+
+        def export_chosen(idents):
+            try:
+                if len(idents) == 1:                          # one skin: the user chooses the name of the file
+                    values = userskins.load(skins.USER_DIR, idents[0])
+                    path = filedialog.asksaveasfilename(parent=w, defaultextension=".py",
+                        initialfile=userskins.file_name(idents[0]), filetypes=[("Skin", "*.py")])
+                    if not path or not values:
+                        return
+                    with open(path, "w", encoding="utf-8") as f:
+                        f.write(userskins.export_text(values))
+                    count = 1
+                else:                                         # several: one file each in the chosen folder
+                    folder = filedialog.askdirectory(parent=w, mustexist=True)
+                    if not folder:
+                        return
+                    count = len(userskins.export_files(skins.USER_DIR, idents, folder))
+            except OSError as e:
+                return say(T("n_error", e=e), skin.DANGER)
+            say(T("s_skins_exported", n=count), skin.SUCCESS)
+
+        def delete_chosen(idents):
+            names = [n for n, m in skin_names.items() if m in idents]
+            if len(names) > 12:                                # the window stays on the screen
+                names = names[:12] + ["…"]
+            if not self.ask(w, T("s_skin_confirm_n", n=len(idents), names="\n".join(names)), T("btn_delete"), skin.DANGER):
+                return
+            selected, count = skin_names.get(sk.get()), 0
+            try:
+                for ident in idents:
+                    count += userskins.remove(skins.USER_DIR, ident)
+                    sk_new["ids"].discard(ident)
+            except OSError as e:
+                say(T("n_error", e=e), skin.DANGER)
+            else:
+                say(T("s_skins_deleted", n=count), skin.TEXT_MUTED)
+            if self.cfg.get("skin") in idents:                 # the skin in use: back to the default one (on saving)
+                self.cfg["skin"] = "default"
+                save_cfg(self.cfg)
+            show_skins(self.cfg.get("skin", "default") if selected in idents else selected)
+
+        def open_picker(title, action, color, done):
+            if not userskins.listing(skins.USER_DIR):
+                return say(T("s_skin_none"), skin.TEXT_MUTED)
+            self.pick_skins(w, title, action, color, done)
+        for i, (key, command) in enumerate((
+                ("btn_import", import_skin),
+                ("btn_export", lambda: open_picker(T("s_skin_pick_export"), T("btn_export"), skin.ACCENT, export_chosen)),
+                ("btn_delete", lambda: open_picker(T("s_skin_pick_delete"), T("btn_delete"), skin.DANGER, delete_chosen)))):
+            b = RoundBtn(sk_buttons, text=T(key) + "…", font=(skin.FONT, SETTINGS_BTN_FONT, "bold"), padx=SETTINGS_BTN[0],
+                pady=SETTINGS_BTN[1], radius=skin.RADIUS_BUTTON)
+            b.pack(side="left", fill="x", expand=True, padx=(8 if i else 0, 0))
+            b.bind("<Button-1>", lambda _e, command=command: command())
         nv = tk.BooleanVar(value=bool(self.cfg.get("notify", True)))
         tk.Checkbutton(w, text=T("s_notify"), variable=nv, bg=skin.BACKGROUND, fg=skin.TEXT, selectcolor=skin.CARD,
             activebackground=skin.BACKGROUND, activeforeground=skin.TEXT, font=(skin.FONT, 10, "bold"), bd=0,
@@ -1041,16 +1134,20 @@ class App(tk.Tk):
         upd_get = tk.Frame(w, bg=skin.BACKGROUND)
         bu = RoundBtn(ub, text=T("s_update_check"), font=(skin.FONT, SETTINGS_BTN_FONT, "bold"), padx=SETTINGS_BTN[0], pady=SETTINGS_BTN[1], radius=skin.RADIUS_BUTTON)
         bu.pack(fill="x")
-        bu.bind("<Button-1>", lambda e: self.check_update(upd_msg, upd_get))
+
+        def check(_=None):
+            upd_msg.pack(fill="x", padx=18, pady=(4, 0), before=upd_get)      # takes room only once it is used
+            self.check_update(upd_msg, upd_get)
+        bu.bind("<Button-1>", check)
         self.lbl(w, T("s_update_hint"), 8, skin.TEXT_MUTED, anchor="w").pack(fill="x", padx=18, pady=(3, 0))
-        upd_msg.pack(fill="x", padx=18, pady=(4, 0))
         upd_get.pack(fill="x", padx=18)
 
         def ok():
             old = i18n.CUR
             old_account = (self.cfg["user"], self.cfg["key"])
             new_skin = skin_names.get(sk.get(), "default")
-            skin_changed = new_skin != self.cfg.get("skin", "default")
+            # (the skin in use imported again must be loaded again too)
+            skin_changed = new_skin != self.skin_loaded or new_skin in sk_new["ids"]
             self.cfg.update(user=u.get().strip(), key=k.get().strip(), skin=new_skin, notify=bool(nv.get()),
                 lang=LANGS.get(lg.get(), "auto"), ui_lang=UI_LANGS.get(ui.get(), "auto"), refresh_key=rk["seq"],
                 tr_service="auto", overlay=bool(ov.get()), **tr_conf)
@@ -1077,7 +1174,7 @@ class App(tk.Tk):
             self.refresh()
         b = RoundBtn(w, text=T("save"), bg=skin.ACCENT, fg=skin.TEXT_ON_ACCENT, font=(skin.FONT, SAVE_BTN[0], "bold"), pady=SAVE_BTN[1],
             radius=skin.RADIUS_BUTTON_LARGE)
-        b.pack(fill="x", padx=18, pady=(14, 8))
+        b.pack(fill="x", padx=18, pady=(8, 8))
         b.bind("<Button-1>", lambda e: ok())
         links = tk.Frame(w, bg=skin.BACKGROUND)
         links.pack(pady=(0, 12))
@@ -1085,6 +1182,91 @@ class App(tk.Tk):
         self.logo_link(links, "ra", SITE_URL, "retroachievements.org").pack(side="left", padx=10)
         self.logo_link(links, "bmc", BMC_URL, "Buy Me a Coffee").pack(side="left", padx=10)
         self.fit_window(w)
+
+    def ask(self, parent, message, action, color=skin.ACCENT, cancel=True):
+        """Message window in the colors of the skin (the one of the system is white). Waits for the answer: True when the
+        button `action` is pressed, False with "Cancel", Escape or the close button of the window."""
+        answer = {"ok": False}
+        d = tk.Toplevel(parent)
+        d.title("RA Companion")
+        d.configure(bg=skin.BACKGROUND)
+        d.transient(parent)
+        d.resizable(False, False)
+        tk.Label(d, text=message, bg=skin.BACKGROUND, fg=skin.TEXT, font=(skin.FONT, 10), justify="left", anchor="w",
+                 wraplength=340).pack(fill="x", padx=20, pady=(18, 4))
+        foot = tk.Frame(d, bg=skin.BACKGROUND)
+        foot.pack(fill="x", padx=20, pady=14)
+
+        def close(ok=False):
+            answer["ok"] = ok
+            d.destroy()
+
+        def button(text, ok, bg, fg):
+            b = RoundBtn(foot, text=text, font=(skin.FONT, 10, "bold"), padx=16, pady=5, radius=skin.RADIUS_BUTTON, bg=bg, fg=fg)
+            b.pack(side="right", padx=(8, 0))
+            b.bind("<Button-1>", lambda _e: close(ok))
+        button(action, True, color, skin.TEXT_ON_ACCENT)
+        if cancel:
+            button(T("btn_cancel"), False, skin.CARD_ALT, skin.TEXT)
+        d.protocol("WM_DELETE_WINDOW", close)
+        d.bind("<Escape>", lambda _e: close())
+        d.update_idletasks()
+        self.place_window(d, f"380x{d.winfo_reqheight()}", parent)
+        if self.cfg["ontop"]:
+            d.attributes("-topmost", True)
+        self.safe_grab(d)
+        d.focus_set()
+        self.wait_window(d)
+        if parent is not self and parent.winfo_exists():
+            self.safe_grab(parent)                             # the window below is modal again
+        return answer["ok"]
+
+    def pick_skins(self, parent, title, action, color, done):
+        """Window with the list of the imported skins: `done(identifiers)` is called with the ones that are chosen when the
+        button `action` is pressed."""
+        items = {ident: name for name, ident in skins.available().items() if ident.startswith(userskins.PREFIX)}
+        idents = list(items)
+        d = tk.Toplevel(parent)
+        d.title(title)
+        d.configure(bg=skin.BACKGROUND)
+        d.transient(parent)
+        self.safe_grab(d)
+        self.place_window(d, "400x420", parent)
+        self.lbl(d, title, 10, bold=True, anchor="w").pack(fill="x", padx=14, pady=(12, 6))
+        foot = tk.Frame(d, bg=skin.BACKGROUND)                    # packed first: the buttons always stay visible
+        foot.pack(side="bottom", fill="x", padx=14, pady=12)
+        box = tk.Frame(d, bg=skin.BACKGROUND)
+        box.pack(fill="both", expand=True, padx=14)
+        lb = tk.Listbox(box, selectmode="multiple", bg=skin.CARD, fg=skin.TEXT, selectbackground=skin.ACCENT,
+            selectforeground=skin.TEXT_ON_ACCENT, relief="flat", font=(skin.FONT, 11), activestyle="none",
+            highlightthickness=0, exportselection=False)
+        bar = ttk.Scrollbar(box, command=lb.yview, style="App.Vertical.TScrollbar")
+        lb.configure(yscrollcommand=bar.set)
+        bar.pack(side="right", fill="y")
+        lb.pack(side="left", fill="both", expand=True)
+        for ident in idents:
+            lb.insert("end", "  " + items[ident])
+
+        def close(_e=None):
+            d.destroy()
+            if parent.winfo_exists():
+                self.safe_grab(parent)
+
+        def ok(_e=None):
+            chosen = [idents[i] for i in lb.curselection()]
+            if chosen:
+                close()
+                done(chosen)
+
+        def button(text, command, side, bg=skin.CARD_ALT, fg=skin.TEXT):
+            b = RoundBtn(foot, text=text, font=(skin.FONT, 9, "bold"), padx=10, pady=5, radius=skin.RADIUS_BUTTON, bg=bg, fg=fg)
+            b.pack(side=side, padx=(0, 0) if side == "left" else (8, 0))
+            b.bind("<Button-1>", command)
+        button(T("s_skin_all"), lambda _e: lb.selection_set(0, "end"), "left")
+        button(action, ok, "right", color, skin.TEXT_ON_ACCENT)
+        button(T("btn_cancel"), close, "right")
+        d.protocol("WM_DELETE_WINDOW", close)
+        d.bind("<Escape>", close)
 
     def fit_window(self, win, over=None):
         """Give `win` the smallest height that shows all its content (called once the content is built; the size of the
@@ -1784,7 +1966,7 @@ class App(tk.Tk):
         if self.overlay.start(port):
             self.publish_overlay()
         else:
-            messagebox.showwarning("RA Companion", T("ov_error", p=port), parent=self)
+            self.ask(self, T("ov_error", p=port), "OK", cancel=False)
 
     def overlay_port(self):
         """Port of the OBS page ("overlay_port" of the configuration file)."""

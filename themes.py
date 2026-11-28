@@ -2,12 +2,15 @@
 (skins/default.py, dark.py, light.py...: UPPER_CASE variables with "#rrggbb" colors), so a skin can be copied from the PC to the phone.
 
 Skins are loaded by file path (works with .py and with the .pyc files that python-for-android may package),
-and a built-in copy of the default skin is used when the skins/ folder is missing or a variable is absent."""
+and a built-in copy of the default skin is used when the skins/ folder is missing or a variable is absent.
+The skins imported by the user are data files (.json, see userskins.py): they are read, not executed."""
 
 import importlib.machinery
 import importlib.util
 import os
 import re
+
+import userskins
 
 BUILTIN = {
     "NAME": "Default (Midnight Gold)",
@@ -32,7 +35,9 @@ def blend(c1, c2, t):
 
 
 def read_skin(path):
-    """Return the UPPER_CASE variables of a skin file (.py or .pyc), or None when the file cannot be read."""
+    """Return the UPPER_CASE variables of a skin file (.py, .pyc or imported .json), or None when the file cannot be read."""
+    if path.endswith(".json"):
+        return userskins.read(path)
     try:
         name = "ra_skin_" + re.sub(r"\W", "_", os.path.basename(path))
         loader = (importlib.machinery.SourcelessFileLoader if path.endswith(".pyc") else importlib.machinery.SourceFileLoader)(name, path)
@@ -44,8 +49,9 @@ def read_skin(path):
         return None
 
 
-def discover(folder):
-    """List the skins of `folder`: [{'id', 'name', 'path'}], the default skin first. A built-in default is always present."""
+def discover(folder, user_folder=None):
+    """List the skins of `folder` and the imported ones of `user_folder`: [{'id', 'name', 'path'}], the default skin first.
+    A built-in default is always present."""
     files = {}
     try:
         names = sorted(os.listdir(folder))
@@ -65,6 +71,9 @@ def discover(folder):
             skins.append({"id": base, "name": str(data.get("NAME") or base), "path": path})
     if not any(s["id"] == DEFAULT_ID for s in skins):
         skins.append({"id": DEFAULT_ID, "name": BUILTIN["NAME"], "path": None})
+    for ident, values, path in userskins.listing(user_folder):
+        name = userskins.unique_name(values["NAME"], {s["name"] for s in skins})
+        skins.append({"id": ident, "name": name, "path": path})
     skins.sort(key=lambda s: (s["id"] != DEFAULT_ID, s["name"].lower()))
     return skins
 

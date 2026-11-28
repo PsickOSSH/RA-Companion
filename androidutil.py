@@ -83,7 +83,7 @@ def _on_result(request_code, result_code, intent):
     Clock.schedule_once(lambda dt: callback(status, data))
 
 
-def save_text(filename, text, callback):
+def save_text(filename, text, callback, mime="application/json"):
     """Ask the user where to save `text` (system 'save as' dialog). callback(status, info) runs on the Kivy thread."""
     if platform == "android":
         try:
@@ -92,7 +92,7 @@ def save_text(filename, text, callback):
             Intent = autoclass("android.content.Intent")
             intent = Intent(Intent.ACTION_CREATE_DOCUMENT)
             intent.addCategory(Intent.CATEGORY_OPENABLE)
-            intent.setType("application/json")
+            intent.setType(mime)
             intent.putExtra(Intent.EXTRA_TITLE, filename)
             _pending[_REQ_SAVE] = ("save", text, callback)
             _activity().startActivityForResult(intent, _REQ_SAVE)
@@ -109,8 +109,40 @@ def save_text(filename, text, callback):
         callback("error", str(e))
 
 
-def read_text(callback):
-    """Ask the user to choose a file (system picker) and give its text to callback(status, text)."""
+def save_skin_text(filename, text, callback):
+    """Export a skin file: "save as" window on Android (callback status 'ok' / 'cancel' / 'error'); on iOS, which has none
+    here, the text is copied to the clipboard (status 'copied')."""
+    if platform == "ios":
+        try:
+            import iosutil
+            if iosutil.clipboard_copy(text):
+                callback("copied", "")
+            else:
+                callback("error", "clipboard")
+        except Exception as e:
+            callback("error", f"{e.__class__.__name__}: {e}")
+        return
+    # (a generic type: with another one Android may add an extension after ".py")
+    save_text(filename, text, callback, "application/octet-stream")
+
+
+def read_skin_text(callback):
+    """Text of a skin file, given to callback(status, text): chosen with the file picker on Android. iOS has no picker
+    here: the text copied to the clipboard is used (status 'cancel' when it is empty)."""
+    if platform == "ios":
+        try:
+            import iosutil
+            text = iosutil.clipboard_paste() or ""
+            callback("ok" if text.strip() else "cancel", text)
+        except Exception as e:
+            callback("error", f"{e.__class__.__name__}: {e}")
+        return
+    read_text(callback, "my_skin.py")
+
+
+def read_text(callback, pc_file="ra_companion_notes.json"):
+    """Ask the user to choose a file (system picker) and give its text to callback(status, text). Outside Android the file
+    `pc_file` of the home folder is read."""
     if platform == "android":
         try:
             from jnius import autoclass
@@ -125,7 +157,7 @@ def read_text(callback):
             _pending.pop(_REQ_OPEN, None)
             callback("error", f"{e.__class__.__name__}: {e}")
         return
-    path = os.path.join(os.path.expanduser("~"), "ra_companion_notes.json")
+    path = os.path.join(os.path.expanduser("~"), pc_file)
     try:
         with open(path, encoding="utf-8") as f:
             callback("ok", f.read())

@@ -1230,6 +1230,26 @@
                     id: skin_spinner
                     text: root.skin_text
                     values: root.skin_values
+                FlatButton:
+                    text: tr('s_skin_import')
+                    height: dp(44)
+                    on_release: root.import_skin()
+                FlatButton:
+                    text: tr('s_skin_export_btn')
+                    height: dp(44)
+                    on_release: root.pick_export()
+                FlatButton:
+                    text: tr('s_skin_delete_btn')
+                    height: dp(44)
+                    on_release: root.pick_delete()
+                TextLabel:
+                    text: tr('s_skin_hint')
+                    font_size: sp(10)
+                    color: app.c_muted
+                TextLabel:
+                    text: root.skin_msg
+                    font_size: sp(11)
+                    color: app.c_text
                 BoxLayout:
                     size_hint_y: None
                     height: dp(48)
