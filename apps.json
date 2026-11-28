@@ -26,6 +26,13 @@
       },
       "versions": [
         {
+          "version": "2.6",
+          "date": "2026-11-28",
+          "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v2.6/ra-companion-2.6.ipa",
+          "size": 25067931,
+          "localizedDescription": "New Patch notes button in the settings: read the notes of each version, in English or translated. On Android and iPhone, the drop-down lists and the switches now take the colors of the theme. The Linux version includes its own certificates for secure connections, and the Windows executable is much smaller.\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v2.5...v2.6"
+        },
+        {
           "version": "2.5",
           "date": "2026-11-28",
           "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v2.5/ra-companion-2.5.ipa",
