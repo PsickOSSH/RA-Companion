@@ -1080,16 +1080,30 @@ class App(tk.Tk):
         tk.Checkbutton(ov_row, text=T("s_overlay"), variable=ov, bg=skin.BACKGROUND, fg=skin.TEXT, selectcolor=skin.CARD,
             activebackground=skin.BACKGROUND, activeforeground=skin.TEXT, font=(skin.FONT, 10, "bold"), bd=0,
             highlightthickness=0, cursor="hand2").pack(side="left")
-        ov_url = overlay.address(self.overlay_port())
+        self.lbl(ov_row, "Port", 9, skin.TEXT_MUTED).pack(side="left", padx=(8, 4))
+        ov_port = tk.StringVar(value=str(self.overlay_port()))
+        digits = w.register(lambda text: len(text) <= 5 and (text == "" or text.isdigit()))
+        ov_field = self.entry(ov_row, ov_port, width=6, justify="center", validate="key", validatecommand=(digits, "%P"))
+        ov_field.config(font=(skin.FONT, 9))                   # small: the line stays as low as the other check boxes
+        ov_field.pack(side="left")
+
+        def typed_port():
+            """The port typed in the field, or None when it cannot be used (the one already saved is always accepted)."""
+            port = int(ov_port.get()) if ov_port.get().isdigit() else 0
+            return port if port == self.overlay_port() or 1024 <= port <= 65535 else None
+
+        def ov_url():
+            return overlay.address(typed_port() or self.overlay_port())
         ov_copy = self.lbl(ov_row, T("ov_copy"), 9, skin.INFO, cursor="hand2")
         ov_copy.pack(side="right", padx=4)
-        Tip(ov_copy, lambda: f"{T('ov_hint')}\n{ov_url}")
+        Tip(ov_copy, lambda: f"{T('ov_hint')}\n{ov_url()}")
 
         def copy_address(_=None):
             self.clipboard_clear()
-            self.clipboard_append(ov_url)
+            self.clipboard_append(ov_url())
             ov_copy.config(text=T("ov_copied"))
         ov_copy.bind("<Button-1>", copy_address, add="+")
+        ov_port.trace_add("write", lambda *_: ov_copy.winfo_exists() and ov_copy.config(text=T("ov_copy")))
         row(T("s_refresh_key"))
         rk = {"seq": self.cfg.get("refresh_key") or DEFAULT_REFRESH_KEY}
         rk_var = tk.StringVar(value=shortcut_label(rk["seq"]))
@@ -1156,6 +1170,10 @@ class App(tk.Tk):
         upd_get.pack(fill="x", padx=18)
 
         def ok():
+            port = typed_port()
+            if port is None:                          # the settings stay open: nothing is saved
+                self.ask(w, T("ov_port_bad"), "OK", cancel=False)
+                return
             old = i18n.CUR
             old_account = (self.cfg["user"], self.cfg["key"])
             new_skin = skin_names.get(sk.get(), "default")
@@ -1163,7 +1181,7 @@ class App(tk.Tk):
             skin_changed = new_skin != self.skin_loaded or new_skin in sk_new["ids"]
             self.cfg.update(user=u.get().strip(), key=k.get().strip(), skin=new_skin, notify=bool(nv.get()),
                 lang=LANGS.get(lg.get(), "auto"), ui_lang=UI_LANGS.get(ui.get(), "auto"), refresh_key=rk["seq"],
-                tr_service="auto", overlay=bool(ov.get()), **tr_conf)
+                tr_service="auto", overlay=bool(ov.get()), overlay_port=port, **tr_conf)
             if (self.cfg["user"], self.cfg["key"]) != old_account:
                 self.session = Session()
             TRANSLATOR.configure_from(self.cfg)
@@ -1194,8 +1212,14 @@ class App(tk.Tk):
         self.logo_link(links, "github", REPO_URL, "GitHub").pack(side="left", padx=10)
         self.logo_link(links, "ra", SITE_URL, "retroachievements.org").pack(side="left", padx=10)
         self.logo_link(links, "bmc", BMC_URL, "Buy Me a Coffee").pack(side="left", padx=10)
-        w.update_idletasks()
-        self.fit_window(w, min_width=max(line.winfo_reqwidth() for line in io_lines) + 36)       # 18 px on each side
+        # wide enough for the widest lines with their margins (the fonts of Linux are larger); the line of the overlay is
+        # also measured with the text shown after a click on its link, often longer
+        ov_width = 0
+        for key in ("ov_copied", "ov_copy"):
+            ov_copy.config(text=T(key))
+            w.update_idletasks()
+            ov_width = max(ov_width, ov_row.winfo_reqwidth())
+        self.fit_window(w, min_width=max([line.winfo_reqwidth() + 36 for line in io_lines] + [ov_width + 28]))
 
     def ask(self, parent, message, action, color=skin.ACCENT, cancel=True):
         """Question with the button `action`: True when it is pressed (see choose)."""

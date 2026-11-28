@@ -146,7 +146,8 @@ progress live. It comes in three versions that look and behave the same way:
   game, the last unlocked achievement and a banner at each new one. Tick **OBS overlay** in the settings and save, click
   **Copy the address** (`http://127.0.0.1:8765`), then add a **Browser** source with that address in OBS (460 x 240).
   **Send a test notification** also shows it in OBS, to place the overlay. New achievements appear at the next refresh
-  of the app, which must stay open. If the port is already used, set another `overlay_port` in `.ra_companion.json`
+  of the app, which must stay open. If the port is already used, change the **Port** next to the checkbox (1024 to
+  65535), save, and update the address of the source in OBS
 - **Automatic refresh** with a configurable interval (`Auto` button + seconds, from 5 s to 1 hour) or manual refresh.
   On Windows, a **global keyboard shortcut** also refreshes, even while an emulator has the focus (`Ctrl+Alt+R` by
   default; change it in the settings: click the field, then press `F1`-`F12` or `Ctrl`/`Alt` + a letter or digit;

@@ -633,20 +633,26 @@ for _lang, _texts in _TOP_TEXTS.items():
 
 
 # OBS overlay (settings)
-_OVERLAY_KEYS = ["s_overlay", "ov_copy", "ov_copied", "ov_hint", "ov_error", "ov_last"]
+_OVERLAY_KEYS = ["s_overlay", "ov_copy", "ov_copied", "ov_hint", "ov_error", "ov_last", "ov_port_bad"]
 _OVERLAY = {
     "en": ["OBS overlay (streaming)", "Copy the address", "Address copied ✓", "In OBS, add a \"Browser\" source (460 × 240):",
-           "The OBS overlay cannot start: port {p} is already used.", "Latest achievement"],
+           "The OBS overlay cannot start: port {p} is already used.", "Latest achievement",
+           "The port of the OBS overlay must be a number from 1024 to 65535."],
     "fr": ["Overlay OBS (streaming)", "Copier l'adresse", "Adresse copiée ✓", "Dans OBS, ajoutez une source « Navigateur » (460 × 240) :",
-           "L'overlay OBS ne peut pas démarrer : le port {p} est déjà utilisé.", "Dernier succès débloqué"],
+           "L'overlay OBS ne peut pas démarrer : le port {p} est déjà utilisé.", "Dernier succès débloqué",
+           "Le port de l'overlay OBS doit être un nombre de 1024 à 65535."],
     "es": ["Overlay OBS (streaming)", "Copiar la dirección", "Dirección copiada ✓", "En OBS, añade una fuente «Navegador» (460 × 240):",
-           "El overlay OBS no puede iniciarse: el puerto {p} ya está en uso.", "Último logro desbloqueado"],
+           "El overlay OBS no puede iniciarse: el puerto {p} ya está en uso.", "Último logro desbloqueado",
+           "El puerto del overlay OBS debe ser un número entre 1024 y 65535."],
     "de": ["OBS-Overlay (Streaming)", "Adresse kopieren", "Adresse kopiert ✓", "In OBS eine „Browser“-Quelle hinzufügen (460 × 240):",
-           "Das OBS-Overlay kann nicht starten: Port {p} wird bereits verwendet.", "Zuletzt freigeschaltet"],
+           "Das OBS-Overlay kann nicht starten: Port {p} wird bereits verwendet.", "Zuletzt freigeschaltet",
+           "Der Port des OBS-Overlays muss eine Zahl von 1024 bis 65535 sein."],
     "it": ["Overlay OBS (streaming)", "Copia l'indirizzo", "Indirizzo copiato ✓", "In OBS, aggiungi una sorgente «Browser» (460 × 240):",
-           "L'overlay OBS non può avviarsi: la porta {p} è già in uso.", "Ultimo obiettivo sbloccato"],
+           "L'overlay OBS non può avviarsi: la porta {p} è già in uso.", "Ultimo obiettivo sbloccato",
+           "La porta dell'overlay OBS deve essere un numero da 1024 a 65535."],
     "pt": ["Overlay OBS (streaming)", "Copiar o endereço", "Endereço copiado ✓", "No OBS, adicione uma fonte «Navegador» (460 × 240):",
-           "O overlay OBS não pode iniciar: a porta {p} já está a ser usada.", "Última conquista desbloqueada"],
+           "O overlay OBS não pode iniciar: a porta {p} já está a ser usada.", "Última conquista desbloqueada",
+           "A porta do overlay OBS deve ser um número de 1024 a 65535."],
 }
 for _lang, _values in _OVERLAY.items():
     i18n.I18N.setdefault(_lang, {}).update(zip(_OVERLAY_KEYS, _values))
