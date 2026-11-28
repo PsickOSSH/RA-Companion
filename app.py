@@ -1119,10 +1119,12 @@ class App(tk.Tk):
         bt.bind("<Button-1>", test_notification)
         # export / import: one line per kind of data (name on the left, buttons on the right) to keep the window short
         io_msg = self.lbl(w, "", 8, skin.TEXT_MUTED, anchor="w", justify="left", wraplength=390)
+        io_lines = []
 
         def io_row(text, export, load, delete):
             line = tk.Frame(w, bg=skin.BACKGROUND)
             line.pack(fill="x", padx=18, pady=(8, 0))
+            io_lines.append(line)
             self.lbl(line, text, 10, bold=True, anchor="w").pack(side="left")
 
             def run(command):
@@ -1192,7 +1194,8 @@ class App(tk.Tk):
         self.logo_link(links, "github", REPO_URL, "GitHub").pack(side="left", padx=10)
         self.logo_link(links, "ra", SITE_URL, "retroachievements.org").pack(side="left", padx=10)
         self.logo_link(links, "bmc", BMC_URL, "Buy Me a Coffee").pack(side="left", padx=10)
-        self.fit_window(w)
+        w.update_idletasks()
+        self.fit_window(w, min_width=max(line.winfo_reqwidth() for line in io_lines) + 36)       # 18 px on each side
 
     def ask(self, parent, message, action, color=skin.ACCENT, cancel=True):
         """Question with the button `action`: True when it is pressed (see choose)."""
@@ -1287,16 +1290,17 @@ class App(tk.Tk):
         d.protocol("WM_DELETE_WINDOW", close)
         d.bind("<Escape>", close)
 
-    def fit_window(self, win, over=None):
+    def fit_window(self, win, over=None, min_width=0):
         """Give `win` the smallest height that shows all its content (called once the content is built; the size of the
-        constants above is only the starting size). It is placed again, centered, inside the screen."""
+        constants above is only the starting size), and at least `min_width`. It is placed again, centered, inside the
+        screen."""
         win.update_idletasks()
         over = over or self
         need = win.winfo_reqheight()
         area = screen_bounds(over.winfo_rootx() + over.winfo_width() // 2, over.winfo_rooty() + over.winfo_height() // 2)
         if area:
             need = min(need, area[3] - area[1] - 10)
-        self.place_window(win, f"{win.winfo_width()}x{need}", over)
+        self.place_window(win, f"{max(win.winfo_width(), min_width)}x{need}", over)
 
     def safe_grab(self, win, tries=30):
         """Make `win` modal. On Linux the grab fails while the window is not visible yet ("window not viewable"): it is

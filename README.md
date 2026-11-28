@@ -429,7 +429,7 @@ mkdir -p ~/RA-Companion-iOS-app
 cd ~/RA-Companion
 cp main.py main.kv features.py storage.py themes.py uitext.py mobile_i18n.py notify.py \
    androidutil.py layoututil.py ra_api.py utils.py medians.py config.py i18n.py translator.py \
-   updater.py appinfo.py iosutil.py imgcache.py userskins.py settings_io.py notes_io.py backup_io.py ~/RA-Companion-iOS-app/
+   updater.py appinfo.py iosutil.py imgcache.py userskins.py settings_io.py notes_io.py backup_io.py symbols.py ~/RA-Companion-iOS-app/
 cp -R skins fonts ~/RA-Companion-iOS-app/
 ```
 
