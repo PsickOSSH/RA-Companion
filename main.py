@@ -31,6 +31,7 @@ from kivy.uix.modalview import ModalView
 from kivy.uix.recycleview import RecycleView
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.screenmanager import Screen, ScreenManager
+from kivy.uix.switch import Switch
 from kivy.uix.textinput import TextInput
 from kivy.uix.image import AsyncImage
 
@@ -251,6 +252,17 @@ class DarkDropDown(DropDown):
         super().__init__(**kw)
         self.container.padding = dp(4)
         self.container.spacing = dp(4)
+
+
+class ThemedSwitch(Switch):
+    """On / off switch in the colors of the theme (the pictures of Kivy are blue and grey). Drawn in main.kv; it is moved
+    and tapped like the one of Kivy."""
+
+    def on_active(self, *_):
+        if self.touch_control is None:             # changed by the app, not by a finger
+            # Kivy keeps the way of the last slide: the knob would stay on the wrong side
+            self.touch_distance = 0
+            self.active_norm_pos = int(self.active)
 
 
 def _note_label(note):

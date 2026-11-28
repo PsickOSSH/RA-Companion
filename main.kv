@@ -228,6 +228,30 @@
     shorten: True
     shorten_from: 'right'
 
+# on / off switch (main.py, ThemedSwitch). The "-" drops the pictures of Kivy; the size of the track (83 x 32) and the
+# way of the knob (41) are the ones of Kivy, which handles the finger.
+<-ThemedSwitch>:
+    active_norm_pos: max(0., min(1., (int(self.active) + self.touch_distance / sp(41))))
+    opacity: 0.5 if self.disabled else 1
+    canvas:
+        Color:
+            rgba: app.c_accent if self.active else app.c_alt
+        RoundedRectangle:
+            pos: int(self.center_x - sp(41)), int(self.center_y - sp(16))
+            size: sp(83), sp(32)
+            radius: [sp(16),]
+        Color:
+            rgba: app.c_accent if self.active else app.c_muted
+        Line:
+            rounded_rectangle: int(self.center_x - sp(41)), int(self.center_y - sp(16)), sp(83), sp(32), sp(16)
+            width: 1
+        Color:
+            rgba: app.c_on_accent if self.active else app.c_muted
+        RoundedRectangle:
+            pos: int(self.center_x - sp(41) + sp(4) + self.active_norm_pos * sp(51)), int(self.center_y - sp(12))
+            size: sp(24), sp(24)
+            radius: [sp(12),]
+
 <TapPic>:
     opacity: 0.55 if self.state == 'down' else 1       # a picture that opens a page: dimmed while it is pressed
 
@@ -1292,7 +1316,7 @@
                         halign: 'left'
                         valign: 'middle'
                         text_size: self.size
-                    Switch:
+                    ThemedSwitch:
                         id: libre_insecure_switch
                         active: root.libre_insecure
                         size_hint_x: None
@@ -1362,7 +1386,7 @@
                         halign: 'left'
                         valign: 'middle'
                         text_size: self.size
-                    Switch:
+                    ThemedSwitch:
                         id: notify_switch
                         active: root.notify_on
                         size_hint_x: None
