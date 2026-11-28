@@ -1634,18 +1634,21 @@ class SettingsScreen(Screen):
         if not count:
             self.notes_msg = tr("n_export_none")
             return
-        androidutil.save_text("ra_companion_notes.json", store.export_text(), lambda status, info: self._after_export(status, info, count))
+        androidutil.save_file_text("ra_companion_notes.json", store.export_text(),          # (iPhone: copied to the clipboard)
+                                   lambda status, info: self._after_export(status, info, count))
 
     def _after_export(self, status, info, count):
         if status == "ok":
             self.notes_msg = tr("n_export_ok", n=count)
+        elif status == "copied":
+            self.notes_msg = tr("n_copied", n=count)
         elif status == "error":
             self.notes_msg = tr("error", e=info)
         else:
             self.notes_msg = ""
 
     def import_notes(self):
-        androidutil.read_text(self._after_import)
+        androidutil.load_file_text(self._after_import, "ra_companion_notes.json")            # (iPhone: the clipboard)
 
     def _after_import(self, status, text):
         if status == "cancel":

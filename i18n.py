@@ -254,7 +254,7 @@ SHARED_KEYS = ["t100", "se_tab_search", "se_tab_recent", "se_tab_want", "se_load
                "s_params_exported", "s_params_copied", "s_params_imported", "s_params_bad", "s_params_hint",
                "n_delete_pick", "n_delete_confirm", "n_deleted", "n_none", "s_params_reset", "s_params_all", "s_params_keep",
                "s_params_reset_done", "s_all_warn", "s_all_replace", "s_all_exported", "s_all_copied",
-               "s_all_imported", "s_all_bad", "s_all_reset", "s_all_deleted"]
+               "s_all_imported", "s_all_bad", "s_all_reset", "s_all_deleted", "n_copied"]
 _SHARED = {
     "en": ["Average time to 100%: ≈ {t}", "Search", "Recent", "Want to play", "Loading…", "No recently played game.",
            "Your \"Want to Play\" list is empty.", "{d}/{t} achievements", "Session: {n} unlocked • +{p} pts • {t}",
@@ -277,7 +277,7 @@ _SHARED = {
            "Everything exported.", "Everything copied to the clipboard.", "Imported: settings, {s} skin(s), notes: {a} added, {m} merged.",
            "This is not a complete backup file.",
            "Delete everything?\n\nAll your settings (account and API key included) and your theme go back to default, and your imported skins and personal notes are deleted for good. Export everything first if you want to keep them.",
-           "Everything has been deleted."],
+           "Everything has been deleted.", "{n} notes copied to the clipboard."],
     "fr": ["Temps moyen pour le 100\u00a0%\u00a0: ≈\u00a0{t}", "Rechercher", "Récents", "À jouer", "Chargement…", "Aucun jeu joué récemment.",
            "Votre liste « Want to Play » est vide.", "{d}/{t} succès", "Session : {n} succès • +{p} pts • {t}",
            "Succès de la session", "Rechercher dans la liste", "Importer un skin…",
@@ -299,7 +299,7 @@ _SHARED = {
            "Tout a été exporté.", "Tout a été copié dans le presse-papiers.", "Importé : paramètres, {s} skin(s), notes : {a} ajoutées, {m} fusionnées.",
            "Ce n'est pas un fichier de sauvegarde complète.",
            "Tout supprimer ?\n\nTous vos paramètres (compte et clé API compris) et votre thème reviennent par défaut, et vos skins importés et vos notes sont supprimés définitivement. Exportez tout d'abord si vous voulez les garder.",
-           "Tout a été supprimé."],
+           "Tout a été supprimé.", "{n} notes copiées dans le presse-papiers."],
     "es": ["Tiempo medio para el 100 %: ≈ {t}", "Buscar", "Recientes", "Por jugar", "Cargando…", "Ningún juego jugado recientemente.",
            "Tu lista «Want to Play» está vacía.", "{d}/{t} logros", "Sesión: {n} logros • +{p} pts • {t}",
            "Logros de la sesión", "Buscar en la lista", "Importar un skin…",
@@ -321,7 +321,7 @@ _SHARED = {
            "Todo exportado.", "Todo copiado al portapapeles.", "Importado: ajustes, {s} skin(s), notas: {a} añadidas, {m} combinadas.",
            "No es un archivo de copia de seguridad completa.",
            "¿Eliminar todo?\n\nTodos tus ajustes (cuenta y clave API incluidas) y tu tema vuelven a los valores por defecto, y tus skins importados y tus notas se eliminan definitivamente. Exporta todo antes si quieres conservarlos.",
-           "Todo se ha eliminado."],
+           "Todo se ha eliminado.", "{n} notas copiadas al portapapeles."],
     "de": ["Durchschnittliche Zeit bis 100 %: ≈ {t}", "Suchen", "Zuletzt", "Wunschliste", "Wird geladen…",
            "Kein zuletzt gespieltes Spiel.", "Deine „Want to Play“-Liste ist leer.", "{d}/{t} Erfolge",
            "Sitzung: {n} Erfolge • +{p} Pkt • {t}", "In dieser Sitzung freigeschaltet", "In der Liste suchen",
@@ -343,7 +343,7 @@ _SHARED = {
            "Alles exportiert.", "Alles in die Zwischenablage kopiert.", "Importiert: Einstellungen, {s} Skin(s), Notizen: {a} neu, {m} zusammengeführt.",
            "Das ist keine vollständige Sicherungsdatei.",
            "Alles löschen?\n\nAlle Einstellungen (Konto und API-Schlüssel eingeschlossen) und das Design werden zurückgesetzt, importierte Skins und Notizen werden endgültig gelöscht. Exportiere zuerst alles, wenn du sie behalten willst.",
-           "Alles wurde gelöscht."],
+           "Alles wurde gelöscht.", "{n} Notizen in die Zwischenablage kopiert."],
     "it": ["Tempo medio per il 100%: ≈ {t}", "Cerca", "Recenti", "Da giocare", "Caricamento…", "Nessun gioco giocato di recente.",
            "La tua lista «Want to Play» è vuota.", "{d}/{t} obiettivi", "Sessione: {n} obiettivi • +{p} pt • {t}",
            "Obiettivi della sessione", "Cerca nell'elenco", "Importa uno skin…",
@@ -365,7 +365,7 @@ _SHARED = {
            "Tutto esportato.", "Tutto copiato negli appunti.", "Importato: impostazioni, {s} skin, note: {a} aggiunte, {m} unite.",
            "Non è un file di backup completo.",
            "Eliminare tutto?\n\nTutte le impostazioni (account e chiave API compresi) e il tema tornano predefiniti, gli skin importati e le note vengono eliminati definitivamente. Esporta prima tutto se vuoi conservarli.",
-           "È stato eliminato tutto."],
+           "È stato eliminato tutto.", "{n} note copiate negli appunti."],
     "pt": ["Tempo médio para os 100%: ≈ {t}", "Procurar", "Recentes", "Por jogar", "A carregar…", "Nenhum jogo jogado recentemente.",
            "A sua lista «Want to Play» está vazia.", "{d}/{t} conquistas", "Sessão: {n} conquistas • +{p} pts • {t}",
            "Conquistas da sessão", "Procurar na lista", "Importar um skin…",
@@ -387,7 +387,7 @@ _SHARED = {
            "Tudo exportado.", "Tudo copiado para a área de transferência.", "Importado: definições, {s} skin(s), notas: {a} adicionadas, {m} combinadas.",
            "Não é um ficheiro de cópia de segurança completa.",
            "Eliminar tudo?\n\nTodas as definições (conta e chave API incluídas) e o tema voltam ao predefinido, e os skins importados e as notas são eliminados definitivamente. Exporte tudo primeiro se os quiser guardar.",
-           "Tudo foi eliminado."],
+           "Tudo foi eliminado.", "{n} notas copiadas para a área de transferência."],
 }
 for _l, _values in _SHARED.items():
     I18N[_l].update(zip(SHARED_KEYS, _values))
