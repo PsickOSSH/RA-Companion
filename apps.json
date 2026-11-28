@@ -51,14 +51,14 @@
           "date": "2026-11-21",
           "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v2.2/ra-companion-2.2.ipa",
           "size": 21914901,
-          "localizedDescription": "New Kirby skin. On a wide window the Windows app now shows two columns, and a button folds the profile and game cards. The rank wraps under the name when the screen is narrow, the window remembers its position, the Achievements tab shrinks its text instead of being cut.\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v2.1...v2.2"
+          "localizedDescription": "New Kirby skin. On a wide window the Windows app now shows two columns, and a button folds the profile and game cards. The rank wraps under the name when the screen is narrow, and the Achievements tab shrinks its text instead of being cut.\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v2.1...v2.2"
         },
         {
           "version": "2.1",
           "date": "2026-11-17",
           "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v2.1/ra-companion-2.1.ipa",
           "size": 21906707,
-          "localizedDescription": "AI translation: add one or several AI services (Gemini, Groq, Mistral, OpenAI, Ollama...) with automatic fallback, and choose the order of all translation services. New button to clear the translation cache. The settings windows adapt their height to their content.\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v2.0...v2.1"
+          "localizedDescription": "AI translation: add one or several AI services (Gemini, Groq, Mistral, OpenAI, Ollama...) with automatic fallback, and choose the order of all translation services. New button to clear the translation cache. The settings windows adapt their height to their content. On Windows, the main window remembers its position and size.\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v2.0...v2.1"
         },
         {
           "version": "2.0",
@@ -72,14 +72,14 @@
           "date": "2026-11-14",
           "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v1.9/ra-companion-1.9.ipa",
           "size": 21969845,
-          "localizedDescription": "Resizable personal notes area (corner handle), hint under the update button, Buy Me a Coffee link in the settings.\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v1.8...v1.9"
+          "localizedDescription": "Hint under the update button, Buy Me a Coffee link in the settings.\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v1.8...v1.9"
         },
         {
           "version": "1.8",
           "date": "2026-11-13",
           "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v1.8/ra-companion-1.8.ipa",
           "size": 21955495,
-          "localizedDescription": "LibreTranslate: option to accept an invalid certificate for your own server, and a Test button (Windows, Android, iOS) that checks each translation service and shows which one really answers.\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v1.7...v1.8"
+          "localizedDescription": "LibreTranslate: option to accept an invalid certificate for your own server, and a Test button (Windows, Android, iOS) that checks each translation service and shows which one really answers. Resizable personal notes area on Windows (corner handle).\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v1.7...v1.8"
         },
         {
           "version": "1.7",
@@ -93,14 +93,21 @@
           "date": "2026-11-13",
           "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v1.6/ra-companion-1.6.ipa",
           "size": 21936506,
-          "localizedDescription": "Refresh interval down to 5 s, configurable refresh shortcut on Windows (F1 by default), automatic retries on temporary API errors, readable error messages on Windows.\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v1.5...v1.6"
+          "localizedDescription": "Refresh interval down to 5 s, configurable refresh shortcut on Windows (F1 by default).\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v1.5...v1.6"
         },
         {
           "version": "1.5",
           "date": "2026-10-26",
           "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v1.5/ra-companion-1.5.ipa",
           "size": 21782291,
-          "localizedDescription": "In-app unlock banner on iOS and Android: badge, description, points, stacking, auto height.\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v1.3...v1.5"
+          "localizedDescription": "In-app unlock banner on iOS and Android: badge, description, points, stacking, auto height. Automatic retries on temporary API errors, readable error messages on Windows.\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v1.4...v1.5"
+        },
+        {
+          "version": "1.4",
+          "date": "2026-10-23",
+          "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v1.4/ra-companion-1.4.ipa",
+          "size": 20752369,
+          "localizedDescription": "First iOS version: margins for the notch and the home indicator, in-app banner when an achievement unlocks, system notifications when the app has just been sent to the background, native clipboard and automatic detection of the device language. Two new sort orders by the hardcore median time needed to unlock each achievement.\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v1.3...v1.4"
         }
       ]
     }
