@@ -24,6 +24,7 @@ from kivy.uix.anchorlayout import AnchorLayout
 from kivy.uix.behaviors import ButtonBehavior, FocusBehavior
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
+from kivy.uix.dropdown import DropDown
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.label import Label
 from kivy.uix.modalview import ModalView
@@ -241,6 +242,15 @@ class Pic(AsyncImage):
 
 class TapPic(ButtonBehavior, Pic):
     """Picture that reacts to a tap (opens a RetroAchievements page)."""
+
+
+class DarkDropDown(DropDown):
+    """List opened by a DarkSpinner, in the colors of the theme (the one of Kivy is grey). Drawn in main.kv."""
+
+    def __init__(self, **kw):
+        super().__init__(**kw)
+        self.container.padding = dp(4)
+        self.container.spacing = dp(4)
 
 
 def _note_label(note):

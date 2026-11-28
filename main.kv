@@ -171,6 +171,8 @@
             on_release: root.dismiss()
 
 <DarkSpinner@Spinner>:
+    option_cls: 'DarkSpinnerOption'
+    dropdown_cls: 'DarkDropDown'
     background_normal: ''
     background_down: ''
     background_color: 0, 0, 0, 0
@@ -185,6 +187,46 @@
     font_size: sp(14)
     size_hint_y: None
     height: dp(48)
+
+# the list opened by a DarkSpinner and one of its lines
+<DarkDropDown>:
+    bar_width: dp(6)
+    bar_color: [app.c_accent[0], app.c_accent[1], app.c_accent[2], 0.9]
+    bar_inactive_color: [app.c_accent[0], app.c_accent[1], app.c_accent[2], 0.45]
+    canvas.before:
+        Color:
+            rgba: app.c_card
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(12),]
+    canvas.after:
+        Color:
+            rgba: app.c_accent
+        Line:
+            rounded_rectangle: self.x, self.y, self.width, self.height, dp(12)
+            width: 1
+
+<DarkSpinnerOption@SpinnerOption>:
+    background_normal: ''
+    background_down: ''
+    background_color: 0, 0, 0, 0
+    canvas.before:
+        Color:
+            rgba: app.c_press if self.state == 'down' else app.c_alt
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(10),]
+    color: app.c_text
+    font_size: sp(14)
+    size_hint_y: None
+    height: dp(46)
+    text_size: self.width - dp(16), None
+    halign: 'center'
+    valign: 'middle'
+    shorten: True
+    shorten_from: 'right'
 
 <TapPic>:
     opacity: 0.55 if self.state == 'down' else 1       # a picture that opens a page: dimmed while it is pressed
