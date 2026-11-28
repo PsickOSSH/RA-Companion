@@ -1,5 +1,6 @@
-"""Android helpers (through pyjnius): open a web link, save / read a text file with the system file picker.
-On a PC the file functions use ~/ra_companion_notes.json so that the app can be tested without a phone."""
+"""System access of the phones: open a web link, save / read a text file with the system file window (Android through
+pyjnius, iOS through iosutil.py). On a PC the file functions use the home folder, so that the app can be tested without a
+phone."""
 
 import os
 
@@ -116,17 +117,11 @@ def save_skin_text(filename, text, callback):
 
 
 def save_file_text(filename, text, callback, mime="application/json"):
-    """Export a text file: "save as" window on Android (callback status 'ok' / 'cancel' / 'error'); on iOS, which has none
-    here, the text is copied to the clipboard (status 'copied')."""
+    """Export a text file where the user chooses: "save as" window on Android, document window on iOS (callback status
+    'ok' / 'cancel' / 'error')."""
     if platform == "ios":
-        try:
-            import iosutil
-            if iosutil.clipboard_copy(text):
-                callback("copied", "")
-            else:
-                callback("error", "clipboard")
-        except Exception as e:
-            callback("error", f"{e.__class__.__name__}: {e}")
+        import iosutil
+        iosutil.save_file(filename, text, callback)
         return
     save_text(filename, text, callback, mime)
 
@@ -137,15 +132,11 @@ def read_skin_text(callback):
 
 
 def load_file_text(callback, pc_file):
-    """Text of a file, given to callback(status, text): chosen with the file picker on Android. iOS has no picker here: the
-    text copied to the clipboard is used (status 'cancel' when it is empty)."""
+    """Text of a file chosen by the user, given to callback(status, text): file window on Android and iOS. `pc_file` is the
+    file read on a computer; its extension is the kind of file asked for on iOS."""
     if platform == "ios":
-        try:
-            import iosutil
-            text = iosutil.clipboard_paste() or ""
-            callback("ok" if text.strip() else "cancel", text)
-        except Exception as e:
-            callback("error", f"{e.__class__.__name__}: {e}")
+        import iosutil
+        iosutil.open_file(os.path.splitext(pc_file)[1], callback)
         return
     read_text(callback, pc_file)
 

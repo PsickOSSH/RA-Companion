@@ -121,10 +121,8 @@ progress live. It comes in three versions that look and behave the same way:
   service that just failed is skipped for a while, and a text that failed is retried automatically. **Web links** in
   the comments are highlighted (colour + underline) and open in the browser when clicked / tapped
 - **Personal notes**: saved locally, exported to / imported from a JSON file (the same file works on all versions), and
-  deleted from the settings: choose one, several or all of them in the list. On iPhone, the export copies the notes to
-  the clipboard; to import, copy the content of a notes file first (the same text as the file of the other versions).
-  On Windows, the note area of an achievement can be enlarged by dragging the handle in its bottom-right corner (its
-  height is remembered); a longer text scrolls
+  deleted from the settings: choose one, several or all of them in the list. On Windows, the note area of an achievement
+  can be enlarged by dragging the handle in its bottom-right corner (its height is remembered); a longer text scrolls
 - **Copy / paste in the text fields**: on Windows, a right click in a field (settings, notes, comments) opens a
   *Cut / Copy / Paste / Select all* menu; on Android and iOS, a long press on a field shows a *Cut / Copy / Paste* bar
 - **Horizontal interface** (Windows): when the window is made wide (about 760 px and more, clearly wider than tall), the
@@ -160,18 +158,19 @@ progress live. It comes in three versions that look and behave the same way:
   port...) and import it on another device or after a new installation, on all versions. The skin, the window position,
   the imported skins and the notes are not in it (skins and notes have their own export). The **Delete** button of the same line puts the settings
   back to their default values, either everything or keeping only the username and the API key. **The file contains your
-  API keys in plain text: do not share it.** On iPhone the export copies to the clipboard; to import, copy the content of
-  the file first
+  API keys in plain text: do not share it.**
 - **Complete backup**: the **Everything** line of the settings exports one file with the settings, the theme, the
   imported skins and the notes, and imports it on another device or after a new installation (all versions). The import
   replaces the settings and the theme, adds the skins (same name: replaced) and merges the notes, after a confirmation.
   **The file contains your API keys in plain text: do not share it.** The **Delete** button of the same line resets all the
-  settings (account included) and the theme, and deletes the imported skins and the notes, after a confirmation. On
-  iPhone it goes through the clipboard, like the settings file.
+  settings (account included) and the theme, and deletes the imported skins and the notes, after a confirmation.
 - **Your own skins**: import a skin file in the settings, without rebuilding the app, then export or delete the imported
   skins, one or several at a time (all versions; see [Creating a skin](#creating-a-skin))
 - **Themed title bar** (Windows): the title bar of every window takes the background and text colors of the skin on
   Windows 11; on Windows 10 it is only dark or light, according to the skin
+- **Exporting and importing files on a phone** (notes, skins, settings, complete backup): the file window of the system
+  opens (on iPhone, the one of the **Files** app), where you choose the file to import, or the place where the exported
+  file is saved under the proposed name (on the phone, iCloud Drive or another storage). Cancelling changes nothing
 - **Update check** in the settings: looks for a newer `.exe` (Windows), `.apk` (Android) or `.ipa` (iOS) in the GitHub releases
 - **iOS support** (experimental): safe-area margins for the notch and home indicator, native clipboard (the *Cut / Copy / Paste* bar) and automatic detection of the device language
 - **In-app unlock banner** (Android and iOS): when the app is open, a new achievement shows a banner with its badge, title, description, points and a gold outline for your unlocks or a blue one for a friend's; up to 4 banners are stacked, a tap dismisses them, and the height adapts to the text
@@ -252,7 +251,7 @@ Kivy interface; only a few files are specific to one of them.
 
 | Windows only | Android and iOS (Kivy) | Android only | iOS only | Shared |
 |---|---|---|---|---|
-| `ra_companion.py` entry point | `main.py` + `main.kv` screens | `androidutil.py` system access (files, links) | `iosutil.py` safe areas, device language, clipboard | `ra_api.py` RetroAchievements Web API |
+| `ra_companion.py` entry point | `main.py` + `main.kv` screens | `androidutil.py` system access (files, links) | `iosutil.py` safe areas, device language, clipboard, file window | `ra_api.py` RetroAchievements Web API |
 | `app.py` window and logic | `features.py` logic, notes, duel, group | `buildozer.spec` APK build settings | | `utils.py` formatting, sorting, hardcore median helpers |
 | `widgets.py` rounded widgets | `storage.py`, `themes.py` | `docs/icon.png` app icon | | `config.py` paths and constants |
 | `desktop_texts.py` texts | `uitext.py`, `mobile_i18n.py` texts | | | `i18n.py` translations |
@@ -521,6 +520,8 @@ and the app has to be refreshed from AltStore.
 
 - While the app is open, unlocks are shown as an in-app banner; system notifications appear only when the app has just been sent to the background. Reliable background notifications would require push notifications through APNs and a paid Apple developer account.
 - The image cache works, but reinstalling the app from Xcode can reset its data folder.
+- A file larger than 5 MB cannot be imported. Before iOS 14, the skin import lets you choose any file (a file that is
+  not a skin is refused).
 
 ### Publishing a release
 
@@ -542,9 +543,8 @@ The in-app update check compares the installed version with the newest release t
    override just a few values. The included skins only define colors and fonts: their corner radii (`RADIUS_*`,
    Windows and Linux) and hover strength (`HOVER_STRENGTH`) come from `default.py`. Your skin may set its own.
 3. **Import it** in the app, without rebuilding anything: in the settings, press **Import…** (Windows and Linux) or
-   **Import a skin…** (phone), choose your file, then save (Windows and Linux restart to apply it). On Android the file
-   picker opens; on iPhone, copy the content of the file first, then tap the button. Importing a skin with the same
-   `NAME` replaces it.
+   **Import a skin…** (phone), choose your file, then save (Windows and Linux restart to apply it). Importing a skin with
+   the same `NAME` replaces it.
    When you run or build the app from the sources, a file placed in `skins/` is also listed in **Settings -> Skin**.
 
 An imported file is **read, never executed**: only the lines `NAME = value` with a plain text or number are kept, and
@@ -555,7 +555,7 @@ imported skins, where you choose one or several:
 
 - **Export**: to share them, copy them to another device or keep a backup. On Windows and Linux each skin becomes a `.py`
   file (in a folder you choose when there are several). On a phone several skins are put in one file, which
-  **Import a skin** reads back entirely; on iPhone the text is copied to the clipboard.
+  **Import a skin** reads back entirely.
 - **Delete**: a confirmation is asked first. If the skin in use is deleted, the default one comes back.
 
 Every variable is documented in `skins/default.py`. When you add a skin variable to the code, also add it to

@@ -1346,8 +1346,7 @@ class SettingsScreen(Screen):
         view.open()
 
     def export_skins(self, chosen):
-        """One skin: a skin file. Several: one file that holds them all, which "Import a skin" reads back. On iPhone the text
-        is copied to the clipboard."""
+        """One skin: a skin file. Several: one file that holds them all, which "Import a skin" reads back."""
         app = App.get_running_app()
         loaded = [(ident, userskins.load(app.user_skins_dir, ident)) for ident, _name in chosen]
         loaded = [(ident, values) for ident, values in loaded if values]
@@ -1365,7 +1364,7 @@ class SettingsScreen(Screen):
         if status == "error":
             self.skin_msg = tr("error", e=info)
         else:
-            self.skin_msg = tr("s_skins_copied" if status == "copied" else "s_skins_exported", n=count)
+            self.skin_msg = tr("s_skins_exported", n=count)
 
     def ask_delete_skins(self, chosen):
         """Confirmation window before the chosen skins are deleted."""
@@ -1436,7 +1435,7 @@ class SettingsScreen(Screen):
         if status == "error":
             self.params_msg = tr("error", e=info)
         else:
-            self.params_msg = tr("s_params_copied" if status == "copied" else "s_params_exported")
+            self.params_msg = tr("s_params_exported")
 
     def import_settings(self):
         androidutil.load_file_text(self._after_settings_text, "ra_companion_settings.json")
@@ -1501,7 +1500,7 @@ class SettingsScreen(Screen):
         if status == "error":
             self.all_msg = tr("error", e=info)
         else:
-            self.all_msg = tr("s_all_copied" if status == "copied" else "s_all_exported")
+            self.all_msg = tr("s_all_exported")
 
     def import_all(self):
         androidutil.load_file_text(self._after_all_text, "ra_companion_backup.json")
@@ -1634,21 +1633,19 @@ class SettingsScreen(Screen):
         if not count:
             self.notes_msg = tr("n_export_none")
             return
-        androidutil.save_file_text("ra_companion_notes.json", store.export_text(),          # (iPhone: copied to the clipboard)
+        androidutil.save_file_text("ra_companion_notes.json", store.export_text(),
                                    lambda status, info: self._after_export(status, info, count))
 
     def _after_export(self, status, info, count):
         if status == "ok":
             self.notes_msg = tr("n_export_ok", n=count)
-        elif status == "copied":
-            self.notes_msg = tr("n_copied", n=count)
         elif status == "error":
             self.notes_msg = tr("error", e=info)
         else:
             self.notes_msg = ""
 
     def import_notes(self):
-        androidutil.load_file_text(self._after_import, "ra_companion_notes.json")            # (iPhone: the clipboard)
+        androidutil.load_file_text(self._after_import, "ra_companion_notes.json")
 
     def _after_import(self, status, text):
         if status == "cancel":
