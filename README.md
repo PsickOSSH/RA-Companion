@@ -293,8 +293,29 @@ Kivy screens, which have to be tried by hand.
 
 ### Windows `.exe`
 
-Install [PyInstaller](https://pyinstaller.org) (`pip install pyinstaller`), then run `build-exe.bat` from the project
-folder. The executable is created in `dist\RA-Companion.exe`.
+PyInstaller puts in the executable what the code and its libraries try to import, among what is installed. Build in a
+separate Python environment that only holds the needed packages: [PyInstaller](https://pyinstaller.org), Pillow (smooth
+corners, trophy of the OBS overlay) and certifi (certificates of the HTTPS connections). Once, from the project folder:
+
+```
+python -m venv ..\venv-build
+..\venv-build\Scripts\python -m pip install pyinstaller pillow certifi
+```
+
+Then, for each build:
+
+```
+..\venv-build\Scripts\activate
+build-exe.bat
+deactivate
+```
+
+In PowerShell, type `.\build-exe.bat`. The executable is created in `dist\RA-Companion.exe`. The environment is kept
+outside the project folder so that it is not committed nor copied into the `.apk`.
+
+`build-exe.bat` also leaves out two heavy parts that the app does not use, in case they are installed (`numpy` and the
+AVIF pictures of Pillow), and deletes `skins\__pycache__` first, so that the temporary files of Python are not copied
+into the executable.
 
 The skins are loaded by name, so PyInstaller needs them listed explicitly (`--hidden-import skins.<name>` and
 `--add-data "skins;skins"`). `build-exe.bat` already lists all the skins of the repository. If you add a skin, add a
