@@ -58,14 +58,14 @@
           "date": "2026-11-17",
           "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v2.1/ra-companion-2.1.ipa",
           "size": 21906707,
-          "localizedDescription": "AI translation: add one or several AI services (Gemini, Groq, Mistral, OpenAI, Ollama...) with automatic fallback, and choose the order of all translation services. New button to clear the translation cache. The settings windows adapt their height to their content. On Windows, the main window remembers its position and size.\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v2.0...v2.1"
+          "localizedDescription": "AI translation: add one or several AI services (Gemini, Groq, Mistral, OpenAI, Ollama...) with automatic fallback, and choose the order of all translation services. New button to clear the translation cache. On Windows, the main window remembers its position and size.\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v2.0...v2.1"
         },
         {
           "version": "2.0",
           "date": "2026-11-17",
           "downloadURL": "https://github.com/PsickOSSH/RA-Companion/releases/download/v2.0/ra-companion-2.0.ipa",
           "size": 21881454,
-          "localizedDescription": "Translation is faster and more reliable (services that fail are skipped for a while, automatic retries, cache). Web links in comments are highlighted and clickable. Cut / Copy / Paste bar on a long press on Android and iOS, right-click edit menu on Windows.\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v1.9...v2.0"
+          "localizedDescription": "Translation is faster and more reliable (more texts at once, services that fail are tried last for a while, automatic retries). Web links in comments are highlighted and clickable. Cut / Copy / Paste bar on a long press on Android and iOS, right-click edit menu on Windows.\n\nFull Changelog:\nhttps://github.com/PsickOSSH/RA-Companion/compare/v1.9...v2.0"
         },
         {
           "version": "1.9",
