@@ -121,7 +121,8 @@ progress live. It comes in three versions that look and behave the same way:
   service that just failed is skipped for a while, and a text that failed is retried automatically. **Web links** in
   the comments are highlighted (colour + underline) and open in the browser when clicked / tapped
 - **Personal notes**: saved locally, exported to / imported from a JSON file (the same file works on all versions), and
-  deleted from the settings: choose one, several or all of them in the list.
+  deleted from the settings: choose one, several or all of them in the list. On iPhone, the export and import of the
+  notes alone use a file kept inside the app: to move notes to or from an iPhone, use the **complete backup**.
   On Windows, the note area of an achievement can be enlarged by dragging the handle in its bottom-right corner (its
   height is remembered); a longer text scrolls
 - **Copy / paste in the text fields**: on Windows, a right click in a field (settings, notes, comments) opens a
