@@ -9,8 +9,8 @@
 
 [![Release](https://img.shields.io/github/v/release/PsickOSSH/RA-Companion)](https://github.com/PsickOSSH/RA-Companion/releases)
 ![Downloads](https://img.shields.io/github/downloads/PsickOSSH/RA-Companion/total)
-![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011%20%7C%20Android%20%7C%20iOS-green)
-![Architecture](https://img.shields.io/badge/architecture-x64-orange)
+![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011%20%7C%20Linux%20%7C%20Android%20%7C%20iOS-green)
+![Architecture](https://img.shields.io/badge/architecture-x64%20%7C%20ARM-orange)
 ![Python](https://img.shields.io/badge/python-3.12-3776AB)
 ![UI](https://img.shields.io/badge/UI-Tkinter%20%7C%20Kivy-informational)
 ![Languages](https://img.shields.io/badge/languages-EN%20%7C%20FR%20%7C%20ES%20%7C%20DE%20%7C%20IT%20%7C%20PT-purple)
@@ -90,18 +90,18 @@ The default theme (Midnight Gold) is the one of the other screenshots.
 ## About
 
 A companion for [RetroAchievements](https://retroachievements.org): keep it open next to your emulator and follow your
-progress live. It comes in three versions that look and behave the same way:
+progress live. It comes in four versions that look and behave the same way:
 
 - **Windows**: a desktop application (Python + Tkinter, also available as a ready-to-use `.exe`).
+- **Linux**: the same desktop application, as an AppImage (see [Linux](#linux-appimage)).
 - **Android**: a phone application (Python + Kivy, installed from an `.apk`).
 - **iOS**: the same Kivy interface, built with [kivy-ios](https://github.com/kivy/kivy-ios) and Xcode
-  (see *Building for iOS* below).
+  (see [Building for iOS](#building-for-ios)).
 
 ## Features
 
-- **Persistent image cache** on Windows, Android and iOS: previously downloaded achievement badges and game icons
-  are reused after restarting the app, reducing repeated requests to the RetroAchievements media server.
-
+- **Persistent image cache** on all versions: previously downloaded achievement badges and game icons are reused after
+  restarting the app, reducing repeated requests to the RetroAchievements media server
 - **Live profile**: hardcore / softcore points, RetroPoints, rank (`#1 234`) and percentile, current game with rich presence
 - **Time to 100%**: the game card shows the average time needed to master the current game (the median of the hardcore
   players, from RetroAchievements); the line is hidden when the game has no value
@@ -111,7 +111,7 @@ progress live. It comes in three versions that look and behave the same way:
   retroachievements.org. On Windows and Linux a frame and a tooltip appear under the mouse; on a phone the picture is
   dimmed while pressed
 - **Achievement list**: filters *All / Locked / Unlocked* that combine with a **missable** option (<img src="docs/icons/missable.png" alt="warning button" height="22" align="top"> *Missable*),
-  11 sort orders, optional hardcore-only counting (<img src="docs/icons/hardcore.png" alt="hardcore button" height="22" align="top">), HC / SC counters, badges, unlock dates in your language and
+  13 sort orders (two of them by the median time the hardcore players needed to unlock each achievement), optional hardcore-only counting (<img src="docs/icons/hardcore.png" alt="hardcore button" height="22" align="top">), HC / SC counters, badges, unlock dates in your language and
   time zone, and the share of players who earned each locked achievement
 - **Achievement page**: description, points, unlock date, **personal note** (<img src="docs/icons/note.png" alt="note button" height="22" align="top">) and the community **comments**,
   with one-click **translation** (<img src="docs/icons/translate.png" alt="translate button" height="22" align="top">) through several services: if one stops working, the next one takes over
@@ -121,17 +121,18 @@ progress live. It comes in three versions that look and behave the same way:
   service that just failed is skipped for a while, and a text that failed is retried automatically. **Web links** in
   the comments are highlighted (colour + underline) and open in the browser when clicked / tapped
 - **Personal notes**: saved locally, exported to / imported from a JSON file (the same file works on all versions), and
-  deleted from the settings: choose one, several or all of them in the list. On Windows, the note area of an achievement
-  can be enlarged by dragging the handle in its bottom-right corner (its height is remembered); a longer text scrolls
-- **Copy / paste in the text fields**: on Windows, a right click in a field (settings, notes, comments) opens a
+  deleted from the settings: choose one, several or all of them in the list. On Windows and Linux, the note area of an
+  achievement can be enlarged by dragging the handle in its bottom-right corner (its height is remembered); a longer text scrolls
+- **Copy / paste in the text fields**: on Windows and Linux, a right click in a field (settings, notes, comments) opens a
   *Cut / Copy / Paste / Select all* menu; on Android and iOS, a long press on a field shows a *Cut / Copy / Paste* bar
-- **Horizontal interface** (Windows): when the window is made wide (about 760 px and more, clearly wider than tall), the
+- **Horizontal interface** (Windows and Linux): when the window is made wide (about 760 px and more, clearly wider than tall), the
   profile and the game card move to a left column and the tabs and lists to the right; it goes back to the vertical
   layout when the window is narrow again
 - **Fold the header**: a button at the end of the tabs (<img src="docs/icons/fold.png" alt="fold button" height="22" align="top"> / <img src="docs/icons/unfold.png" alt="unfold button" height="22" align="top">) hides the profile and game cards to leave all the room to
-  the list, and shows them again (Windows and mobile, vertical layout; in the horizontal layout the cards are always shown)
-- **Window position remembered** (Windows): the main window reopens where and at the size you closed it; if that screen
-  is no longer connected, it opens at its default place
+  the list, and shows them again (all versions, vertical layout; in the horizontal layout the cards are always shown)
+- **Window position remembered** (Windows and Linux): the main window reopens where and at the size you closed it. On
+  Windows, if that screen is no longer connected, it opens at its default place; on Linux, the window manager may ignore
+  the position
 - **Notifications** when you (or your friend) unlock an achievement (can be switched off in the settings; a
   **Send a test notification** button checks that they work, on all versions)
 - **Duel**: compare your progress with a friend on the same game, see who is ahead and who unlocked what
@@ -171,7 +172,7 @@ progress live. It comes in three versions that look and behave the same way:
 - **Exporting and importing files on a phone** (notes, skins, settings, complete backup): the file window of the system
   opens (on iPhone, the one of the **Files** app), where you choose the file to import, or the place where the exported
   file is saved under the proposed name (on the phone, iCloud Drive or another storage). Cancelling changes nothing
-- **Update check** in the settings: looks for a newer `.exe` (Windows), `.apk` (Android) or `.ipa` (iOS) in the GitHub releases
+- **Update check** in the settings: looks for a newer `.exe` (Windows), `.AppImage` (Linux), `.apk` (Android) or `.ipa` (iOS) in the GitHub releases
 - **iOS support** (experimental): safe-area margins for the notch and home indicator, native clipboard (the *Cut / Copy / Paste* bar) and automatic detection of the device language
 - **In-app unlock banner** (Android and iOS): when the app is open, a new achievement shows a banner with its badge, title, description, points and a gold outline for your unlocks or a blue one for a friend's; up to 4 banners are stacked, a tap dismisses them, and the height adapts to the text
 - **System notifications** (Android and iOS): when the app has just been sent to the background, unlocks are shown as system notifications instead
@@ -193,7 +194,8 @@ Download the file of your platform from the [latest release](../../releases/late
 1. Download `RA-Companion-<version>-x86_64.AppImage` from the **Assets** list, make it executable (`chmod +x`) and run it.
 2. To build it yourself (Ubuntu / WSL): `sudo apt install python3-tk python3-venv`, create a virtual environment with
    `pip install pyinstaller pillow`, then run `./build-linux.sh`; the file is written to `dist-linux/`.
-3. Not available on Linux: the global refresh shortcut (it still works while the window has the focus).
+3. Not available on Linux: the global refresh shortcut (it still works while the window has the focus) and the themed
+   title bar.
 4. The AppImage needs a glibc at least as recent as the one of the machine that built it. The release file is built
    by the *Build Linux AppImage* GitHub workflow on Ubuntu 22.04, so it runs on Debian 12 and later, Ubuntu 22.04 and later,
    Fedora, Mint... If you build it yourself on a very recent system and get `GLIBC_x.y not found` elsewhere, build on an
@@ -230,7 +232,7 @@ You can add the project repository source directly to your sideloading app to in
 Download the unsigned `.ipa` from the latest GitHub release, transfer it to your iPhone, and import it using the `+` button in AltStore Classic or SideStore.
 
 #### Option C: Build from source
-Build it from source using a Mac with Xcode and `kivy-ios` (see [Building for iOS](#ios) below).
+Build it from source using a Mac with Xcode and `kivy-ios` (see [Building for iOS](#building-for-ios) below).
 
 > **Note:** When using a free Apple ID, the developer certificate signature expires after 7 days and the app must be refreshed periodically from SideStore or AltStore. AltStore PAL (EU DMA version) is not supported as it requires Apple-notarized marketplace distribution.
 
@@ -249,27 +251,29 @@ To try the Android / iOS interface on a PC: `pip install kivy certifi`, then `py
 All versions live in the same repository and share the API, skins and update code. Android and iOS use the same
 Kivy interface; only a few files are specific to one of them.
 
-| Windows only | Android and iOS (Kivy) | Android only | iOS only | Shared |
+| Windows and Linux | Android and iOS (Kivy) | Android only | iOS only | Shared |
 |---|---|---|---|---|
-| `ra_companion.py` entry point | `main.py` + `main.kv` screens | `androidutil.py` system access (files, links) | `iosutil.py` safe areas, device language, clipboard, file window | `ra_api.py` RetroAchievements Web API |
-| `app.py` window and logic | `features.py` logic, notes, duel, group | `buildozer.spec` APK build settings | | `utils.py` formatting, sorting, hardcore median helpers |
-| `widgets.py` rounded widgets | `storage.py`, `themes.py` | `docs/icon.png` app icon | | `config.py` paths and constants |
+| `ra_companion.py` entry point | `main.py` + `main.kv` screens | `buildozer.spec` APK build settings | `iosutil.py` safe areas, device language, clipboard, file window | `ra_api.py` RetroAchievements Web API |
+| `app.py` window and logic | `features.py` logic, notes, duel, group | `docs/icon.png` app icon | | `utils.py` formatting, sorting, hardcore median helpers |
+| `widgets.py` rounded widgets | `storage.py`, `themes.py` | | | `config.py` paths and constants |
 | `desktop_texts.py` texts | `uitext.py`, `mobile_i18n.py` texts | | | `i18n.py` translations |
-| | `notify.py` notifications (Android and iOS code paths) | | | `translator.py` translation |
-| `build-exe.bat`, `docs/logo.ico` | `layoututil.py`, `fonts/` | | | `updater.py`, `appinfo.py` update check, version |
-| `overlay.py` OBS overlay (also Linux) | | | | |
-| | | | | `imgcache.py` persistent image cache |
-| | | | | `medians.py` hardcore median unlock and mastery times (cached for a day) |
+| `overlay.py` OBS overlay | `notify.py` notifications (Android and iOS code paths) | | | `translator.py` translation |
+| `hotkey.py` global shortcut (Windows) | `androidutil.py` files and links (uses `iosutil.py` on iOS) | | | `updater.py`, `appinfo.py` update check, version |
+| `build-exe.bat`, `docs/logo.ico` (Windows) | `layoututil.py`, `fonts/` | | | `imgcache.py` persistent image cache |
+| `build-linux.sh` AppImage (Linux) | | | | `medians.py` hardcore median unlock and mastery times (cached for a day) |
 | | | | | `skins/` visual themes |
 | | | | | `userskins.py` skins imported by the user |
 | | | | | `settings_io.py` settings export / import |
 | | | | | `notes_io.py` notes export / import / list |
 | | | | | `backup_io.py` complete backup |
+| | | | | `symbols.py` pictograms (emoji font of Linux) |
 
-The iOS app is built outside the repository with kivy-ios and Xcode (see *Building → iOS*), from a copy of the
-Kivy files listed above.
+The iOS app is built outside the repository with kivy-ios and Xcode (see [Building for iOS](#building-for-ios)), from
+a copy of the Kivy and shared files.
 
-Other folders: `docs/` (logo, screenshots and Buy Me a Coffee images of this README, plus `embed_icon.py`), `tests/` (unit tests of the logic).
+Other folders: `docs/` (logo, screenshots and Buy Me a Coffee images of this README, plus `embed_icon.py`), `tests/`
+(unit tests of the logic), `.github/workflows/` (build of the AppImage). `apps.json` is the source of the iOS sideloading
+apps.
 
 `skins/__init__.py` must stay inside the `skins` folder, next to the skin files.
 
@@ -362,7 +366,7 @@ Points of `buildozer.spec` that matter:
 - `p4a.branch = develop` is needed with Python 3.14 (see step 4)
 - `android.ndk = 28c` is the NDK recommended by python-for-android; an older one (for example `25b`) makes the
   build fail in the `libthorvg` recipe (`IndexError: list index out of range`)
-- `android.api = 33`; `android.sdk` is deprecated and ignored, do not set it
+- `android.api = 33`; `android.sdk` is deprecated and ignored (its line in the file has no effect)
 - `source.include_exts` must contain `ttf` (the app font), `kv` and `png`
 - `android.permissions = INTERNET,POST_NOTIFICATIONS`
 - `android.accept_sdk_license = True` avoids the license question during the first build
@@ -391,7 +395,7 @@ After changing `android.ndk` or `p4a.branch`, delete the `.buildozer/` folder of
 
 Keep the signing key: without it, a new `.apk` cannot replace the installed one.
 
-### iOS
+### Building for iOS
 
 The iOS version is built with [kivy-ios](https://github.com/kivy/kivy-ios) and Xcode. It was tested on an
 Intel Mac with macOS Ventura 13.7 and Xcode 15.2, deploying to an iPhone 11.
@@ -471,7 +475,7 @@ Apple Developer Program). AltStore signs the app itself with your Apple ID when 
 rm -rf "$HOME/kivy-ios-build/ipa-build"
 
 xcodebuild \
-  -project racompanion-ios/RA\ Companion.xcodeproj \
+  -project racompanion-ios/*.xcodeproj \
   -configuration Debug \
   -sdk iphoneos \
   -destination 'generic/platform=iOS' \
@@ -525,9 +529,10 @@ and the app has to be refreshed from AltStore.
 
 ### Publishing a release
 
-1. Change `VERSION` in `appinfo.py` (for example `1.5`).
-2. Build the `.exe`, the `.apk` and the unsigned `.ipa` (see [Building for iOS](#ios), step 8).
-3. Create a GitHub release tagged with the new version (`v1.5`) and attach the binaries.
+1. Change `__version__` in `appinfo.py` (for example `1.5`).
+2. Build the `.exe`, the `.apk` and the unsigned `.ipa` (see [Building for iOS](#building-for-ios), step 8).
+3. Create a GitHub release tagged with the new version (`v1.5`) and attach the binaries. When the release is published,
+   the *Build Linux AppImage* workflow builds the `.AppImage` and adds it.
 4. Update `apps.json` at the root of the repository:
    - Add the new version entry at the top of the `versions` array.
    - Update `downloadURL`, `size` (exact byte count), `date`, and `localizedDescription`.
@@ -563,24 +568,25 @@ Every variable is documented in `skins/default.py`. When you add a skin variable
 
 ## Adding a UI language
 
-- **Windows**: in `i18n.py`, copy the `"en"` block of `I18N`, translate the values, add the language to `UI_LANGS`,
-  `REFRESH_LABELS` and `SORT_LABELS`, then add its texts to `desktop_texts.py`. Date formats are in `utils.py`.
+- **Windows and Linux**: in `i18n.py`, copy the `"en"` block of `I18N`, translate the values, add the language to
+  `UI_LANGS`, `REFRESH_LABELS`, `SORT_LABELS` and `_SHARED` (texts also used by the phones), then add its texts to
+  `desktop_texts.py`. Date formats are in `utils.py`.
 - **Android / iOS**: add the language to `mobile_i18n.py` and to the tables of `uitext.py`, then run the tests:
   `tests/test_i18n.py` lists every text that is still missing.
 
 ## Data, privacy and network
 
 - Your settings (including the **API key**, stored as plain text) and personal notes are saved on your device only:
-  in your home directory as `.ra_companion*.json` on Windows, in the private folder of the app on Android and iOS.
+  in your home directory as `.ra_companion*.json` on Windows and Linux, in the private folder of the app on Android and iOS.
   Never publish these files, nor the **settings** and **complete backup** files you export: they hold the same keys.
 - **Image cache:** achievement badges (colored and locked versions), game icons and avatars are saved on disk,
   not just in memory. Previously downloaded badges and game icons are reused across app restarts.
   Images are cached separately by URL, so the colored and locked badge versions each have their own file.
-  The cache is stored in `.ra_companion_cache/img/` in your home directory on Windows and in `img_cache/`
+  The cache is stored in `.ra_companion_cache/img/` in your home directory on Windows and Linux, and in `img_cache/`
   inside the app's private data folder on Android and iOS.
 - The current cache policy keeps badges (`/Badge/`) and game images (`/Images/`) without automatic expiry.
   Other images handled by this cache, including avatars, expire after seven days and are refreshed when requested.
-  Windows settings logos still use their separate existing disk cache; Android and iOS settings logos use the shared image cache.
+  The settings logos of Windows and Linux still use their separate existing disk cache; Android and iOS settings logos use the shared image cache.
   There is currently no automatic size limit or eviction for old badge files.
 - The image cache does **not** make the whole app available offline: profile and achievement data still need the API.
 - Network access: the RetroAchievements API and media server (profile, games, badges, comments), the GitHub API
@@ -594,7 +600,7 @@ Every variable is documented in `skins/default.py`. When you add a skin variable
   way to know which service really answers, because a failing service is otherwise replaced silently by the next one.
 - **Better translations with an AI model:** the free services (Google, MyMemory) translate word by word and are sometimes
   hard to understand. An AI model understands the context (gaming slang, names of games and items) and translates much
-  better. In the translation settings (**Services and order…** on Windows, below the order of the services on Android /
+  better. In the translation settings (**Services and order…** on Windows and Linux, below the order of the services on Android /
   iOS) fill in three fields for an AI service: the **address** of its server, the **model name** and your **key**, then
   press **Test**. Any provider that offers an OpenAI-style API works. Several have a free tier with an API key and no
   card (limits and models change, check their site); OpenAI itself is paid:
@@ -631,7 +637,6 @@ Every variable is documented in `skins/default.py`. When you add a skin variable
 - **LibreTranslate and certificates:** HTTPS certificates are checked. If your own server uses a self-signed certificate,
   or is reached through a name that its certificate does not cover, tick **Accept an invalid certificate**. It is off by default, applies to the LibreTranslate server only (never to
   DeepL, Google or MyMemory), and should only be used for a server you control, for example on your own network or VPN.
-  Existing cached images are reused according to the policy above instead of downloaded at every launch.
 - The game list of each console is downloaded once and kept for 30 days.
 - **OBS overlay:** when enabled, the program serves a small web page on `127.0.0.1` only: it cannot be reached from the
   network. The page shows the current game and your unlocked achievements, never your API key.
