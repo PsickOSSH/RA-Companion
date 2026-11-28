@@ -22,7 +22,7 @@ jobs:
       - name: Python environment
         run: |
           python3 -m venv ~/venv
-          ~/venv/bin/pip install pyinstaller pillow
+          ~/venv/bin/pip install pyinstaller pillow certifi
 
       - name: Build the AppImage
         run: |

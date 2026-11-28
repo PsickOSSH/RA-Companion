@@ -3,7 +3,7 @@
 #
 # Needs Python 3 with Tkinter (sudo apt install python3-tk python3-venv), then, in a virtual environment:
 #   python3 -m venv ~/venvs/ra && source ~/venvs/ra/bin/activate
-#   pip install pyinstaller pillow
+#   pip install pyinstaller pillow certifi          (certifi: certificates of the HTTPS connections)
 # Run this script from the project folder:  ./build-linux.sh
 #
 # The result is written to ./dist-linux/. For the widest compatibility build on an older Ubuntu (22.04): the AppImage

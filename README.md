@@ -193,7 +193,8 @@ Download the file of your platform from the [latest release](../../releases/late
 
 1. Download `RA-Companion-<version>-x86_64.AppImage` from the **Assets** list, make it executable (`chmod +x`) and run it.
 2. To build it yourself (Ubuntu / WSL): `sudo apt install python3-tk python3-venv`, create a virtual environment with
-   `pip install pyinstaller pillow`, then run `./build-linux.sh`; the file is written to `dist-linux/`.
+   `pip install pyinstaller pillow certifi` (certifi: certificates of the HTTPS connections, so that they do not depend
+   on where the distribution keeps its own), then run `./build-linux.sh`; the file is written to `dist-linux/`.
 3. Not available on Linux: the global refresh shortcut (it still works while the window has the focus) and the themed
    title bar.
 4. The AppImage needs a glibc at least as recent as the one of the machine that built it. The release file is built
