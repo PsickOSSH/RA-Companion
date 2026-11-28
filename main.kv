@@ -115,6 +115,61 @@
     font_size: sp(14)
     height: dp(120)
 
+# patch notes (main.py, PatchNotes)
+<PatchNotes>:
+    size_hint: 0.94, 0.9
+    background: ''
+    background_color: app.c_card
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(12)
+        spacing: dp(8)
+        TextLabel:
+            text: tr('pn_button')
+            bold: True
+            color: app.c_accent
+        BoxLayout:
+            size_hint_y: None
+            height: dp(48)
+            spacing: dp(8)
+            DarkSpinner:
+                text: root.version
+                values: root.versions
+                on_text: root.version = self.text
+            FlatButton:
+                text: ICON_GLOBE
+                font_size: sp(18)
+                size_hint_x: None
+                width: dp(52) if root.can_translate else 0
+                height: dp(48)
+                opacity: 1 if root.can_translate else 0
+                disabled: not root.can_translate
+                active: root.translated
+                on_release: root.toggle_translate()
+        TextLabel:
+            text: root.message
+            font_size: sp(11)
+            color: app.c_muted
+        FingerScrollView:
+            id: scroll
+            do_scroll_x: False
+            bar_width: dp(14)
+            bar_margin: dp(2)
+            scroll_type: ['bars', 'content']
+            bar_color: [app.c_accent[0], app.c_accent[1], app.c_accent[2], 0.9]
+            bar_inactive_color: [app.c_accent[0], app.c_accent[1], app.c_accent[2], 0.45]
+            BoxLayout:
+                id: box
+                orientation: 'vertical'
+                size_hint_y: None
+                height: self.minimum_height
+                spacing: dp(6)
+                padding: 0, 0, BAR_GUTTER, 0
+        FlatButton:
+            text: tr('back')
+            height: dp(46)
+            on_release: root.dismiss()
+
 <DarkSpinner@Spinner>:
     background_normal: ''
     background_down: ''
@@ -1361,6 +1416,10 @@
                     text: tr('s_update_check')
                     height: dp(44)
                     on_release: root.check_update()
+                FlatButton:
+                    text: tr('pn_button')
+                    height: dp(44)
+                    on_release: root.open_patch_notes()
                 TextLabel:
                     text: tr('s_update_hint')
                     font_size: sp(10)

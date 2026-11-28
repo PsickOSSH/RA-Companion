@@ -46,6 +46,9 @@ import userskins
 TRANSLATOR = translator.Translator(os.path.join(HOME, ".ra_companion_translations.json"))
 
 
+PATCH_NOTES_WINDOW = "480x560"    # window of the patch notes (opened from the settings): width x height
+
+
 def _is_light(color):
     """True for a light background colour '#rrggbb'."""
     try:
@@ -1160,7 +1163,11 @@ class App(tk.Tk):
         upd_msg = self.lbl(w, "", 8, skin.TEXT_MUTED, anchor="w")
         upd_get = tk.Frame(w, bg=skin.BACKGROUND)
         bu = RoundBtn(ub, text=T("s_update_check"), font=(skin.FONT, SETTINGS_BTN_FONT, "bold"), padx=SETTINGS_BTN[0], pady=SETTINGS_BTN[1], radius=skin.RADIUS_BUTTON)
-        bu.pack(fill="x")
+        bu.pack(side="left", fill="x", expand=True)
+        bp = RoundBtn(ub, text=T("pn_button"), font=(skin.FONT, SETTINGS_BTN_FONT, "bold"), padx=SETTINGS_BTN[0], pady=SETTINGS_BTN[1],
+            radius=skin.RADIUS_BUTTON)
+        bp.pack(side="left", fill="x", expand=True, padx=(8, 0))
+        bp.bind("<Button-1>", lambda _e: self.patch_notes(w))
 
         def check(_=None):
             upd_msg.pack(fill="x", padx=18, pady=(4, 0), before=upd_get)      # takes room only once it is used
@@ -1219,7 +1226,131 @@ class App(tk.Tk):
             ov_copy.config(text=T(key))
             w.update_idletasks()
             ov_width = max(ov_width, ov_row.winfo_reqwidth())
-        self.fit_window(w, min_width=max([line.winfo_reqwidth() + 36 for line in io_lines] + [ov_width + 28]))
+        self.fit_window(w, min_width=max([line.winfo_reqwidth() + 36 for line in io_lines + [ub]] + [ov_width + 28]))
+
+    def patch_notes(self, parent):
+        """Window of the patch notes: the descriptions of the GitHub releases, one version at a time, in English or
+        translated with the services of the app. GitHub is only asked when the window is opened."""
+        d = tk.Toplevel(parent)
+        d.title(T("pn_button"))
+        d.configure(bg=skin.BACKGROUND)
+        d.transient(parent)
+        if self.cfg["ontop"]:
+            d.attributes("-topmost", True)
+        self.safe_grab(d)
+        self.place_window(d, PATCH_NOTES_WINDOW, parent)
+        lang = tr_lang(self.cfg)
+        st = {"notes": {}, "tr": bool(self.cfg["translate"]) and lang != "en"}     # notes: {label of the list: note}
+        version = tk.StringVar()
+        bar = tk.Frame(d, bg=skin.BACKGROUND)
+        bar.pack(fill="x", padx=12, pady=(12, 0))
+        info = self.lbl(d, T("se_loading"), 9, skin.TEXT_MUTED, anchor="w", justify="left", wraplength=450)
+        info.pack(fill="x", padx=12, pady=(4, 0))
+        box = tk.Frame(d, bg=skin.BACKGROUND)
+        box.pack(fill="both", expand=True, padx=12, pady=(6, 12))
+        txt = tk.Text(box, bg=skin.CARD, fg=skin.TEXT, wrap="word", relief="flat", font=(skin.FONT, 10), padx=12, pady=8,
+            state="disabled", highlightthickness=0)
+        sb = ttk.Scrollbar(box, command=txt.yview, style="App.Vertical.TScrollbar")
+        txt.configure(yscrollcommand=sb.set)
+        sb.pack(side="right", fill="y", padx=(8, 0))
+        txt.pack(side="left", fill="both", expand=True)
+        txt.tag_config("title", foreground=skin.ACCENT, font=(skin.FONT, 11, "bold"), spacing1=10, spacing3=4)
+        txt.tag_config("bullet", lmargin1=4, lmargin2=18, spacing1=4)
+        txt.tag_config("text", spacing1=4)
+
+        def render():
+            note = st["notes"].get(version.get())
+            txt.config(state="normal")
+            txt.delete("1.0", "end")
+            if note:
+                if not note["blocks"]:
+                    txt.insert("end", T("pn_empty"), "text")
+                for kind, text in note["blocks"]:
+                    shown = TRANSLATOR.cached(lang, text) if st["tr"] else text
+                    txt.insert("end", ("•  " if kind == "bullet" else "") + shown + "\n", kind)
+            txt.config(state="disabled")
+
+        def show(*_):
+            """Show the chosen version, then translate what is not translated yet."""
+            render()
+            info.config(text="", fg=skin.TEXT_MUTED)
+            chosen = version.get()
+            note = st["notes"].get(chosen)
+            if not st["tr"] or not note:
+                return
+            TRANSLATOR.reset_failures()
+            texts = [text for _kind, text in note["blocks"] if TRANSLATOR.pending(lang, text)]
+            if not texts:
+                return
+            info.config(text=T("translating"))
+            errors = []
+
+            def one(text):
+                try:
+                    TRANSLATOR.translate(text, lang)
+                except Exception as e:
+                    errors.append(str(e))
+
+            def done():
+                if d.winfo_exists() and st["tr"] and version.get() == chosen:        # still the version on screen
+                    info.config(text=T("tr_error", e=errors[0]) if errors else "",
+                                fg=skin.DANGER if errors else skin.TEXT_MUTED)
+                    render()
+
+            def job():
+                with ThreadPoolExecutor(6) as ex:
+                    list(ex.map(one, texts))
+                TRANSLATOR.save()
+                self.q.put(("call", done))
+            threading.Thread(target=job, daemon=True).start()
+
+        def set_btn():
+            bt.config(text=T("orig") if st["tr"] else T("tr_btn", l=lang), bg=skin.ACCENT if st["tr"] else skin.CARD_ALT,
+                fg=skin.TEXT_ON_ACCENT if st["tr"] else skin.TEXT)
+
+        def toggle():
+            st["tr"] = not st["tr"]
+            set_btn()
+            show()
+
+        if lang != "en":                                    # the notes are written in English
+            bt = self.btn(bar, "", toggle)
+            bt.pack(side="right", padx=(8, 0))
+            set_btn()
+
+        def loaded(notes, error):
+            if not d.winfo_exists():
+                return
+            if error or not notes:
+                info.config(text=T("error", e=error) if error else T("pn_empty"),
+                            fg=skin.DANGER if error else skin.TEXT_MUTED)
+                return
+            for note in notes:
+                label = note["version"]
+                if note["date"]:
+                    label += " • " + fmt_date(note["date"] + " 12:00:00", False)
+                if updater.parse_version(note["version"]) == updater.parse_version(appinfo.__version__):
+                    label += f" ({T('pn_installed')})"
+                st["notes"][label] = note
+            self.combo(bar, version, list(st["notes"])).pack(side="left", fill="x", expand=True)
+            version.trace_add("write", show)
+            version.set(next(iter(st["notes"])))            # the newest one
+
+        def job():
+            notes, error = [], ""
+            try:
+                notes = updater.release_notes(appinfo.UPDATE_REPO)
+            except Exception as e:
+                error = updater.describe(e)
+            self.q.put(("call", lambda: loaded(notes, error)))
+
+        def close(_e=None):
+            d.destroy()
+            if parent.winfo_exists():
+                self.safe_grab(parent)                      # the window below is modal again
+        d.protocol("WM_DELETE_WINDOW", close)
+        d.bind("<Escape>", close)
+        threading.Thread(target=job, daemon=True).start()
 
     def ask(self, parent, message, action, color=skin.ACCENT, cancel=True):
         """Question with the button `action`: True when it is pressed (see choose)."""

@@ -243,6 +243,92 @@ class TapPic(ButtonBehavior, Pic):
     """Picture that reacts to a tap (opens a RetroAchievements page)."""
 
 
+def _note_label(note):
+    """Line of the list of versions of the patch notes."""
+    label = note["version"]
+    if note["date"]:
+        label += " • " + fmt_date(note["date"] + " 12:00:00", False)
+    if updater.parse_version(note["version"]) == updater.parse_version(appinfo.__version__):
+        label += f" ({tr('pn_installed')})"
+    return label
+
+
+class PatchNotes(ModalView):
+    """Window of the patch notes (opened from the settings): the descriptions of the GitHub releases, one version at a
+    time, in English or translated with the services of the app. Layout in main.kv."""
+    versions = ListProperty([])
+    version = StringProperty("")
+    message = StringProperty("")
+    translated = BooleanProperty(False)
+    can_translate = BooleanProperty(False)
+
+    def __init__(self, **kw):
+        super().__init__(**kw)
+        self._notes = {}                                     # {line of the list: note}
+        self.can_translate = target_lang() != "en"           # the notes are written in English
+        self.translated = self.can_translate and bool(_cfg().get("translate"))
+        self.message = tr("se_loading")
+        threading.Thread(target=self._load, daemon=True).start()
+
+    def _load(self):
+        notes, error = [], ""
+        try:
+            notes = updater.release_notes(appinfo.UPDATE_REPO)
+        except Exception as e:
+            error = updater.describe(e)
+        Clock.schedule_once(lambda dt: self._loaded(notes, error))
+
+    def _loaded(self, notes, error):
+        if error or not notes:
+            self.message = tr("error", e=error) if error else tr("pn_empty")
+            return
+        self._notes = {_note_label(note): note for note in notes}
+        self.versions = list(self._notes)
+        self.version = self.versions[0]                      # the newest one
+
+    def on_version(self, *_):
+        self.ids.scroll.scroll_y = 1
+        self.show()
+
+    def toggle_translate(self):
+        self.translated = not self.translated
+        if self.translated:
+            _TRIED.clear()
+        self.show()
+
+    def show(self):
+        """Show the chosen version, then translate what is not translated yet."""
+        self._render()
+        self.message = ""
+        note, chosen = self._notes.get(self.version), self.version
+        if self.translated and note:
+            texts = [text for _kind, text in note["blocks"]]
+            if translate_async(texts, lambda: self._after_translation(chosen)):
+                self.message = tr("loading")
+
+    def _after_translation(self, chosen):
+        if self.translated and self.version == chosen:       # still the version on screen
+            self._render()
+            self.message = tr("tr_error", e=TRANSLATOR.last_error) if TRANSLATOR.last_error else ""
+
+    def _render(self):
+        note = self._notes.get(self.version)
+        box = self.ids.box
+        box.clear_widgets()
+        if not note:
+            return
+        app = App.get_running_app()
+        if not note["blocks"]:
+            box.add_widget(TextLabel(text=tr("pn_empty")))
+        for kind, text in note["blocks"]:
+            if self.translated:
+                text = cached_translation(text)
+            if kind == "title":
+                box.add_widget(TextLabel(text=text, bold=True, font_size=sp(14), color=tuple(app.c_accent)))
+            else:
+                box.add_widget(TextLabel(text=("•  " if kind == "bullet" else "") + text))
+
+
 class FingerBar:
     """Scroll bar of the long lists and pages, made for a finger. Kivy only gives it the few pixels of the drawn bar: a
     finger a little beside it drags the content, which moves the other way, and the glide of an earlier swipe goes on
@@ -1654,6 +1740,9 @@ class SettingsScreen(Screen):
     def _update_done(self, msg, url, version):
         self._upd_busy = False
         self.update_msg, self.update_url, self.update_version = msg, url, version
+
+    def open_patch_notes(self):
+        PatchNotes().open()
 
     def download_update(self):
         """Opens the .apk address: the browser downloads it and Android offers to install it."""

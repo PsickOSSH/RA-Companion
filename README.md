@@ -173,6 +173,9 @@ progress live. It comes in four versions that look and behave the same way:
   opens (on iPhone, the one of the **Files** app), where you choose the file to import, or the place where the exported
   file is saved under the proposed name (on the phone, iCloud Drive or another storage). Cancelling changes nothing
 - **Update check** in the settings: looks for a newer `.exe` (Windows), `.AppImage` (Linux), `.apk` (Android) or `.ipa` (iOS) in the GitHub releases
+- **Patch notes** in the settings (all versions): the descriptions of the GitHub releases, one version at a time (the
+  newest first, the installed one is marked). They are written in English; the translation button translates them into
+  your translation language, with the same services as the comments, and it starts on when translation is switched on
 - **iOS support** (experimental): safe-area margins for the notch and home indicator, native clipboard (the *Cut / Copy / Paste* bar) and automatic detection of the device language
 - **In-app unlock banner** (Android and iOS): when the app is open, a new achievement shows a banner with its badge, title, description, points and a gold outline for your unlocks or a blue one for a friend's; up to 4 banners are stacked, a tap dismisses them, and the height adapts to the text
 - **System notifications** (Android and iOS): when the app has just been sent to the background, unlocks are shown as system notifications instead
@@ -259,7 +262,7 @@ Kivy interface; only a few files are specific to one of them.
 | `widgets.py` rounded widgets | `storage.py`, `themes.py` | | | `config.py` paths and constants |
 | `desktop_texts.py` texts | `uitext.py`, `mobile_i18n.py` texts | | | `i18n.py` translations |
 | `overlay.py` OBS overlay | `notify.py` notifications (Android and iOS code paths) | | | `translator.py` translation |
-| `hotkey.py` global shortcut (Windows) | `androidutil.py` files and links (uses `iosutil.py` on iOS) | | | `updater.py`, `appinfo.py` update check, version |
+| `hotkey.py` global shortcut (Windows) | `androidutil.py` files and links (uses `iosutil.py` on iOS) | | | `updater.py`, `appinfo.py` update check, patch notes, version |
 | `build-exe.bat`, `docs/logo.ico` (Windows) | `layoututil.py`, `fonts/` | | | `imgcache.py` persistent image cache |
 | `build-linux.sh` AppImage (Linux) | | | | `medians.py` hardcore median unlock and mastery times (cached for a day) |
 | | | | | `skins/` visual themes |
@@ -554,7 +557,9 @@ and the app has to be refreshed from AltStore.
 1. Change `__version__` in `appinfo.py` (for example `1.5`).
 2. Build the `.exe`, the `.apk` and the unsigned `.ipa` (see [Building for iOS](#building-for-ios), step 8).
 3. Create a GitHub release tagged with the new version (`v1.5`) and attach the binaries. When the release is published,
-   the *Build Linux AppImage* workflow builds the `.AppImage` and adds it.
+   the *Build Linux AppImage* workflow builds the `.AppImage` and adds it. Write the description in English: the app
+   shows it in its **Patch notes** window. Titles (`## New`) and lists (`- ...`) are kept, the other Markdown marks and
+   the *Full Changelog* line are removed.
 4. Update `apps.json` at the root of the repository:
    - Add the new version entry at the top of the `versions` array.
    - Update `downloadURL`, `size` (exact byte count), `date`, and `localizedDescription`.
@@ -612,7 +617,7 @@ Every variable is documented in `skins/default.py`. When you add a skin variable
   There is currently no automatic size limit or eviction for old badge files.
 - The image cache does **not** make the whole app available offline: profile and achievement data still need the API.
 - Network access: the RetroAchievements API and media server (profile, games, badges, comments), the GitHub API
-  (update check, only when you press the button), and the translation services (only when translation is enabled:
+  (update check and patch notes, only when you press their button), and the translation services (only when translation is enabled:
   the translated texts are sent to the first service that answers, in the order you choose in the settings (by default: the AI model, DeepL and LibreTranslate if you
   configured them, then Google Translate, then MyMemory).
 - **Translation keys:** the DeepL key (a free key ends with `:fx`, see <https://www.deepl.com/pro-api>) and the

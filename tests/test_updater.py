@@ -14,6 +14,38 @@ def release(tag, assets=(), draft=False):
     return {"tag_name": tag, "draft": draft, "assets": [{"name": n, "browser_download_url": "https://dl/" + tag + "/" + n, "size": 1000} for n in assets]}
 
 
+class PatchNotesTests(unittest.TestCase):
+    BODY = ("## New\r\n\r\n- **Your own skins**: press `F1` or see [the guide](https://example.org/a)\r\n"
+            "* second *item*\r\n<!-- hidden -->\r\n> Keys are in plain text.\r\n\r\n---\r\n"
+            "**Full Changelog**: https://github.com/a/b/compare/v1...v2\r\n")
+
+    def test_markdown_becomes_plain_blocks(self):
+        self.assertEqual(updater.note_blocks(self.BODY), [
+            ("title", "New"), ("bullet", "Your own skins: press F1 or see the guide"), ("bullet", "second item"),
+            ("text", "Keys are in plain text.")])
+
+    def test_a_body_with_only_the_changelog_link_has_no_note(self):
+        for body in ("Full Changelog: https://github.com/a/b/compare/v1...v2",
+                     "Full Changelog:\nhttps://github.com/a/b/compare/v1...v2", "", None):
+            self.assertEqual(updater.note_blocks(body), [], repr(body))
+
+    def test_names_with_stars_or_underscores_stay(self):
+        self.assertEqual(updater.note_blocks("set overlay_port in *.json files, 2 * 3"),
+                         [("text", "set overlay_port in *.json files, 2 * 3")])
+
+    def test_releases_are_sorted_by_version_and_drafts_are_left_out(self):
+        data = [{"tag_name": "v1.9", "published_at": "2026-11-14T10:00:00Z", "body": "- a"},
+                {"tag_name": "v1.10", "published_at": "2026-11-15T10:00:00Z", "body": "- b"},
+                {"tag_name": "v3.0", "draft": True, "body": "- not yet"}, "noise"]
+        notes = updater.release_notes("a/b", fetch=lambda url: data)
+        self.assertEqual([(n["version"], n["date"]) for n in notes], [("1.10", "2026-11-15"), ("1.9", "2026-11-14")])
+        self.assertEqual(notes[0]["blocks"], [("bullet", "b")])
+
+    def test_an_unexpected_answer_is_an_error(self):
+        with self.assertRaises(ValueError):
+            updater.release_notes("a/b", fetch=lambda url: {"message": "Not Found"})
+
+
 class UpdaterTests(unittest.TestCase):
     def test_version_parsing(self):
         self.assertEqual(updater.parse_version("v1.2.3"), (1, 2, 3))
