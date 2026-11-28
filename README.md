@@ -659,6 +659,9 @@ Every variable is documented in `skins/default.py`. When you add a skin variable
 - **LibreTranslate and certificates:** HTTPS certificates are checked. If your own server uses a self-signed certificate,
   or is reached through a name that its certificate does not cover, tick **Accept an invalid certificate**. It is off by default, applies to the LibreTranslate server only (never to
   DeepL, Google or MyMemory), and should only be used for a server you control, for example on your own network or VPN.
+  When the app is built with certifi (the Windows, Linux and Android builds described here), the certificates are checked
+  against the list of that package and not the one of your device: a certificate that you added yourself to your system
+  is not recognised, so tick the option in that case too.
 - The game list of each console is downloaded once and kept for 30 days.
 - **OBS overlay:** when enabled, the program serves a small web page on `127.0.0.1` only: it cannot be reached from the
   network. The page shows the current game and your unlocked achievements, never your API key.
