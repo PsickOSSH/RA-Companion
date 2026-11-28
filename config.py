@@ -261,13 +261,18 @@ def write_json(path, data):
         pass
 
 
-def load_cfg():
-    """Load the user settings, filling in defaults for every missing key."""
-    d = {"key": "", "user": "", "interval": 30, "alpha": 100, "ontop": False, "auto": True, "game_id": "",
+def default_cfg():
+    """The settings of a first start."""
+    return {"key": "", "user": "", "interval": 30, "alpha": 100, "ontop": False, "auto": True, "game_id": "",
         "translate": False, "ui_lang": "auto", "lang": "auto", "hc_only": False, "friend": "", "group": [],
         "skin": "default", "refresh_key": "Control-Alt-r", "tr_service": "auto", "deepl_key": "", "libre_url": "", "libre_key": "", "libre_insecure": False,
         "ai_url": "", "ai_key": "", "ai_model": "", "tr_order": [], "ai_services": [], "win_geo": "",
         "overlay": False, "overlay_port": 8765}
+
+
+def load_cfg():
+    """Load the user settings, filling in defaults for every missing key."""
+    d = default_cfg()
     d.update(read_json(CONFIG_FILE, {}))
     return d
 

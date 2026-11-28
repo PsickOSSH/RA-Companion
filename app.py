@@ -19,7 +19,7 @@ from tkinter import filedialog, ttk
 from skins import active as skin
 import i18n
 import skins
-from config import API_KEY_URL, BMC_ICON_SMALL_B64, GAMES_FILE, GAMES_TTL, HOME, LOGO_URLS, MEDIA, NOTES_FILE, REPO_URL, SITE_URL, BMC_URL, load_cfg, read_json, save_cfg, write_json
+from config import API_KEY_URL, BMC_ICON_SMALL_B64, GAMES_FILE, GAMES_TTL, HOME, LOGO_URLS, MEDIA, NOTES_FILE, REPO_URL, SITE_URL, BMC_URL, default_cfg, load_cfg, read_json, save_cfg, write_json
 from i18n import LANGS, REFRESH_LABELS, SORT_ICONS, SORT_IDS, T, UI_LANGS, resolve_ui, sort_label, tr_lang
 from ra_api import call_api, http_get
 from hotkey import GlobalHotkey
@@ -37,6 +37,7 @@ import desktop_texts  # noqa: F401  (adds the texts of the new settings to i18n)
 from desktop_texts import friendly_error
 import notes_io
 import overlay
+import settings_io
 import translator
 import userskins
 
@@ -156,7 +157,7 @@ class App(tk.Tk):
         self.skin_loaded = self.cfg.get("skin", "default")        # skin of the colors on screen (a change needs a restart)
         TRANSLATOR.configure_from(self.cfg)
         i18n.set_language(resolve_ui(self.cfg["ui_lang"]))
-        self.notes = read_json(NOTES_FILE, {})
+        self.notes = notes_io.clean(read_json(NOTES_FILE, {}))
         self.title("RA Companion")
         try:
             base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
@@ -1115,17 +1116,25 @@ class App(tk.Tk):
             if self.overlay.running:                          # also on the OBS page, to place it on the video
                 self.overlay.push({"title": "RA Companion", "description": T("notif_test")}, T("toast"))
         bt.bind("<Button-1>", test_notification)
-        row(T("s_notes"))
-        nb = tk.Frame(w, bg=skin.BACKGROUND)
-        nb.pack(fill="x", padx=18, pady=(2, 0))
-        msg = self.lbl(w, "", 8, skin.TEXT_MUTED, anchor="w")
-        be = RoundBtn(nb, text=T("s_notes_export"), font=(skin.FONT, SETTINGS_BTN_FONT, "bold"), padx=SETTINGS_BTN[0], pady=SETTINGS_BTN[1], radius=skin.RADIUS_BUTTON)
-        be.pack(side="left", fill="x", expand=True, padx=(0, 4))
-        be.bind("<Button-1>", lambda e: self.export_notes(w, msg))
-        bi = RoundBtn(nb, text=T("s_notes_import"), font=(skin.FONT, SETTINGS_BTN_FONT, "bold"), padx=SETTINGS_BTN[0], pady=SETTINGS_BTN[1], radius=skin.RADIUS_BUTTON)
-        bi.pack(side="left", fill="x", expand=True, padx=(4, 0))
-        bi.bind("<Button-1>", lambda e: self.import_notes(w, msg))
-        msg.pack(fill="x", padx=18, pady=(4, 0))
+        # export / import: one line per kind of data (name on the left, buttons on the right) to keep the window short
+        io_msg = self.lbl(w, "", 8, skin.TEXT_MUTED, anchor="w", justify="left", wraplength=390)
+
+        def io_row(text, export, load, delete):
+            line = tk.Frame(w, bg=skin.BACKGROUND)
+            line.pack(fill="x", padx=18, pady=(8, 0))
+            self.lbl(line, text, 10, bold=True, anchor="w").pack(side="left")
+
+            def run(command):
+                io_msg.config(text="")
+                io_msg.pack(fill="x", padx=18, pady=(4, 0), after=line)      # the result appears under its line
+                command(w, io_msg)
+            for key, command in (("btn_delete", delete), ("btn_import", load), ("btn_export", export)):   # packed from the right
+                b = RoundBtn(line, text=T(key), font=(skin.FONT, 9, "bold"), padx=9, pady=4, radius=skin.RADIUS_BUTTON,
+                    fg=skin.DANGER if key == "btn_delete" else skin.TEXT)
+                b.pack(side="right", padx=(6, 0))
+                b.bind("<Button-1>", lambda _e, command=command: run(command))
+        io_row(T("s_notes"), self.export_notes, self.import_notes, self.delete_notes)
+        io_row(T("s_params"), self.export_settings, self.import_settings, self.delete_settings)
 
         row(T("s_version", v=appinfo.__version__))
         ub = tk.Frame(w, bg=skin.BACKGROUND)
@@ -1184,9 +1193,15 @@ class App(tk.Tk):
         self.fit_window(w)
 
     def ask(self, parent, message, action, color=skin.ACCENT, cancel=True):
-        """Message window in the colors of the skin (the one of the system is white). Waits for the answer: True when the
-        button `action` is pressed, False with "Cancel", Escape or the close button of the window."""
-        answer = {"ok": False}
+        """Question with the button `action`: True when it is pressed (see choose)."""
+        buttons = [(action, True, color)] + ([(T("btn_cancel"), False, None)] if cancel else [])
+        return bool(self.choose(parent, message, buttons))
+
+    def choose(self, parent, message, buttons):
+        """Message window in the colors of the skin (the one of the system is white). `buttons` is a list of
+        (text, value, color or None), the first one on the right. Waits and returns the value of the pressed button, or
+        None with Escape or the close button of the window."""
+        answer = {"value": None}
         d = tk.Toplevel(parent)
         d.title("RA Companion")
         d.configure(bg=skin.BACKGROUND)
@@ -1197,21 +1212,19 @@ class App(tk.Tk):
         foot = tk.Frame(d, bg=skin.BACKGROUND)
         foot.pack(fill="x", padx=20, pady=14)
 
-        def close(ok=False):
-            answer["ok"] = ok
+        def close(value=None):
+            answer["value"] = value
             d.destroy()
 
-        def button(text, ok, bg, fg):
-            b = RoundBtn(foot, text=text, font=(skin.FONT, 10, "bold"), padx=16, pady=5, radius=skin.RADIUS_BUTTON, bg=bg, fg=fg)
+        for text, value, color in buttons:
+            b = RoundBtn(foot, text=text, font=(skin.FONT, 10, "bold"), padx=14, pady=5, radius=skin.RADIUS_BUTTON,
+                bg=color or skin.CARD_ALT, fg=skin.TEXT_ON_ACCENT if color else skin.TEXT)
             b.pack(side="right", padx=(8, 0))
-            b.bind("<Button-1>", lambda _e: close(ok))
-        button(action, True, color, skin.TEXT_ON_ACCENT)
-        if cancel:
-            button(T("btn_cancel"), False, skin.CARD_ALT, skin.TEXT)
+            b.bind("<Button-1>", lambda _e, value=value: close(value))
         d.protocol("WM_DELETE_WINDOW", close)
         d.bind("<Escape>", lambda _e: close())
         d.update_idletasks()
-        self.place_window(d, f"380x{d.winfo_reqheight()}", parent)
+        self.place_window(d, f"{max(380, d.winfo_reqwidth())}x{d.winfo_reqheight()}", parent)
         if self.cfg["ontop"]:
             d.attributes("-topmost", True)
         self.safe_grab(d)
@@ -1219,19 +1232,23 @@ class App(tk.Tk):
         self.wait_window(d)
         if parent is not self and parent.winfo_exists():
             self.safe_grab(parent)                             # the window below is modal again
-        return answer["ok"]
+        return answer["value"]
 
     def pick_skins(self, parent, title, action, color, done):
-        """Window with the list of the imported skins: `done(identifiers)` is called with the ones that are chosen when the
-        button `action` is pressed."""
-        items = {ident: name for name, ident in skins.available().items() if ident.startswith(userskins.PREFIX)}
-        idents = list(items)
+        """The list of the imported skins (see pick_list)."""
+        entries = [(ident, name) for name, ident in skins.available().items() if ident.startswith(userskins.PREFIX)]
+        self.pick_list(parent, title, entries, action, color, done)
+
+    def pick_list(self, parent, title, entries, action, color, done, size="400x420"):
+        """Window with a list of `entries` [(identifier, text)]: `done(identifiers)` is called with the ones that are chosen
+        when the button `action` is pressed."""
+        idents = [ident for ident, _text in entries]
         d = tk.Toplevel(parent)
         d.title(title)
         d.configure(bg=skin.BACKGROUND)
         d.transient(parent)
         self.safe_grab(d)
-        self.place_window(d, "400x420", parent)
+        self.place_window(d, size, parent)
         self.lbl(d, title, 10, bold=True, anchor="w").pack(fill="x", padx=14, pady=(12, 6))
         foot = tk.Frame(d, bg=skin.BACKGROUND)                    # packed first: the buttons always stay visible
         foot.pack(side="bottom", fill="x", padx=14, pady=12)
@@ -1244,8 +1261,8 @@ class App(tk.Tk):
         lb.configure(yscrollcommand=bar.set)
         bar.pack(side="right", fill="y")
         lb.pack(side="left", fill="both", expand=True)
-        for ident in idents:
-            lb.insert("end", "  " + items[ident])
+        for _ident, text in entries:
+            lb.insert("end", "  " + text)
 
         def close(_e=None):
             d.destroy()
@@ -1513,6 +1530,100 @@ class App(tk.Tk):
         b.bind("<Button-1>", lambda e: ok())
         sync()
         self.fit_window(win, parent)
+
+    # ---- settings file: every setting but the skin -----------------------
+    def export_settings(self, win, msg):
+        """Save the settings in a file chosen by the user. It holds the keys: a warning is shown first."""
+        if not self.ask(win, T("s_params_warn"), T("btn_export")):
+            return
+        path = filedialog.asksaveasfilename(parent=win, defaultextension=".json", initialfile="ra_companion_settings.json",
+            filetypes=[("JSON", "*.json")])
+        if not path:
+            return
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(settings_io.export_text(self.cfg))
+            msg.config(text=T("s_params_exported"), fg=skin.SUCCESS)
+        except OSError as e:
+            msg.config(text=T("n_error", e=e), fg=skin.DANGER)
+
+    def import_settings(self, win, msg):
+        """Replace the settings by those of a file, after a confirmation; the settings window `win` is closed."""
+        path = filedialog.askopenfilename(parent=win, filetypes=[("JSON", "*.json"), ("*", "*.*")])
+        if not path:
+            return
+        try:
+            with open(path, encoding="utf-8") as f:
+                values = settings_io.parse(f.read(settings_io.MAX_FILE + 1))
+        except OSError as e:
+            msg.config(text=T("n_error", e=e), fg=skin.DANGER)
+            return
+        except ValueError:
+            msg.config(text=T("s_params_bad"), fg=skin.DANGER)
+            return
+        if not self.ask(win, T("s_params_replace"), T("btn_import")):
+            return
+        win.destroy()                              # its fields show the old values: saving them would undo the import
+        self.apply_settings(lambda cfg: cfg.update(values))
+        self.ask(self, T("s_params_imported"), "OK", cancel=False)
+
+    def delete_settings(self, win, msg):
+        """Put the settings back to their default values, everything or keeping the account (asked)."""
+        answer = self.choose(win, T("s_params_reset"), [(T("s_params_all"), "all", skin.DANGER),
+            (T("s_params_keep"), "keep", skin.ACCENT), (T("btn_cancel"), None, None)])
+        if not answer:
+            return
+        win.destroy()
+        self.apply_settings(lambda cfg: settings_io.reset(cfg, default_cfg(), answer == "keep"))
+        self.ask(self, T("s_params_reset_done"), "OK", cancel=False)
+        if not (self.cfg["key"] and self.cfg["user"]):
+            self.settings()                        # as at a first start: the account is asked
+
+    def apply_settings(self, change):
+        """Change the settings with `change(configuration)` and use them at once: language, shortcut, window, translation,
+        overlay and account."""
+        old_account = (self.cfg["user"], self.cfg["key"])
+        change(self.cfg)
+        save_cfg(self.cfg)
+        TRANSLATOR.configure_from(self.cfg)
+        TRANSLATOR.reset_failures()
+        i18n.set_language(resolve_ui(self.cfg["ui_lang"]))
+        if (self.cfg["user"], self.cfg["key"]) != old_account:
+            self.session = Session()
+            self.payload = self.game = None
+        self.reset_game_state()
+        self.int_var.set(str(self.cfg["interval"]))       # the field of the footer must not write the old value back
+        self.last_game_id = None
+        self.countdown = int(self.cfg["interval"])
+        self.rebuild_ui()
+        self.apply_refresh_key()
+        self.apply_overlay()
+        if self.cfg["key"] and self.cfg["user"]:
+            self.refresh()
+
+    def delete_notes(self, win, msg):
+        """Delete the personal notes chosen in a list, after a confirmation."""
+        titles = {str(a.get("ID")): str(a.get("Title") or "") for a in ((self.game or {}).get("Achievements") or {}).values()}
+        entries = notes_io.entries(self.notes, titles)
+        if not entries:
+            msg.config(text=T("n_none"), fg=skin.TEXT_MUTED)
+            return
+
+        def done(chosen):
+            if not self.ask(win, T("n_delete_confirm", n=len(chosen)), T("btn_delete"), skin.DANGER):
+                return
+            for ident in chosen:
+                self.notes.pop(ident, None)
+            write_json(NOTES_FILE, self.notes)
+            for other in self.winfo_children():            # an open page of one of them must not save its text again
+                if getattr(other, "note_id", None) in chosen:
+                    other.note_text.delete("1.0", "end")
+            msg.config(text=T("n_deleted", n=len(chosen)), fg=skin.TEXT_MUTED)
+            self.sig = None
+            self.sigs = {"duel": None, "group": None}
+            if self.payload:
+                self.on_data(self.payload)
+        self.pick_list(win, T("n_delete_pick"), entries, T("btn_delete"), skin.DANGER, done, "480x440")
 
     def export_notes(self, win, msg):
         """Save the personal notes in a JSON file chosen by the user (same format as the Android app)."""
@@ -2806,6 +2917,7 @@ class App(tk.Tk):
         grip.bind("<B1-Motion>", grip_move)
         grip.bind("<ButtonRelease-1>", grip_release)
         nt.insert("1.0", self.notes.get(nid, ""))
+        w.note_id, w.note_text = nid, nt                       # used when notes are deleted in the settings
         nst = {"job": None}
 
         def save_note(_=None):

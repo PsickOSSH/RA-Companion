@@ -2,13 +2,38 @@
 The file format is a plain JSON object, the same as the Android app."""
 
 import json
+import re
+
+_ID = re.compile(r"[0-9]+")            # an achievement ID: anything else is not a note
+
+
+def clean(notes):
+    """The notes of the dictionary `notes` (empty when it is not one), without the entries that are not about an achievement
+    (added by an import of another kind of file in older versions)."""
+    if not isinstance(notes, dict):
+        return {}
+    return {str(k): v for k, v in notes.items() if _ID.fullmatch(str(k))}
+
+
+def entries(notes, titles=None, length=60):
+    """The notes as a list to choose from: [(ID, "title: beginning of the note")]. `titles` ({ID: achievement title}) holds
+    the achievements known now (they come first); the others are shown with their ID."""
+    titles = titles or {}
+    out = []
+    for ident, text in clean(notes).items():
+        text = " ".join(str(text).split())
+        if not text:
+            continue
+        short = text if len(text) <= length else text[:length].rstrip() + "…"
+        known = titles.get(ident)
+        out.append(((not known, (known or "").lower(), int(ident)), (ident, f"{known or '#' + ident} : {short}")))
+    return [entry for _order, entry in sorted(out)]
 
 
 def export_text(notes):
     """JSON text of the non-empty notes, sorted by achievement ID."""
-    clean = {str(k): str(v).strip() for k, v in notes.items() if str(v).strip()}
-    return json.dumps(dict(sorted(clean.items(), key=lambda kv: (not kv[0].isdigit(), int(kv[0]) if kv[0].isdigit() else 0, kv[0]))),
-                      ensure_ascii=False, indent=2)
+    kept = {k: str(v).strip() for k, v in clean(notes).items() if str(v).strip()}
+    return json.dumps(dict(sorted(kept.items(), key=lambda kv: int(kv[0]))), ensure_ascii=False, indent=2)
 
 
 def parse_notes(text):
@@ -18,7 +43,7 @@ def parse_notes(text):
         data = data["notes"]
     if not isinstance(data, dict):
         raise ValueError("not a notes file")
-    notes = {str(k): str(v).strip() for k, v in data.items() if isinstance(v, (str, int, float)) and str(v).strip()}
+    notes = {k: str(v).strip() for k, v in clean(data).items() if isinstance(v, (str, int, float)) and str(v).strip()}
     if data and not notes:
         raise ValueError("no note found")
     return notes

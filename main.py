@@ -40,7 +40,9 @@ import features
 import medians
 import imgcache
 import layoututil
+import notes_io
 import notify
+import settings_io
 import storage
 import themes
 import uitext
@@ -1216,6 +1218,8 @@ class SettingsScreen(Screen):
     skin_text = StringProperty("")
     skin_msg = StringProperty("")
     notes_msg = StringProperty("")
+    params_msg = StringProperty("")
+    _next_msg = ""                                   # shown when the page opens (after an import of the settings)
     update_msg = StringProperty("")
     update_url = StringProperty("")
     update_version = StringProperty("")
@@ -1246,6 +1250,7 @@ class SettingsScreen(Screen):
         self.tr_lang_text = auto if lg == "auto" else (uitext.lang_label(uitext.TR_LANGS, lg) or auto)
         self.skin_text = next((s["name"] for s in app.skins if s["id"] == cfg.get("skin", "default")), app.skins[0]["name"])
         self.notes_msg = ""
+        self.params_msg, self._next_msg = self._next_msg, ""
         self.skin_msg = ""
         self.data_info = f"{tr('s_data_dir')}: {app.user_data_dir}"
 
@@ -1290,12 +1295,17 @@ class SettingsScreen(Screen):
         self._pick_skins(tr("s_skin_pick_delete"), tr("btn_delete"), self.ask_delete_skins)
 
     def _pick_skins(self, title, action, done):
-        """Window with the list of the imported skins: `done([(identifier, name)])` receives the chosen ones."""
+        """The list of the imported skins (see _pick)."""
         app = App.get_running_app()
         items = [(s["id"], s["name"]) for s in app.skins if s["id"].startswith(userskins.PREFIX)]
         if not items:
             self.skin_msg = tr("s_skin_none")
             return
+        self._pick(title, items, action, done)
+
+    def _pick(self, title, items, action, done):
+        """Window with a list of `items` [(identifier, text)]: `done(chosen items)` is called with the selected ones."""
+        app = App.get_running_app()
         view = ModalView(size_hint=(0.92, None), height=min(dp(520), Window.height * 0.85), auto_dismiss=True,
                          background="", background_color=tuple(app.c_card))
         outer = BoxLayout(orientation="vertical", padding=dp(12), spacing=dp(8))
@@ -1305,7 +1315,8 @@ class SettingsScreen(Screen):
         box.bind(minimum_height=box.setter("height"))
         rows = []
         for ident, name in items:
-            row = FlatButton(text=name, height=dp(46))
+            row = FlatButton(text=name, height=dp(46), shorten=True, shorten_from="right", halign="center")
+            row.bind(width=lambda b, width: setattr(b, "text_size", (width - dp(20), None)))
             row.bind(on_release=lambda b: setattr(b, "active", not b.active))     # a tap selects / unselects
             rows.append((row, ident, name))
             box.add_widget(row)
@@ -1355,21 +1366,38 @@ class SettingsScreen(Screen):
 
     def ask_delete_skins(self, chosen):
         """Confirmation window before the chosen skins are deleted."""
+        names = "\n".join(name for _ident, name in chosen)
+        self.confirm(tr("s_skin_confirm_n", n=len(chosen), names=names), tr("btn_delete"),
+                     lambda: self.delete_skins([ident for ident, _name in chosen]))
+
+    def confirm(self, message, action, done):
+        """Window with `message` and the buttons "Cancel" and `action`; `done()` is called when `action` is tapped."""
+        self.choose(message, [(action, done)])
+
+    def choose(self, message, actions):
+        """Window with `message`, a button per action [(text, function)] (the first one highlighted) and "Cancel"."""
         app = App.get_running_app()
         view = ModalView(size_hint=(0.9, None), height=min(dp(420), Window.height * 0.8), auto_dismiss=True, background="",
                          background_color=tuple(app.c_card))
         outer = BoxLayout(orientation="vertical", padding=dp(12), spacing=dp(10))
         scroll = ScrollView(do_scroll_x=False)
-        names = "\n".join(name for _ident, name in chosen)
-        scroll.add_widget(TextLabel(text=tr("s_skin_confirm_n", n=len(chosen), names=names), bold=True))
+        scroll.add_widget(TextLabel(text=message, bold=True))
         outer.add_widget(scroll)
-        row = BoxLayout(size_hint_y=None, height=dp(46), spacing=dp(10))
+        # one action: side by side with "Cancel"; several: one above the other, their texts are longer
+        single = len(actions) == 1
+        row = BoxLayout(orientation="horizontal" if single else "vertical", size_hint_y=None, spacing=dp(10),
+                        height=dp(46) if single else len(actions) * dp(54) + dp(46))
         cancel = FlatButton(text=tr("btn_cancel"), height=dp(46))
         cancel.bind(on_release=lambda _b: view.dismiss())
-        ok = FlatButton(text=tr("btn_delete"), height=dp(46), active=True)
-        ok.bind(on_release=lambda _b: (view.dismiss(), self.delete_skins([ident for ident, _name in chosen])))
-        row.add_widget(cancel)
-        row.add_widget(ok)
+        if single:
+            row.add_widget(cancel)
+        for i, (text, done) in enumerate(actions):
+            ok = FlatButton(text=text, height=dp(46), active=i == 0)
+            ok.bind(on_release=lambda _b, done=done: (view.dismiss(), done()))
+            row.add_widget(ok)
+        if not single:
+            row.add_widget(cancel)
+            view.height = min(dp(480), Window.height * 0.85)
         outer.add_widget(row)
         view.add_widget(outer)
         view.open()
@@ -1389,6 +1417,69 @@ class SettingsScreen(Screen):
             save_cfg(app.cfg)
         self._show_skins(app.cfg.get("skin", "default") if selected in idents else selected)
         self.skin_msg = tr("error", e=error) if error else tr("s_skins_deleted", n=count)
+
+    # ---- settings file: every setting but the skin (settings_io.py) -----
+    def export_settings(self):
+        """The file holds the keys: a warning is shown first."""
+        self.confirm(tr("s_params_warn"), tr("btn_export"), self._export_settings)
+
+    def _export_settings(self):
+        text = settings_io.export_text(App.get_running_app().cfg)
+        androidutil.save_file_text("ra_companion_settings.json", text, self._after_settings_export)
+
+    def _after_settings_export(self, status, info):
+        if status == "cancel":
+            return
+        if status == "error":
+            self.params_msg = tr("error", e=info)
+        else:
+            self.params_msg = tr("s_params_copied" if status == "copied" else "s_params_exported")
+
+    def import_settings(self):
+        androidutil.load_file_text(self._after_settings_text, "ra_companion_settings.json")
+
+    def _after_settings_text(self, status, text):
+        if status == "cancel":
+            return
+        if status == "error":
+            self.params_msg = tr("error", e=text)
+            return
+        try:
+            values = settings_io.parse(text)
+        except ValueError:
+            self.params_msg = tr("s_params_bad")
+            return
+        self.confirm(tr("s_params_replace"), tr("btn_import"),
+                     lambda: self.apply_settings(lambda cfg: cfg.update(values), "s_params_imported"))
+
+    def delete_settings(self):
+        """Put the settings back to their default values, keeping the account or not (asked)."""
+        self.choose(tr("s_params_reset"), [(tr("s_params_keep"), lambda: self.reset_settings(True)),
+                                           (tr("s_params_all"), lambda: self.reset_settings(False))])
+
+    def reset_settings(self, keep_account):
+        defaults = dict(CFG_DEFAULTS, user="", key="")
+        self.apply_settings(lambda cfg: settings_io.reset(cfg, defaults, keep_account), "s_params_reset_done")
+
+    def apply_settings(self, change, message):
+        """Change the settings with `change(configuration)` and use them at once; the screens are made again so that they
+        show the new values, then `message` is shown (a text, or the key of one, translated in the new language)."""
+        app = App.get_running_app()
+        old_account = (app.cfg.get("user"), app.cfg.get("key"))
+        change(app.cfg)
+        saved = save_cfg(app.cfg)
+        TRANSLATOR.configure_from(app.cfg)
+        TRANSLATOR.reset_failures()
+        if (app.cfg.get("user"), app.cfg.get("key")) != old_account:
+            app.session = Session()
+        app.tracker.reset()
+        if app.cfg.get("notify"):
+            notify.request_permission()
+        app.apply_language()
+        app.rebuild_ui()
+        page = app.root.get_screen("settings")
+        page._next_msg = tr(message) if saved else tr("err_save", e=app.save_error)[:120]
+        app.root.current = "settings"
 
     # ---- update check: looks for an .apk in the GitHub releases of appinfo.UPDATE_REPO
     def check_update(self):
@@ -1429,6 +1520,33 @@ class SettingsScreen(Screen):
         notify.send(tr("toast"), tr("notif_test"), 1, tr("notif_channel"), tr("notif_channel_desc"), delay=5)
 
     # ---- personal notes: export / import (same JSON format as the Windows version, so the file works on both)
+    def delete_notes(self):
+        """Delete the personal notes chosen in a list, after a confirmation."""
+        app = App.get_running_app()
+        known = self.manager.get_screen("profile")._ach_index
+        titles = {ident: str(a.get("Title") or "") for ident, a in known.items()}
+        items = notes_io.entries(app.notes.data, titles, 40)
+        if not items:
+            self.notes_msg = tr("n_none")
+            return
+        self._pick(tr("n_delete_pick"), items, tr("btn_delete"), self.ask_delete_notes)
+
+    def ask_delete_notes(self, chosen):
+        self.confirm(tr("n_delete_confirm", n=len(chosen)), tr("btn_delete"),
+                     lambda: self.remove_notes([ident for ident, _text in chosen]))
+
+    def remove_notes(self, idents):
+        app = App.get_running_app()
+        page = self.manager.get_screen("detail")
+        if page._ach_id in idents and "note_input" in page.ids:      # its page must not save the old text again
+            page._note_loading = True
+            page.ids.note_input.text = ""
+            page._note_loading = False
+        for ident in idents:
+            app.notes.set(ident, "")
+        self.notes_msg = tr("n_deleted", n=len(idents)) if not app.notes.last_error else tr("err_save", e=app.notes.last_error)
+        self.manager.get_screen("profile").render_all()
+
     def export_notes(self):
         store = App.get_running_app().notes
         count = len(store.ids())

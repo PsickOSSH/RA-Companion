@@ -110,7 +110,13 @@ def save_text(filename, text, callback, mime="application/json"):
 
 
 def save_skin_text(filename, text, callback):
-    """Export a skin file: "save as" window on Android (callback status 'ok' / 'cancel' / 'error'); on iOS, which has none
+    """Export a skin file (see save_file_text)."""
+    # (a generic type: with another one Android may add an extension after ".py")
+    save_file_text(filename, text, callback, "application/octet-stream")
+
+
+def save_file_text(filename, text, callback, mime="application/json"):
+    """Export a text file: "save as" window on Android (callback status 'ok' / 'cancel' / 'error'); on iOS, which has none
     here, the text is copied to the clipboard (status 'copied')."""
     if platform == "ios":
         try:
@@ -122,13 +128,17 @@ def save_skin_text(filename, text, callback):
         except Exception as e:
             callback("error", f"{e.__class__.__name__}: {e}")
         return
-    # (a generic type: with another one Android may add an extension after ".py")
-    save_text(filename, text, callback, "application/octet-stream")
+    save_text(filename, text, callback, mime)
 
 
 def read_skin_text(callback):
-    """Text of a skin file, given to callback(status, text): chosen with the file picker on Android. iOS has no picker
-    here: the text copied to the clipboard is used (status 'cancel' when it is empty)."""
+    """Text of a skin file (see load_file_text)."""
+    load_file_text(callback, "my_skin.py")
+
+
+def load_file_text(callback, pc_file):
+    """Text of a file, given to callback(status, text): chosen with the file picker on Android. iOS has no picker here: the
+    text copied to the clipboard is used (status 'cancel' when it is empty)."""
     if platform == "ios":
         try:
             import iosutil
@@ -137,7 +147,7 @@ def read_skin_text(callback):
         except Exception as e:
             callback("error", f"{e.__class__.__name__}: {e}")
         return
-    read_text(callback, "my_skin.py")
+    read_text(callback, pc_file)
 
 
 def read_text(callback, pc_file="ra_companion_notes.json"):

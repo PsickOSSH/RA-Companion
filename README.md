@@ -120,7 +120,8 @@ progress live. It comes in three versions that look and behave the same way:
   services are tried (arrows in the settings). Translations are cached on disk, a
   service that just failed is skipped for a while, and a text that failed is retried automatically. **Web links** in
   the comments are highlighted (colour + underline) and open in the browser when clicked / tapped
-- **Personal notes**: saved locally, exported to / imported from a JSON file (the same file works on all versions).
+- **Personal notes**: saved locally, exported to / imported from a JSON file (the same file works on all versions), and
+  deleted from the settings: choose one, several or all of them in the list.
   On Windows, the note area of an achievement can be enlarged by dragging the handle in its bottom-right corner (its
   height is remembered); a longer text scrolls
 - **Copy / paste in the text fields**: on Windows, a right click in a field (settings, notes, comments) opens a
@@ -153,6 +154,11 @@ progress live. It comes in three versions that look and behave the same way:
 - **6 interface languages** (English, Français, Español, Deutsch, Italiano, Português), a separate **translation
   language**, and **skins** (default, dark, light and several game themes such as Kirby, Zelda or Mario are included;
   they all share the shapes of the default skin and differ by their colors; a skin file works on all versions)
+- **Settings file**: export every setting (account, keys, languages, refresh, translation, friends...) and import it on
+  another device or after a new installation, on all versions. The skin, the window position, the imported skins and the
+  notes are not in it (skins and notes have their own export). The **Delete** button of the same line puts the settings
+  back to their default values, either everything or keeping only the username and the API key. **The file contains your API keys in plain text: do not
+  share it.** On iPhone the export copies to the clipboard; to import, copy the content of the file first
 - **Your own skins**: import a skin file in the settings, without rebuilding the app, then export or delete the imported
   skins, one or several at a time (all versions; see [Creating a skin](#creating-a-skin))
 - **Themed title bar** (Windows): the title bar of every window takes the background and text colors of the skin on
@@ -241,13 +247,15 @@ Kivy interface; only a few files are specific to one of them.
 | `app.py` window and logic | `features.py` logic, notes, duel, group | `buildozer.spec` APK build settings | | `utils.py` formatting, sorting, hardcore median helpers |
 | `widgets.py` rounded widgets | `storage.py`, `themes.py` | `docs/icon.png` app icon | | `config.py` paths and constants |
 | `desktop_texts.py` texts | `uitext.py`, `mobile_i18n.py` texts | | | `i18n.py` translations |
-| `notes_io.py` notes export / import | `notify.py` notifications (Android and iOS code paths) | | | `translator.py` translation |
+| | `notify.py` notifications (Android and iOS code paths) | | | `translator.py` translation |
 | `build-exe.bat`, `docs/logo.ico` | `layoututil.py`, `fonts/` | | | `updater.py`, `appinfo.py` update check, version |
 | `overlay.py` OBS overlay (also Linux) | | | | |
 | | | | | `imgcache.py` persistent image cache |
 | | | | | `medians.py` hardcore median unlock and mastery times (cached for a day) |
 | | | | | `skins/` visual themes |
 | | | | | `userskins.py` skins imported by the user |
+| | | | | `settings_io.py` settings export / import |
+| | | | | `notes_io.py` notes export / import / list |
 
 The iOS app is built outside the repository with kivy-ios and Xcode (see *Building → iOS*), from a copy of the
 Kivy files listed above.
@@ -413,7 +421,7 @@ mkdir -p ~/RA-Companion-iOS-app
 cd ~/RA-Companion
 cp main.py main.kv features.py storage.py themes.py uitext.py mobile_i18n.py notify.py \
    androidutil.py layoututil.py ra_api.py utils.py medians.py config.py i18n.py translator.py \
-   updater.py appinfo.py iosutil.py imgcache.py userskins.py ~/RA-Companion-iOS-app/
+   updater.py appinfo.py iosutil.py imgcache.py userskins.py settings_io.py notes_io.py ~/RA-Companion-iOS-app/
 cp -R skins fonts ~/RA-Companion-iOS-app/
 ```
 

@@ -1279,17 +1279,51 @@
                     height: dp(44)
                     spacing: dp(8)
                     FlatButton:
-                        text: tr('s_notes_export')
+                        text: tr('btn_export')
                         height: dp(44)
                         on_release: root.export_notes()
                     FlatButton:
-                        text: tr('s_notes_import')
+                        text: tr('btn_import')
                         height: dp(44)
                         on_release: root.import_notes()
+                    FlatButton:
+                        text: tr('btn_delete')
+                        color: app.c_danger
+                        height: dp(44)
+                        on_release: root.delete_notes()
                 TextLabel:
                     text: root.notes_msg
                     font_size: sp(11)
                     color: app.c_success
+                TextLabel:
+                    text: tr('s_params')
+                    font_size: sp(14)
+                    color: app.c_text
+                BoxLayout:
+                    size_hint_y: None
+                    height: dp(44)
+                    spacing: dp(8)
+                    FlatButton:
+                        text: tr('btn_export')
+                        height: dp(44)
+                        on_release: root.export_settings()
+                    FlatButton:
+                        text: tr('btn_import')
+                        height: dp(44)
+                        on_release: root.import_settings()
+                    FlatButton:
+                        text: tr('btn_delete')
+                        color: app.c_danger
+                        height: dp(44)
+                        on_release: root.delete_settings()
+                TextLabel:
+                    text: tr('s_params_hint')
+                    font_size: sp(10)
+                    color: app.c_muted
+                TextLabel:
+                    text: root.params_msg
+                    font_size: sp(11)
+                    color: app.c_text
                 TextLabel:
                     text: tr('s_version', v=APP_VERSION)
                     font_size: sp(14)

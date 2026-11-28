@@ -70,6 +70,12 @@ def fmt_rank(rank, total, lang="en"):
 # Personal notes (one text per achievement). Same JSON format as the Windows version (.ra_companion_notes.json):
 # {"achievement ID": "text"}, so the file can be exported / imported between the PC and the phone.
 # ---------------------------------------------------------------------------
+def _is_id(key):
+    """True for an achievement ID: the keys of a notes file (another kind of JSON file has other keys)."""
+    key = str(key)
+    return key.isascii() and key.isdigit()
+
+
 def parse_notes(text):
     """Notes from the text of a notes file ({ID: text}). Raises ValueError when the text is not a notes file."""
     try:
@@ -78,9 +84,9 @@ def parse_notes(text):
         raise ValueError("not JSON")
     if not isinstance(data, dict):
         raise ValueError("not an object")
-    notes = {str(k): v.strip() for k, v in data.items() if isinstance(v, str) and v.strip()}
+    notes = {str(k): v.strip() for k, v in data.items() if _is_id(k) and isinstance(v, str) and v.strip()}
     if data and not notes:
-        raise ValueError("no text values")
+        raise ValueError("no note found")
     return notes
 
 
@@ -94,7 +100,7 @@ class NotesStore:
         self._lock = threading.Lock()
         loaded = storage.load_json(path, {})
         if isinstance(loaded, dict):
-            self.data = {str(k): str(v) for k, v in loaded.items() if str(v).strip()}
+            self.data = {str(k): str(v) for k, v in loaded.items() if _is_id(k) and str(v).strip()}
 
     def get(self, ach_id):
         return self.data.get(str(ach_id), "")
